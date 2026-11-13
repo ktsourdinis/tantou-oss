@@ -149,11 +149,11 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 # Project Name: Tantou (担当) - Human Capacity OS
 
 ## 1. Role & Objective
-You are an expert Principal Software Engineer specializing in Laravel 11 and the TALL Stack (Tailwind CSS, Alpine.js, Laravel, Livewire 3). 
+You are an expert Principal Software Engineer specializing in Laravel 13 and the TALL Stack (Tailwind CSS, Alpine.js, Laravel, Livewire 3). 
 Your objective is to build "Tantou", a B2B SaaS application. Tantou is NOT a traditional helpdesk. It is a "Human Capacity OS" – a visual, interactive workload marketplace where tasks (Post-its) are managed via a live Drag-and-Drop canvas. The core philosophy is total transparency of team workload and capacity inversion of control.
 
 ## 2. Environment, Docker Context & Tech Stack
-- **Framework:** Laravel 11 (PHP 8.4)
+- **Framework:** Laravel 13 (PHP 8.4)
 - **Frontend:** Livewire 3, Alpine.js, Tailwind CSS (TALL Stack)
 - **Real-time:** Laravel Reverb (WebSockets for live board updates)
 - **Database:** MariaDB 11
@@ -169,23 +169,40 @@ Your objective is to build "Tantou", a B2B SaaS application. Tantou is NOT a tra
 - **Frontend Built"** When needed you can use `docker run --rm   -v $(pwd):/app   -w /app   node:20   sh -c "npm install && npm run build"` to build the Frontend
 
 ## 3. Core Architecture & Schema Directives
-This is a Multi-Tenant architecture (using single database with `tenant_id` foreign keys for now). We need to scaffold three primary models:
+This is a Multi-Tenant architecture (using a single database with `tenant_id` foreign keys). The finalized domain models and rules are:
 
-1. **Tenant (or Department):**
-   - The organization using the software.
+1. **Tenant (The Organization):**
+   - Represents the organization using the software.
 
-2. **User (The Worker/Client):**
-   - Belongs to a Tenant.
-   - Needs fields for `role` (admin, worker, client).
-   - Needs fields for gamification/capacity (e.g., `current_capacity`, `total_points`).
+2. **Department:**
+   - Belongs to a `Tenant` (`tenant_id`, `name`, `slug`, `color`).
+   - Groups users and categorizes post-its.
 
-3. **PostIt (The Task/Ticket):**
-   - Belongs to a `Tenant`.
+3. **User (The Worker/Client/Admin):**
+   - Belongs to a `Tenant` (`tenant_id`).
+   - Belongs to a `Department` (`department_id`, nullable).
+   - Role: `admin`, `worker`, `client`.
+   - Capacity & Gamification fields: `current_capacity`, `max_capacity`, `total_points`.
+
+4. **PostIt (The Task/Ticket):**
+   - Belongs to a `Tenant` (`tenant_id`).
+   - Belongs to a `Department` (`department_id`, nullable).
    - `requester_id` (User who created it).
-   - `assignee_id` (User who took it - The "Tantou").
-   - `title`, `description`, `status` (backlog, doing, done).
-   - `weight` (Integer, default 1: represents how heavy the task is for capacity calculation).
-   - `complexity_score` (For gamification upon completion).
+   - `assignee_id` (User who took it - The "Tantou", nullable).
+   - `helper_id` (Co-op assistant worker, nullable).
+   - `helper_split` (Integer 0–50%: percentage of bounty split awarded to helper upon completion).
+   - `title`, `description` (nullable), `status` (`backlog`, `doing`, `done`).
+   - `weight` (Integer 1–5: represents cognitive load / capacity consumption & card height).
+   - `priority` (`low`, `normal`, `high`, `urgent` — represents visual urgency).
+   - `bounty_points` (Integer default 0: system-calculated gamification points based on weight, priority multiplier, and historical duration bonus, replacing manual complexity score).
+   - `started_at`, `completed_at` (timestamps for tracking execution and historical duration metrics).
+
+5. **Visibility & Privacy Rules:**
+   - **Admins:** Full visibility into all requests, requesters, descriptions, and columns.
+   - **Non-admin users (Workers & Clients):**
+     - See their own requests with full details across all columns (`backlog`, `doing`, `done`).
+     - Active requests (`backlog` and `doing`) of other users appear anonymized (requester identity hidden; description hidden from clients) so the board reflects real team capacity without leaking sensitive requester context.
+     - Completed (`done`) requests of other users are excluded completely.
 
 ## 4. The "Killer Feature" (UX/UI Rule)
 The central component of Tantou is the `Livewire` board. 
