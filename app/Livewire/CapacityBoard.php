@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\BountyCalculator;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
@@ -55,8 +56,22 @@ class CapacityBoard extends Component
 
     public ?int $coOpHelperId = null;
 
-    #[Validate('required|integer|min:0|max:50')]
     public int $coOpHelperSplit = 20;
+
+    // Slide-Over Detail, Scope Calibration & Micro-Comments
+    public bool $showSlideOver = false;
+
+    public ?int $selectedPostItId = null;
+
+    public int $slideOverWeight = 1;
+
+    public string $slideOverPriority = 'normal';
+
+    public ?int $slideOverHelperId = null;
+
+    public int $slideOverHelperSplit = 20;
+
+    public string $newCommentBody = '';
 
     /**
      * Mount the component and initialize the tenant.
@@ -160,6 +175,25 @@ class CapacityBoard extends Component
     {
         $postIt = PostIt::where('tenant_id', $this->tenantId)->findOrFail($postItId);
 
+        $currentUser = Auth::user();
+        if (! $currentUser) {
+            return;
+        }
+
+        // Strict role-based guardrails:
+        // admin: Can drag/move any card across any column.
+        // worker: Can pull cards from backlog, move cards where they are assignee or helper, and transition to done.
+        // client: CANNOT drag active doing cards between workers or mark tasks as done.
+        if (! $this->canMovePostIt($postIt, $currentUser)) {
+            return;
+        }
+
+        if ($currentUser->role === 'worker') {
+            if ($targetStatus === 'done' && ! ((int) $postIt->assignee_id === (int) $currentUser->id || (int) $postIt->helper_id === (int) $currentUser->id)) {
+                return;
+            }
+        }
+
         $previousAssigneeId = $postIt->assignee_id;
         $previousStatus = $postIt->status;
 
@@ -218,7 +252,14 @@ class CapacityBoard extends Component
      */
     public function createPostIt(): void
     {
-        $this->validate();
+        $this->validate([
+            'title' => 'required|string|min:3|max:255',
+            'description' => 'nullable|string|max:1000',
+            'departmentId' => 'nullable|integer|exists:departments,id',
+            'priority' => 'required|in:low,normal,high,urgent',
+            'weight' => 'required|integer|min:1|max:5',
+            'assigneeId' => 'nullable|integer|exists:users,id',
+        ]);
 
         $requester = Auth::user()
             ?? User::where('tenant_id', $this->tenantId)->where('role', 'client')->first()
@@ -294,6 +335,263 @@ class CapacityBoard extends Component
     }
 
     /**
+     * Check if a user is authorized to inspect/view a post-it's details.
+     */
+    public function canInspectPostIt(PostIt $postIt, ?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->role === 'admin') {
+            return true;
+        }
+
+        if ((int) $postIt->requester_id === (int) $user->id) {
+            return true;
+        }
+
+        if ((int) $postIt->assignee_id === (int) $user->id || (int) $postIt->helper_id === (int) $user->id) {
+            return true;
+        }
+
+        if ($user->role === 'worker' && $postIt->status === 'backlog') {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if a user is authorized to drag/move a post-it.
+     */
+    public function canMovePostIt(PostIt $postIt, ?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->role === 'admin') {
+            return true;
+        }
+
+        if ($user->role === 'worker') {
+            if ($postIt->status === 'backlog') {
+                return true;
+            }
+
+            return (int) $postIt->assignee_id === (int) $user->id || (int) $postIt->helper_id === (int) $user->id;
+        }
+
+        return false;
+    }
+
+    /**
+     * Open the Slide-Over detail drawer for a post-it.
+     */
+    public function openSlideOver(int $postItId): void
+    {
+        $postIt = PostIt::where('tenant_id', $this->tenantId)->find($postItId);
+
+        if (! $postIt || ! $this->canInspectPostIt($postIt, Auth::user())) {
+            return;
+        }
+
+        $this->selectedPostItId = $postIt->id;
+        $this->slideOverWeight = $postIt->weight;
+        $this->slideOverPriority = $postIt->priority;
+        $this->slideOverHelperId = $postIt->helper_id;
+        $this->slideOverHelperSplit = $postIt->helper_split > 0 ? $postIt->helper_split : 20;
+        $this->newCommentBody = '';
+        $this->showSlideOver = true;
+    }
+
+    /**
+     * Close the Slide-Over detail drawer.
+     */
+    public function closeSlideOver(): void
+    {
+        $this->showSlideOver = false;
+        $this->selectedPostItId = null;
+        $this->newCommentBody = '';
+    }
+
+    /**
+     * Scope Calibration: change weight & priority, recalculating bounty and capacity.
+     */
+    public function saveScopeCalibration(): void
+    {
+        $this->validate([
+            'slideOverWeight' => 'required|integer|min:1|max:5',
+            'slideOverPriority' => 'required|in:low,normal,high,urgent',
+        ]);
+
+        if (! $this->selectedPostItId) {
+            return;
+        }
+
+        $postIt = PostIt::where('tenant_id', $this->tenantId)->findOrFail($this->selectedPostItId);
+        $currentUser = Auth::user();
+        $canCalibrate = $currentUser && ($currentUser->role === 'admin' || (int) $currentUser->id === (int) $postIt->assignee_id) && $postIt->status !== 'done';
+
+        if (! $canCalibrate) {
+            return;
+        }
+
+        $calculator = app(BountyCalculator::class);
+        $newBountyPoints = $calculator->calculate(
+            weight: $this->slideOverWeight,
+            priority: $this->slideOverPriority,
+            tenantId: $this->tenantId,
+        );
+
+        $postIt->update([
+            'weight' => $this->slideOverWeight,
+            'priority' => $this->slideOverPriority,
+            'bounty_points' => $newBountyPoints,
+        ]);
+
+        if ($postIt->assignee_id && $postIt->status === 'doing') {
+            $assignee = User::find($postIt->assignee_id);
+            if ($assignee) {
+                $assignee->update([
+                    'current_capacity' => (int) PostIt::where('assignee_id', $assignee->id)
+                        ->where('status', 'doing')
+                        ->sum('weight'),
+                ]);
+            }
+        }
+
+        BoardUpdated::dispatch($this->tenantId);
+    }
+
+    /**
+     * Save Co-op helper and bounty split directly from the slide-over.
+     */
+    public function saveSlideOverCoOp(): void
+    {
+        $this->validate([
+            'slideOverHelperSplit' => 'required|integer|min:0|max:50',
+            'slideOverHelperId' => 'nullable|integer|exists:users,id',
+        ]);
+
+        if (! $this->selectedPostItId) {
+            return;
+        }
+
+        $postIt = PostIt::where('tenant_id', $this->tenantId)->findOrFail($this->selectedPostItId);
+        $currentUser = Auth::user();
+        $canManage = $currentUser && ($currentUser->role === 'admin' || (int) $currentUser->id === (int) $postIt->assignee_id) && $postIt->status !== 'done';
+
+        if (! $canManage) {
+            return;
+        }
+
+        $postIt->update([
+            'helper_id' => $this->slideOverHelperId,
+            'helper_split' => $this->slideOverHelperId !== null ? min(50, max(0, $this->slideOverHelperSplit)) : 0,
+        ]);
+
+        BoardUpdated::dispatch($this->tenantId);
+    }
+
+    /**
+     * Post a new micro-comment on the selected post-it.
+     */
+    public function addComment(): void
+    {
+        $this->validate([
+            'newCommentBody' => 'required|string|min:1|max:1000',
+        ]);
+
+        if (! $this->selectedPostItId) {
+            return;
+        }
+
+        $postIt = PostIt::where('tenant_id', $this->tenantId)->findOrFail($this->selectedPostItId);
+        $currentUser = Auth::user();
+
+        if (! $this->canInspectPostIt($postIt, $currentUser)) {
+            return;
+        }
+
+        $postIt->comments()->create([
+            'user_id' => $currentUser->id,
+            'body' => trim($this->newCommentBody),
+        ]);
+
+        $this->newCommentBody = '';
+
+        BoardUpdated::dispatch($this->tenantId);
+    }
+
+    /**
+     * Cancel / delete a backlog request (for owner client/worker or admin).
+     */
+    public function cancelPostIt(): void
+    {
+        if (! $this->selectedPostItId) {
+            return;
+        }
+
+        $postIt = PostIt::where('tenant_id', $this->tenantId)->findOrFail($this->selectedPostItId);
+        $currentUser = Auth::user();
+
+        $canCancel = $currentUser && (
+            $currentUser->role === 'admin' ||
+            ($postIt->status === 'backlog' && (int) $postIt->requester_id === (int) $currentUser->id)
+        );
+
+        if (! $canCancel) {
+            return;
+        }
+
+        $previousAssigneeId = $postIt->assignee_id;
+        $postIt->delete();
+
+        if ($previousAssigneeId) {
+            $worker = User::find($previousAssigneeId);
+            if ($worker) {
+                $worker->update([
+                    'current_capacity' => (int) PostIt::where('assignee_id', $worker->id)
+                        ->where('status', 'doing')
+                        ->sum('weight'),
+                ]);
+            }
+        }
+
+        $this->closeSlideOver();
+        BoardUpdated::dispatch($this->tenantId);
+    }
+
+    /**
+     * Computed property for the currently selected post-it and its thread.
+     */
+    #[Computed]
+    public function selectedPostIt(): ?PostIt
+    {
+        if (! $this->selectedPostItId) {
+            return null;
+        }
+
+        $postIt = PostIt::where('tenant_id', $this->tenantId)
+            ->with([
+                'requester',
+                'assignee.department',
+                'helper',
+                'department',
+                'comments' => fn ($query) => $query->with('user')->oldest(),
+            ])
+            ->find($this->selectedPostItId);
+
+        if (! $postIt || ! $this->canInspectPostIt($postIt, Auth::user())) {
+            return null;
+        }
+
+        return $postIt;
+    }
+
+    /**
      * Render the Livewire component.
      */
     public function render(): View
@@ -344,7 +642,9 @@ class CapacityBoard extends Component
         $workersQuery = User::where('tenant_id', $this->tenantId)
             ->where('role', 'worker')
             ->with(['department', 'assignedPostIts' => function ($query): void {
-                $query->where('status', 'doing')->with(['requester', 'helper', 'department']);
+                $query->where('status', 'doing')
+                    ->withCount('comments')
+                    ->with(['requester', 'helper', 'department']);
             }])
             ->orderBy('name');
 
@@ -360,6 +660,7 @@ class CapacityBoard extends Component
                 $query->where('status', 'backlog')
                     ->orWhereNull('assignee_id');
             })
+            ->withCount('comments')
             ->with(['requester', 'department'])
             ->latest('id');
 
@@ -386,7 +687,8 @@ class CapacityBoard extends Component
             });
         }
 
-        $donePostIts = $doneQuery->with(['requester', 'assignee', 'helper', 'department'])
+        $donePostIts = $doneQuery->withCount('comments')
+            ->with(['requester', 'assignee', 'helper', 'department'])
             ->latest('completed_at')
             ->get();
 

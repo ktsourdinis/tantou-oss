@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'tenant_id',
@@ -118,6 +119,16 @@ class PostIt extends Model
     public function helper(): BelongsTo
     {
         return $this->belongsTo(User::class, 'helper_id');
+    }
+
+    /**
+     * Get the comments on this post-it.
+     *
+     * @return HasMany<PostItComment, $this>
+     */
+    public function comments(): HasMany
+    {
+        return $this->hasMany(PostItComment::class);
     }
 
     /**
