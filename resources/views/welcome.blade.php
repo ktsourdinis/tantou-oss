@@ -64,12 +64,14 @@
                         >
                             {{ __('Sign In') }}
                         </a>
-                        <a
-                            href="{{ route('register') }}"
-                            class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 transition-all"
-                        >
-                            {{ __('Create Workspace') }}
-                        </a>
+                        @if(\App\Support\Edition::canRegisterNewTenant())
+                            <a
+                                href="{{ route('register') }}"
+                                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 transition-all"
+                            >
+                                {{ __('Create Workspace') }}
+                            </a>
+                        @endif
                     @endauth
                 </div>
             </div>
@@ -103,13 +105,23 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                     </a>
                 @else
-                    <a
-                        href="{{ route('register') }}"
-                        class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-semibold shadow-xl shadow-indigo-600/30 text-sm transition-all"
-                    >
-                        <span>{{ __('Create Free Workspace') }}</span>
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                    </a>
+                    @if(\App\Support\Edition::isSelfHosted() && \App\Models\Tenant::count() === 0)
+                        <a
+                            href="{{ route('register') }}"
+                            class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-semibold shadow-xl shadow-emerald-600/30 text-sm transition-all"
+                        >
+                            <span>{{ __('Complete Initial Organization Setup') }}</span>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                        </a>
+                    @elseif(\App\Support\Edition::canRegisterNewTenant())
+                        <a
+                            href="{{ route('register') }}"
+                            class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-semibold shadow-xl shadow-indigo-600/30 text-sm transition-all"
+                        >
+                            <span>{{ __('Create Free Workspace') }}</span>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                        </a>
+                    @endif
                     <a
                         href="{{ route('login') }}"
                         class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-800 font-semibold text-sm transition-all"

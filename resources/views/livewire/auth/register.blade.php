@@ -13,7 +13,15 @@
                 <span class="text-xs text-slate-400 block -mt-0.5">{{ __('Human Capacity OS') }}</span>
             </div>
         </a>
-        <h2 class="mt-6 text-2xl font-bold tracking-tight text-white">{{ __('Create a New Workspace') }}</h2>
+
+        @if(\App\Support\Edition::isSelfHosted() && \App\Models\Tenant::count() === 0)
+            <div class="mt-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-sm">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                {{ __('Initial Organization Setup (1/1)') }}
+            </div>
+        @endif
+
+        <h2 class="mt-4 text-2xl font-bold tracking-tight text-white">{{ __('Create a New Workspace') }}</h2>
         <p class="mt-2 text-sm text-slate-400">
             {{ __('Already have an organization workspace?') }}
             <a href="{{ route('login') }}" class="font-medium text-indigo-400 hover:text-indigo-300 underline underline-offset-4 transition-colors">
@@ -31,7 +39,7 @@
                         {{ __('Organization / Team Name') }}
                     </label>
                     <input
-                        wire:model="organizationName"
+                        wire:model.live.debounce.300ms="organizationName"
                         id="organizationName"
                         type="text"
                         required
@@ -42,6 +50,37 @@
                         <p class="mt-1 text-xs text-rose-400">{{ $message }}</p>
                     @enderror
                 </div>
+
+                {{-- Editable Subdomain (Cloud Mode only) --}}
+                @if(\App\Support\Edition::isCloud())
+                    <div>
+                        <label for="slug" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                            {{ __('Workspace Subdomain') }}
+                        </label>
+                        <div class="relative flex items-center">
+                            <input
+                                wire:model.live.debounce.300ms="slug"
+                                id="slug"
+                                type="text"
+                                required
+                                placeholder="acme"
+                                class="block w-full rounded-xl bg-slate-950/70 border {{ $errors->has('slug') ? 'border-rose-500/80 focus:border-rose-500 focus:ring-rose-500/20' : 'border-slate-800 focus:border-indigo-500 focus:ring-indigo-500/20' }} px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-4 transition-all pr-28 font-mono"
+                            >
+                            <div class="absolute right-3 text-xs font-mono text-slate-500 pointer-events-none">
+                                .{{ \App\Support\Edition::baseDomain() }}
+                            </div>
+                        </div>
+                        <div class="mt-1.5 flex items-center justify-between text-xs text-slate-400">
+                            <span>{{ __('Live Preview:') }}</span>
+                            <span class="font-mono text-indigo-400 font-medium">
+                                {{ strtolower(trim($slug ?: 'workspace')) }}.{{ \App\Support\Edition::baseDomain() }}
+                            </span>
+                        </div>
+                        @error('slug')
+                            <p class="mt-1 text-xs text-rose-400">{{ $message }}</p>
+                        @enderror
+                    </div>
+                @endif
 
                 {{-- Admin Full Name --}}
                 <div>

@@ -91,9 +91,11 @@ class CapacityBoard extends Component
      */
     public function mount(): void
     {
-        $tenant = Auth::user()?->tenant
-            ?? Tenant::where('slug', 'hellenic-demo-ops')->first()
-            ?? Tenant::firstOrFail();
+        $tenant = app()->bound('currentTenant')
+            ? app('currentTenant')
+            : (Auth::user()?->tenant
+                ?? Tenant::where('slug', 'hellenic-demo-ops')->first()
+                ?? Tenant::firstOrFail());
 
         $this->tenantId = $tenant->id;
         $this->tenantName = $tenant->name;

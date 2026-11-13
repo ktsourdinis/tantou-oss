@@ -14,12 +14,37 @@
             </div>
         </a>
         <h2 class="mt-6 text-2xl font-bold tracking-tight text-white">{{ __('Sign In to Your Workspace') }}</h2>
-        <p class="mt-2 text-sm text-slate-400">
-            {{ __('Or') }}
-            <a href="{{ route('register') }}" class="font-medium text-indigo-400 hover:text-indigo-300 underline underline-offset-4 transition-colors">
-                {{ __('create a new organization workspace') }}
-            </a>
-        </p>
+        @if(\App\Support\Edition::canRegisterNewTenant())
+            <p class="mt-2 text-sm text-slate-400">
+                {{ __('Or') }}
+                <a href="{{ route('register') }}" class="font-medium text-indigo-400 hover:text-indigo-300 underline underline-offset-4 transition-colors">
+                    {{ __('create a new organization workspace') }}
+                </a>
+            </p>
+        @endif
+
+        @if(\App\Support\Edition::isSelfHosted() && \App\Models\Tenant::count() === 0)
+            <div class="mt-4 p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-center">
+                <p class="text-xs font-semibold text-indigo-300 mb-2.5">
+                    {{ __('No organization workspace detected.') }}
+                </p>
+                <a href="{{ route('register') }}" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 transition-all">
+                    <span>{{ __('Complete Initial Organization Setup') }}</span>
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                </a>
+            </div>
+        @endif
+
+        @if(session('status'))
+            <div class="mt-4 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 text-center">
+                {{ session('status') }}
+            </div>
+        @endif
+        @if(session('error'))
+            <div class="mt-4 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 text-center">
+                {{ session('error') }}
+            </div>
+        @endif
     </div>
 
     <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4 sm:px-0">
