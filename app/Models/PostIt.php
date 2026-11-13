@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'department_id',
     'requester_id',
     'assignee_id',
+    'assigned_by_id',
     'helper_id',
     'helper_split',
     'title',
@@ -41,6 +42,7 @@ class PostIt extends Model
         'department_id',
         'requester_id',
         'assignee_id',
+        'assigned_by_id',
         'helper_id',
         'helper_split',
         'title',
@@ -62,6 +64,7 @@ class PostIt extends Model
     {
         return [
             'department_id' => 'integer',
+            'assigned_by_id' => 'integer',
             'helper_id' => 'integer',
             'helper_split' => 'integer',
             'weight' => 'integer',
@@ -112,6 +115,16 @@ class PostIt extends Model
     }
 
     /**
+     * Get the user who assigned or transferred this post-it.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function assignedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_by_id');
+    }
+
+    /**
      * Get the co-op helper assigned to assist with this post-it.
      *
      * @return BelongsTo<User, $this>
@@ -129,6 +142,41 @@ class PostIt extends Model
     public function comments(): HasMany
     {
         return $this->hasMany(PostItComment::class);
+    }
+
+    /**
+     * Get the handoff and assignment transfers trail.
+     *
+     * @return HasMany<PostItTransfer, $this>
+     */
+    public function transfers(): HasMany
+    {
+        return $this->hasMany(PostItTransfer::class)->oldest('id');
+    }
+
+    /**
+     * Get the ordered chain of collaborator names this card has passed through.
+     *
+     * @return list<string>
+     */
+    public function getAssignmentChain(): array
+    {
+        $chain = [];
+        $lastId = null;
+
+        foreach ($this->transfers as $transfer) {
+            if (in_array($transfer->action, ['assigned', 'transferred'], true) && $transfer->to_user_id !== null) {
+                if ($transfer->to_user_id !== $lastId) {
+                    $name = $transfer->toUser?->name;
+                    if ($name) {
+                        $chain[] = explode(' ', trim($name))[0];
+                    }
+                    $lastId = $transfer->to_user_id;
+                }
+            }
+        }
+
+        return $chain;
     }
 
     /**

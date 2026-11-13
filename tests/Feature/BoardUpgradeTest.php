@@ -83,7 +83,7 @@ class BoardUpgradeTest extends TestCase
         $this->assertDatabaseHas('post_its', [
             'tenant_id' => $tenant->id,
             'title' => 'Directly Assigned Task',
-            'status' => 'doing',
+            'status' => 'assigned',
             'assignee_id' => $worker->id,
             'weight' => 3,
             'priority' => 'urgent',

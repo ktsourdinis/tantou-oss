@@ -1,22 +1,28 @@
 <div
     x-data="{
         draggingId: null,
+        draggingIsClient: false,
         activeDropZone: null,
         openBacklog: true,
         openDone: true,
         didJustDrag: false,
-        onDragStart(event, id) {
+        onDragStart(event, id, isClient) {
             this.draggingId = id;
+            this.draggingIsClient = !!isClient;
             this.didJustDrag = true;
             event.dataTransfer.setData('text/plain', id);
             event.dataTransfer.effectAllowed = 'move';
         },
         onDragEnd() {
             this.draggingId = null;
+            this.draggingIsClient = false;
             this.activeDropZone = null;
             setTimeout(() => { this.didJustDrag = false; }, 200);
         },
-        onDragOver(zone) {
+        onDragOver(zone, isBlocked = false) {
+            if (isBlocked) {
+                return;
+            }
             this.activeDropZone = zone;
         },
         onDragLeave(zone) {
@@ -24,10 +30,14 @@
                 this.activeDropZone = null;
             }
         },
-        onDrop(assigneeId, targetStatus) {
+        onDrop(assigneeId, targetStatus, isBlocked = false) {
+            if (isBlocked) {
+                return;
+            }
             const id = this.draggingId;
             this.activeDropZone = null;
             this.draggingId = null;
+            this.draggingIsClient = false;
             if (id) {
                 $wire.movePostIt(id, assigneeId, targetStatus);
             }
@@ -62,6 +72,27 @@
                     <p class="text-[11px] text-slate-400">Human Capacity OS & Workload Marketplace</p>
                 </div>
             </div>
+
+            {{-- Navigation Switcher (Capacity Board vs Team & Leaderboard) --}}
+            <nav class="flex items-center p-1 rounded-xl bg-slate-950/80 border border-slate-800 text-xs">
+                <a
+                    href="{{ route('board') }}"
+                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold bg-indigo-600 text-white shadow-sm transition-all"
+                >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" /></svg>
+                    <span>Capacity Board</span>
+                </a>
+
+                @if (auth()->user()?->role !== 'client')
+                    <a
+                        href="{{ route('team') }}"
+                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium text-slate-400 hover:text-slate-200 transition-all"
+                    >
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                        <span>Team & Leaderboard</span>
+                    </a>
+                @endif
+            </nav>
 
             <div class="flex items-center gap-3">
                 {{-- Live Reverb Status Indicator --}}
@@ -238,6 +269,7 @@
                         $loadRatio = $worker->max_capacity > 0 ? ($worker->current_capacity / $worker->max_capacity) * 100 : 0;
                         $isHighLoad = $worker->current_capacity >= $worker->max_capacity;
                         $isBusy = $worker->current_capacity >= ($worker->max_capacity * 0.7);
+                        $isAway = ! $worker->is_available;
 
                         $progressGradient = $isHighLoad
                             ? 'from-rose-600 via-rose-500 to-red-500'
@@ -246,30 +278,88 @@
                         $headerBg = $isHighLoad
                             ? 'bg-rose-950/30 border-rose-800/40'
                             : ($isBusy ? 'bg-amber-950/20 border-amber-800/30' : 'bg-slate-900/60 border-slate-800/70');
+
+                        $canToggleAvailability = auth()->user() && (
+                            auth()->user()->role === 'admin' ||
+                            (int) auth()->user()->id === (int) $worker->id ||
+                            (auth()->user()->role === 'coordinator' && $worker->department_id !== null && (int) auth()->user()->department_id === (int) $worker->department_id)
+                        );
+
+                        $canChangeVisibility = auth()->user() && (
+                            auth()->user()->role === 'admin' ||
+                            (int) auth()->user()->id === (int) $worker->id ||
+                            (auth()->user()->role === 'coordinator' && $worker->department_id !== null && (int) auth()->user()->department_id === (int) $worker->department_id)
+                        );
                     @endphp
 
-                    <div class="w-64 shrink-0 flex flex-col rounded-2xl border {{ $headerBg }} p-3.5 shadow-xl transition-all">
+                    <div class="w-64 shrink-0 flex flex-col rounded-2xl border {{ $headerBg }} p-3.5 shadow-xl transition-all {{ $isAway ? 'opacity-60 saturate-50' : '' }}">
                         {{-- Worker Header --}}
-                        <div class="pb-3 border-b border-slate-800/80 mb-3">
-                            <div class="flex items-center justify-between mb-1.5">
+                        <div class="pb-3 border-b border-slate-800/80 mb-3 space-y-2">
+                            <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-2 min-w-0">
                                     <div class="h-7 w-7 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold flex items-center justify-center text-xs shrink-0">
                                         {{ substr($worker->name, 0, 1) }}
                                     </div>
                                     <div class="min-w-0">
-                                        <h3 class="text-xs font-bold text-white truncate">{{ $worker->name }}</h3>
+                                        <h3 class="text-xs font-bold text-white truncate flex items-center gap-1.5">
+                                            <span>{{ $worker->name }}</span>
+                                            @if ($isAway)
+                                                <span class="px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-bold">
+                                                    AWAY
+                                                </span>
+                                            @endif
+                                        </h3>
                                         @if ($worker->department)
                                             <span class="text-[10px] text-slate-400 truncate block">{{ $worker->department->name }}</span>
                                         @endif
                                     </div>
                                 </div>
-                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold {{ $isHighLoad ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30 animate-pulse' : ($isBusy ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30') }}">
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 {{ $isHighLoad ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30 animate-pulse' : ($isBusy ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30') }}">
                                     {{ $worker->current_capacity }}/{{ $worker->max_capacity }}
                                 </span>
                             </div>
 
+                            {{-- Availability Toggle & Column Visibility Controls --}}
+                            <div class="flex items-center justify-between gap-1.5 pt-1 text-[10px]">
+                                {{-- Working / Away Interactive Toggle --}}
+                                @if ($canToggleAvailability)
+                                    <button
+                                        wire:click="toggleAvailability({{ $worker->id }})"
+                                        type="button"
+                                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold border transition-all cursor-pointer {{ $worker->is_available ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800/50 hover:bg-emerald-900/60' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' }}"
+                                        title="{{ $worker->is_available ? 'Click to set status to Away 🌙' : 'Click to set status to Working 🟢' }}"
+                                    >
+                                        <span class="h-1.5 w-1.5 rounded-full {{ $worker->is_available ? 'bg-emerald-400' : 'bg-amber-400' }}"></span>
+                                        <span>{{ $worker->is_available ? 'Working 🟢' : 'Away 🌙' }}</span>
+                                    </button>
+                                @else
+                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg font-medium {{ $worker->is_available ? 'text-emerald-400' : 'text-slate-400' }}">
+                                        <span class="h-1.5 w-1.5 rounded-full {{ $worker->is_available ? 'bg-emerald-400' : 'bg-amber-400' }}"></span>
+                                        <span>{{ $worker->is_available ? 'Working' : 'Away' }}</span>
+                                    </span>
+                                @endif
+
+                                {{-- Column Mode (Public / Internal / Private) --}}
+                                @if ($canChangeVisibility)
+                                    <select
+                                        wire:change="updateBoardVisibility({{ $worker->id }}, $event.target.value)"
+                                        class="text-[10px] bg-slate-950 border border-slate-700 rounded-lg px-1.5 py-0.5 text-slate-300 cursor-pointer focus:outline-none"
+                                        title="Column visibility mode"
+                                    >
+                                        <option value="public" @selected($worker->board_visibility === 'public')>Public</option>
+                                        <option value="internal" @selected($worker->board_visibility === 'internal')>Internal</option>
+                                        <option value="private" @selected($worker->board_visibility === 'private')>Private</option>
+                                        <option value="none" @selected($worker->board_visibility === 'none')>Hidden (None)</option>
+                                    </select>
+                                @else
+                                    <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider {{ $worker->board_visibility === 'public' ? 'bg-indigo-500/10 text-indigo-300 border border-indigo-500/20' : ($worker->board_visibility === 'internal' ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20' : 'bg-purple-500/10 text-purple-300 border border-purple-500/20') }}">
+                                        {{ $worker->board_visibility }}
+                                    </span>
+                                @endif
+                            </div>
+
                             {{-- Capacity Load Bar --}}
-                            <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden mt-2">
+                            <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden mt-1">
                                 <div
                                     class="h-full bg-gradient-to-r {{ $progressGradient }} rounded-full transition-all duration-500"
                                     style="width: {{ min(100, $loadRatio) }}%;"
@@ -277,26 +367,32 @@
                             </div>
                         </div>
 
-                        {{-- Worker Drop Zone (Doing Column) --}}
+                        {{-- Worker Drop Zone (Assigned & Doing Columns) --}}
+                        @php
+                            $isNonPublic = $worker->board_visibility !== 'public';
+                        @endphp
                         <div
-                            @dragover.prevent="onDragOver('worker-{{ $worker->id }}')"
+                            @dragover.prevent="onDragOver('worker-{{ $worker->id }}', {{ $isNonPublic ? 'draggingIsClient' : 'false' }})"
                             @dragleave="onDragLeave('worker-{{ $worker->id }}')"
-                            @drop.prevent="onDrop({{ $worker->id }}, 'doing')"
-                            :class="activeDropZone === 'worker-{{ $worker->id }}' ? 'border-indigo-500 bg-indigo-950/20' : 'border-transparent'"
+                            @drop.prevent="onDrop({{ $worker->id }}, 'assigned', {{ $isNonPublic ? 'draggingIsClient' : 'false' }})"
+                            :class="[
+                                activeDropZone === 'worker-{{ $worker->id }}' ? 'border-indigo-500 bg-indigo-950/20' : 'border-transparent',
+                                (draggingIsClient && {{ $isNonPublic ? 'true' : 'false' }}) ? 'opacity-30 border-rose-500/40 cursor-not-allowed' : ''
+                            ]"
                             class="space-y-3 min-h-[300px] rounded-xl border-2 border-dashed p-1 transition-all"
                         >
                             @forelse ($worker->assignedPostIts as $postIt)
                                 @include('livewire.partials.post-it-card', ['postIt' => $postIt, 'zone' => 'doing', 'worker' => $worker])
                             @empty
                                 <div class="py-12 px-3 text-center border border-dashed border-slate-800/80 rounded-xl text-slate-500 text-xs">
-                                    Capacity available
+                                    {{ $isAway ? 'Collaborator is away' : 'Capacity available' }}
                                 </div>
                             @endforelse
                         </div>
                     </div>
                 @empty
                     <div class="flex-1 py-16 text-center border border-dashed border-slate-800 rounded-2xl text-slate-400 text-sm">
-                        No workers found in this department.
+                        No active collaborator columns match your view filter.
                     </div>
                 @endforelse
             </div>
@@ -470,7 +566,7 @@
                             @endforeach
                         </select>
                         <p class="text-[11px] text-slate-500 mt-1">
-                            Selecting a collaborator moves the task directly to their active Doing column.
+                            Selecting a collaborator assigns the card to their column as 'Assigned' (ready to start).
                         </p>
                     </div>
 
@@ -511,20 +607,37 @@
                     </button>
                 </div>
 
+                @php
+                    $coOpPostIt = $coOpPostItId ? \App\Models\PostIt::with('assignee')->find($coOpPostItId) : null;
+                    $eligibleHelpers = $this->getEligibleHelpers($coOpPostIt);
+                @endphp
+
                 <div class="mt-4 space-y-4">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Select Co-op Helper</label>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">Select Co-op Helper</label>
+                            @if ($coOpPostIt?->assignee)
+                                <span class="text-[10px] text-purple-300 font-semibold px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/20">
+                                    {{ ucfirst($coOpPostIt->assignee->board_visibility) }} mode matching
+                                </span>
+                            @endif
+                        </div>
                         <select
                             wire:model="coOpHelperId"
                             class="w-full rounded-xl bg-slate-950/80 border border-slate-800 px-3.5 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
                         >
                             <option value="">No Co-op Helper (Solo Execution)</option>
-                            @foreach ($availableCollaborators as $helperOption)
+                            @foreach ($eligibleHelpers as $helperOption)
                                 <option value="{{ $helperOption->id }}">
-                                    {{ $helperOption->name }} ({{ $helperOption->current_capacity }}/{{ $helperOption->max_capacity }} cap)
+                                    {{ $helperOption->name }} ({{ $helperOption->current_capacity }}/{{ $helperOption->max_capacity }} cap) [{{ $helperOption->board_visibility }}]
                                 </option>
                             @endforeach
                         </select>
+                        @if ($eligibleHelpers->isEmpty())
+                            <p class="text-[11px] text-amber-400 mt-1">
+                                No other collaborators match this column's {{ $coOpPostIt?->assignee?->board_visibility }} mode.
+                            </p>
+                        @endif
                     </div>
 
                     @if ($coOpHelperId)
@@ -696,9 +809,18 @@
                             <div class="mt-2 flex items-center gap-3 text-xs text-slate-400 flex-wrap">
                                 <span class="flex items-center gap-1.5">
                                     <span class="text-slate-500">Αιτών:</span>
-                                    <span class="text-indigo-300 font-semibold">{{ $selected->requester?->name ?? 'User #'.$selected->requester_id }}</span>
-                                    <span class="text-slate-600">({{ $selected->requester?->email }})</span>
+                                    <span class="text-indigo-300 font-semibold">{{ $selected->display_requester_name ?? $selected->requester?->name ?? 'User #'.$selected->requester_id }}</span>
+                                    @if (!$selected->is_masked && $selected->requester)
+                                        <span class="text-slate-600">({{ $selected->requester->email }})</span>
+                                    @endif
                                 </span>
+                                @if ($selected->assignedBy && (int) $selected->assigned_by_id !== (int) $selected->requester_id)
+                                    <span class="text-slate-600">•</span>
+                                    <span class="flex items-center gap-1.5">
+                                        <span class="text-slate-500">Ανάθεση από:</span>
+                                        <span class="text-indigo-300 font-semibold">{{ $selected->assignedBy->name }}</span>
+                                    </span>
+                                @endif
                                 <span class="text-slate-600">•</span>
                                 <span>{{ $selected->created_at->diffForHumans() }} ({{ $selected->created_at->format('d/m/Y H:i') }})</span>
                             </div>
@@ -806,6 +928,73 @@
                             @endif
                         </div>
 
+                        {{-- Assignment & Workflow Chain Timeline --}}
+                        <div class="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <h4 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                                    <span>🔀</span>
+                                    <span>Assignment &amp; Workflow Chain</span>
+                                </h4>
+                                @php
+                                    $assignmentChain = $selected->getAssignmentChain();
+                                @endphp
+                                @if (count($assignmentChain) >= 2)
+                                    <span class="text-[10px] font-semibold text-indigo-300 bg-indigo-950/60 border border-indigo-500/30 px-2 py-0.5 rounded-full">
+                                        {{ implode(' → ', $assignmentChain) }}{{ $selected->status === 'done' ? ' → ✓' : '' }}
+                                    </span>
+                                @endif
+                            </div>
+
+                            @if ($selected->transfers->isEmpty())
+                                <div class="py-4 text-center text-xs text-slate-500 italic">
+                                    Δεν υπάρχουν καταγεγραμμένες μεταφορές για αυτό το αίτημα.
+                                </div>
+                            @else
+                                <div class="relative pl-6 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-800">
+                                    @foreach ($selected->transfers as $transfer)
+                                        @php
+                                            $dotClass = match($transfer->action) {
+                                                'completed' => 'bg-emerald-500 ring-emerald-500/30',
+                                                'started' => 'bg-indigo-500 ring-indigo-500/30',
+                                                'transferred' => 'bg-purple-500 ring-purple-500/30',
+                                                'unassigned' => 'bg-slate-500 ring-slate-500/30',
+                                                default => 'bg-sky-500 ring-sky-500/30',
+                                            };
+                                        @endphp
+                                        <div class="relative text-xs">
+                                            <span class="absolute -left-6 top-1 h-2.5 w-2.5 rounded-full ring-4 {{ $dotClass }}"></span>
+                                            <div class="flex items-center justify-between gap-2">
+                                                <span class="font-semibold text-white">
+                                                    @if ($transfer->action === 'assigned')
+                                                        Ανάθεση σε <span class="text-sky-300">{{ $transfer->toUser?->name ?? 'User #'.$transfer->to_user_id }}</span>
+                                                    @elseif ($transfer->action === 'transferred')
+                                                        Μεταφορά από <span class="text-slate-300">{{ $transfer->fromUser?->name ?? 'User #'.$transfer->from_user_id }}</span> σε <span class="text-purple-300">{{ $transfer->toUser?->name ?? 'User #'.$transfer->to_user_id }}</span>
+                                                    @elseif ($transfer->action === 'started')
+                                                        Έναρξη εργασίας
+                                                    @elseif ($transfer->action === 'completed')
+                                                        Ολοκλήρωση αιτήματος
+                                                    @elseif ($transfer->action === 'unassigned')
+                                                        Επιστροφή στο Backlog (Χωρίς ανάθεση)
+                                                    @else
+                                                        {{ ucfirst($transfer->action) }}
+                                                    @endif
+                                                </span>
+                                                <span class="text-[10px] text-slate-500 shrink-0">
+                                                    {{ $transfer->created_at?->format('d/m/Y H:i') }}
+                                                </span>
+                                            </div>
+                                            <div class="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5">
+                                                <span class="text-slate-500">Από:</span>
+                                                <span class="text-indigo-300 font-medium">{{ $transfer->actor?->name ?? 'System' }}</span>
+                                                <span class="text-slate-600">•</span>
+                                                <span class="text-slate-500 text-[10px]">{{ $transfer->created_at?->diffForHumans() }}</span>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
+
                         {{-- Scope Calibration (for Assignee or Admin while status != 'done') --}}
                         @if ($canCalibrate)
                             <div class="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/30 space-y-4">
@@ -861,32 +1050,46 @@
                                 </div>
                             </div>
 
-                            {{-- Co-op Assist Configuration inside Slide-over --}}
-                            <div class="p-4 rounded-2xl bg-purple-950/30 border border-purple-500/30 space-y-4">
-                                <div class="flex items-center justify-between">
-                                    <h4 class="text-xs font-bold text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
-                                        <span>🤝</span>
-                                        <span>Co-op Assist Configuration</span>
-                                    </h4>
-                                    <span class="text-[10px] text-slate-400">Διαμοιρασμός Bounty 0–50%</span>
-                                </div>
+                            @php
+                                $slideOverEligibleHelpers = $this->getEligibleHelpers($selected);
+                            @endphp
 
-                                <div>
-                                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Επιλογή Co-op Συνεργάτη</label>
-                                    <select
-                                        wire:model="slideOverHelperId"
-                                        class="w-full rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"
-                                    >
-                                        <option value="">Κανένας συνεργάτης (Solo)</option>
-                                        @foreach ($availableCollaborators as $collab)
-                                            @if ((int) $collab->id !== (int) $selected->assignee_id)
-                                                <option value="{{ $collab->id }}">
-                                                    {{ $collab->name }} ({{ $collab->current_capacity }}/{{ $collab->max_capacity }} cap)
-                                                </option>
-                                            @endif
-                                        @endforeach
-                                    </select>
+                            @if ($selected->assignee?->board_visibility === 'private')
+                                <div class="p-4 rounded-2xl bg-purple-950/20 border border-purple-500/20 text-xs text-purple-300 italic">
+                                    🔒 Private columns do not support Co-op assist.
                                 </div>
+                            @else
+                                {{-- Co-op Assist Configuration inside Slide-over --}}
+                                <div class="p-4 rounded-2xl bg-purple-950/30 border border-purple-500/30 space-y-4">
+                                    <div class="flex items-center justify-between">
+                                        <h4 class="text-xs font-bold text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                                            <span>🤝</span>
+                                            <span>Co-op Assist Configuration</span>
+                                        </h4>
+                                        <span class="text-[10px] text-purple-300 font-medium px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/20">
+                                            {{ ucfirst($selected->assignee?->board_visibility ?? 'Public') }} mode
+                                        </span>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-300 mb-1.5">Επιλογή Co-op Συνεργάτη</label>
+                                        <select
+                                            wire:model="slideOverHelperId"
+                                            class="w-full rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"
+                                        >
+                                            <option value="">Κανένας συνεργάτης (Solo)</option>
+                                            @foreach ($slideOverEligibleHelpers as $collab)
+                                                <option value="{{ $collab->id }}">
+                                                    {{ $collab->name }} ({{ $collab->current_capacity }}/{{ $collab->max_capacity }} cap) [{{ $collab->board_visibility }}]
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        @if ($slideOverEligibleHelpers->isEmpty())
+                                            <p class="text-[11px] text-amber-400 mt-1">
+                                                No other collaborators match this column's {{ $selected->assignee?->board_visibility }} mode.
+                                            </p>
+                                        @endif
+                                    </div>
 
                                 @if ($slideOverHelperId)
                                     <div>
@@ -917,6 +1120,7 @@
                                 </div>
                             </div>
                         @endif
+                    @endif
 
                         {{-- Real-Time Micro-Comments Thread --}}
                         <div class="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-4">

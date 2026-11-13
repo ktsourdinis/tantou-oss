@@ -19,6 +19,8 @@ use Illuminate\Notifications\Notifiable;
     'tenant_id',
     'department_id',
     'role',
+    'board_visibility',
+    'is_available',
     'current_capacity',
     'max_capacity',
     'total_points',
@@ -41,6 +43,8 @@ class User extends Authenticatable
         'tenant_id',
         'department_id',
         'role',
+        'board_visibility',
+        'is_available',
         'current_capacity',
         'max_capacity',
         'total_points',
@@ -57,6 +61,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'department_id' => 'integer',
+            'is_available' => 'boolean',
             'current_capacity' => 'integer',
             'max_capacity' => 'integer',
             'total_points' => 'integer',
@@ -121,5 +126,15 @@ class User extends Authenticatable
     public function comments(): HasMany
     {
         return $this->hasMany(PostItComment::class);
+    }
+
+    /**
+     * Get the transfers initiated by this user.
+     *
+     * @return HasMany<PostItTransfer, $this>
+     */
+    public function initiatedTransfers(): HasMany
+    {
+        return $this->hasMany(PostItTransfer::class, 'actor_id');
     }
 }
