@@ -142,7 +142,7 @@
                             <span class="font-semibold text-slate-200 leading-tight">{{ auth()->user()->name }}</span>
                             <div class="flex items-center gap-1.5 text-[10px]">
                                 <span class="capitalize px-1.5 py-0.2 rounded font-medium {{ auth()->user()->role === 'admin' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : (auth()->user()->role === 'worker' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-blue-500/20 text-blue-300 border border-blue-500/30') }}">
-                                    {{ auth()->user()->role }}
+                                    {{ __(ucfirst(auth()->user()->role)) }}
                                 </span>
                                 @if (auth()->user()->role === 'worker')
                                     <span class="text-amber-400 font-medium">★ {{ auth()->user()->total_points }} pts</span>
@@ -370,7 +370,7 @@
                                     </select>
                                 @else
                                     <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider {{ $worker->board_visibility === 'public' ? 'bg-indigo-500/10 text-indigo-300 border border-indigo-500/20' : ($worker->board_visibility === 'internal' ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20' : 'bg-purple-500/10 text-purple-300 border border-purple-500/20') }}">
-                                        {{ $worker->board_visibility }}
+                                        {{ __(ucfirst($worker->board_visibility)) }}
                                     </span>
                                 @endif
                             </div>
@@ -850,12 +850,12 @@
                         <div class="flex items-center gap-1.5 flex-wrap">
                             {{-- Status Pill --}}
                             <span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider border {{ $statusBadgeClasses }}">
-                                {{ $selected->status }}
+                                {{ __(ucfirst($selected->status)) }}
                             </span>
 
                             {{-- Priority Pill --}}
                             <span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider border {{ $priorityBadgeClasses }}">
-                                {{ $selected->priority }}
+                                {{ __(ucfirst($selected->priority)) }}
                             </span>
 
                             {{-- Weight Pill --}}
@@ -971,7 +971,7 @@
                                 <div class="min-w-0">
                                     <span class="text-[9px] text-slate-500 uppercase block font-semibold leading-tight">{{ __('Bounty') }}</span>
                                     <span class="font-bold text-amber-400 text-[11px] truncate block">
-                                        {{ $selected->bounty_points }} pts <span class="text-[9px] font-normal text-slate-400">(W{{ $selected->weight }} · {{ $selected->priority }})</span>
+                                        {{ $selected->bounty_points }} pts <span class="text-[9px] font-normal text-slate-400">(W{{ $selected->weight }} · {{ __(ucfirst($selected->priority)) }})</span>
                                     </span>
                                 </div>
                             </div>
@@ -1025,7 +1025,7 @@
                                                     @elseif ($transfer->action === 'unassigned')
                                                         {{ __('Returned to Backlog (Unassigned)') }}
                                                     @else
-                                                        {{ ucfirst($transfer->action) }}
+                                                        {{ __(ucfirst($transfer->action)) }}
                                                     @endif
                                                 </span>
                                                 <span class="text-[10px] text-slate-500 shrink-0">
@@ -1059,13 +1059,13 @@
                                 <div>
                                     <label class="block text-xs font-semibold text-slate-300 mb-1.5">{{ __('Cognitive Load / Weight (1–5)') }}</label>
                                     <div class="grid grid-cols-5 gap-1.5">
-                                        @foreach ([1 => 'W1 - Low', 2 => 'W2 - Light', 3 => 'W3 - Med', 4 => 'W4 - High', 5 => 'W5 - Max'] as $wVal => $wLabel)
+                                        @foreach ([1 => 'Low', 2 => 'Light', 3 => 'Med', 4 => 'High', 5 => 'Max'] as $wVal => $wLabel)
                                             <button
                                                 type="button"
                                                 wire:click="$set('slideOverWeight', {{ $wVal }})"
                                                 class="px-2 py-1.5 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer {{ $slideOverWeight === $wVal ? 'bg-indigo-600 text-white border-indigo-500 shadow-md' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700' }}"
                                             >
-                                                {{ $wLabel }}
+                                                W{{ $wVal }} - {{ __($wLabel) }}
                                             </button>
                                         @endforeach
                                     </div>
@@ -1081,7 +1081,7 @@
                                                 wire:click="$set('slideOverPriority', '{{ $pVal }}')"
                                                 class="px-2 py-1.5 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer capitalize {{ $slideOverPriority === $pVal ? 'bg-amber-600 text-white border-amber-500 shadow-md' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700' }}"
                                             >
-                                                {{ $pLabel }}
+                                                {{ __($pLabel) }}
                                             </button>
                                         @endforeach
                                     </div>
@@ -1116,7 +1116,7 @@
                                             <span>{{ __('Co-op Assist Configuration') }}</span>
                                         </h4>
                                         <span class="text-[10px] text-purple-300 font-medium px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/20">
-                                            {{ ucfirst($selected->assignee?->board_visibility ?? 'Public') }} {{ __('mode') }}
+                                            {{ __(ucfirst($selected->assignee?->board_visibility ?? 'Public')) }} {{ __('mode') }}
                                         </span>
                                     </div>
 
@@ -1129,7 +1129,7 @@
                                             <option value="">{{ __('No Co-op Helper (Solo)') }}</option>
                                             @foreach ($slideOverEligibleHelpers as $collab)
                                                 <option value="{{ $collab->id }}">
-                                                    {{ $collab->name }} ({{ $collab->current_capacity }}/{{ $collab->max_capacity }} cap) [{{ $collab->board_visibility }}]
+                                                    {{ $collab->name }} ({{ $collab->current_capacity }}/{{ $collab->max_capacity }} {{ __('cap') }}) [{{ __(ucfirst($collab->board_visibility)) }}]
                                                 </option>
                                             @endforeach
                                         </select>

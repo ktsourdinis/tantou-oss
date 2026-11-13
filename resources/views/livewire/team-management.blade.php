@@ -49,7 +49,7 @@
                             <span class="font-semibold text-slate-200 leading-tight">{{ auth()->user()->name }}</span>
                             <div class="flex items-center gap-1.5 text-[10px]">
                                 <span class="capitalize px-1.5 py-0.2 rounded font-medium {{ auth()->user()->role === 'admin' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : (auth()->user()->role === 'worker' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-blue-500/20 text-blue-300 border border-blue-500/30') }}">
-                                    {{ auth()->user()->role }}
+                                    {{ __(ucfirst(auth()->user()->role)) }}
                                 </span>
                                 @if (auth()->user()->role === 'worker')
                                     <span class="text-amber-400 font-medium">★ {{ auth()->user()->total_points }} pts</span>

@@ -91,7 +91,7 @@
         <div class="flex items-center gap-1.5 flex-wrap">
             {{-- Priority Pill --}}
             <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border {{ $priorityBadge }}">
-                {{ __($postIt->priority) }}
+                {{ __(ucfirst($postIt->priority)) }}
             </span>
 
             {{-- Weight Tag --}}
@@ -163,7 +163,7 @@
         $assignmentChain = $postIt->getAssignmentChain();
     @endphp
     @if (count($assignmentChain) >= 2)
-        <div class="mt-2 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-indigo-950/40 border border-indigo-500/20 text-[10px] text-indigo-300 font-medium truncate max-w-full" title="Assignment Flow Trail: {{ implode(' → ', $assignmentChain) }}{{ $isDone ? ' → ✓' : '' }}">
+        <div class="mt-2 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-indigo-950/40 border border-indigo-500/20 text-[10px] text-indigo-300 font-medium truncate max-w-full" title="{{ __('Assignment Flow Trail:') }} {{ implode(' → ', $assignmentChain) }}{{ $isDone ? ' → ✓' : '' }}">
             <span class="shrink-0 text-indigo-400">🔀</span>
             <span class="truncate">
                 {{ implode(' → ', $assignmentChain) }}
@@ -179,10 +179,10 @@
         <div class="mt-2 flex items-center justify-between px-2 py-1 rounded-lg bg-purple-950/40 border border-purple-800/40 text-[10px] text-purple-300">
             <span class="flex items-center gap-1 font-medium">
                 <span>🤝</span>
-                <span>Co-op: {{ $postIt->helper->name }}</span>
+                <span>{{ __('Co-op:') }} {{ $postIt->helper->name }}</span>
             </span>
             <span class="font-bold text-purple-400">
-                {{ $postIt->helper_split }}% split
+                {{ $postIt->helper_split }}% {{ __('split') }}
             </span>
         </div>
     @endif

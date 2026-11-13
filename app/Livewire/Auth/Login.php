@@ -34,6 +34,23 @@ class Login extends Component
             return null;
         }
 
+        // In Cloud mode on a subdomain, restrict login strictly to users of this tenant
+        if (app()->bound('currentTenant')) {
+            $currentTenant = app('currentTenant');
+            $user = Auth::user();
+
+            if ($user && (int) $user->tenant_id !== (int) $currentTenant->id) {
+                Auth::logout();
+                session()->invalidate();
+                session()->regenerateToken();
+
+                $this->addError('email', __('You do not have access to this workspace.'));
+                $this->password = '';
+
+                return null;
+            }
+        }
+
         session()->regenerate();
 
         return redirect()->intended('/board');
@@ -54,6 +71,15 @@ class Login extends Component
             $this->addError('email', __('Demo user with email :email was not found. Please re-run seeders.', ['email' => $email]));
 
             return null;
+        }
+
+        if (app()->bound('currentTenant')) {
+            $currentTenant = app('currentTenant');
+            if ((int) $user->tenant_id !== (int) $currentTenant->id) {
+                $this->addError('email', __('You do not have access to this workspace.'));
+
+                return null;
+            }
         }
 
         Auth::login($user, true);
