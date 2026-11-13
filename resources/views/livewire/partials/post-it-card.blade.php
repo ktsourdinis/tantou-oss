@@ -24,14 +24,43 @@
     $isDone = $zone === 'done';
     $isDoing = $zone === 'doing';
     $currentUser = auth()->user();
-    $canManageCoop = $isDoing && $currentUser && ($currentUser->role === 'admin' || (int) $currentUser->id === (int) $postIt->assignee_id);
+    $isAdmin = $currentUser && $currentUser->role === 'admin';
+    $isWorker = $currentUser && $currentUser->role === 'worker';
+    $isClient = $currentUser && $currentUser->role === 'client';
+    $isRequester = $currentUser && (int) $postIt->requester_id === (int) $currentUser->id;
+    $isAssignee = $currentUser && (int) $postIt->assignee_id === (int) $currentUser->id;
+    $isHelper = $currentUser && (int) $postIt->helper_id === (int) $currentUser->id;
+
+    // Authorized to inspect (open slide-over):
+    // admin, requester, assignee, helper, or worker inspecting backlog
+    $canInspect = $isAdmin || $isRequester || $isAssignee || $isHelper || ($isWorker && $postIt->status === 'backlog');
+
+    // Drag-and-drop guardrail:
+    // - Completed cards cannot be dragged
+    // - admin: can drag any active card
+    // - worker: can pull from backlog, move cards where assignee/helper
+    // - client: CANNOT drag cards between workers or mark tasks as done
+    $canDrag = ! $isDone && (
+        $isAdmin ||
+        ($isWorker && ($postIt->status === 'backlog' || $isAssignee || $isHelper))
+    );
+
+    $canManageCoop = $isDoing && $currentUser && ($isAdmin || $isAssignee);
 @endphp
 
 <div
-    draggable="{{ $isDone ? 'false' : 'true' }}"
-    @dragstart="onDragStart($event, {{ $postIt->id }})"
-    @dragend="onDragEnd()"
-    class="group relative rounded-xl border border-slate-800 bg-slate-900/90 border-l-4 {{ $priorityBorder }} {{ $weightMinHeight }} p-3 shadow-md hover:shadow-xl hover:border-slate-700 transition-all {{ $isDone ? 'opacity-85' : 'cursor-grab active:cursor-grabbing hover:-translate-y-0.5' }}"
+    draggable="{{ $canDrag ? 'true' : 'false' }}"
+    @if ($canDrag)
+        @dragstart="onDragStart($event, {{ $postIt->id }})"
+        @dragend="onDragEnd()"
+    @endif
+    @if ($canInspect)
+        @click="if (!didJustDrag && !$event.target.closest('button, select, input, a')) { $wire.openSlideOver({{ $postIt->id }}) }"
+    @endif
+    class="group relative rounded-xl border border-slate-800 bg-slate-900/90 border-l-4 {{ $priorityBorder }} {{ $weightMinHeight }} p-3 shadow-md hover:shadow-xl hover:border-slate-700 transition-all {{ $isDone ? 'opacity-85' : '' }} {{ $canDrag ? 'cursor-grab active:cursor-grabbing hover:-translate-y-0.5' : ($canInspect ? 'cursor-pointer hover:-translate-y-0.5' : 'cursor-default') }}"
+    @if (! $canInspect)
+        title="Προστατευμένο αίτημα (πρόσβαση μόνο για τον αιτούντα και την ομάδα ανάθεσης)"
+    @endif
 >
     {{-- Card Header: Priority & Department & Bounty Points --}}
     <div class="flex items-center justify-between gap-1.5 mb-1.5">
@@ -110,17 +139,24 @@
             </span>
         </div>
 
-        {{-- Actions: Co-Op Button (for doing tasks) / Timestamp --}}
+        {{-- Actions: Co-Op Button (for doing tasks) / Comments / Timestamp --}}
         <div class="flex items-center gap-1.5 shrink-0">
             @if ($canManageCoop)
                 <button
-                    wire:click="openCoOpModal({{ $postIt->id }})"
+                    wire:click.stop="openCoOpModal({{ $postIt->id }})"
                     type="button"
                     class="px-1.5 py-0.5 rounded bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 hover:text-purple-200 border border-purple-500/30 transition-all cursor-pointer font-medium text-[10px]"
                     title="Assign Co-op Assistant"
                 >
                     🤝 Co-op
                 </button>
+            @endif
+
+            @if (($postIt->comments_count ?? 0) > 0)
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-800/90 text-slate-300 text-[10px] border border-slate-700/60" title="{{ $postIt->comments_count }} σχόλια">
+                    <span>💬</span>
+                    <span class="font-semibold">{{ $postIt->comments_count }}</span>
+                </span>
             @endif
 
             @if ($isDone && $postIt->completed_at)

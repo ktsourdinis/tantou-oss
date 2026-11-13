@@ -4,14 +4,17 @@
         activeDropZone: null,
         openBacklog: true,
         openDone: true,
+        didJustDrag: false,
         onDragStart(event, id) {
             this.draggingId = id;
+            this.didJustDrag = true;
             event.dataTransfer.setData('text/plain', id);
             event.dataTransfer.effectAllowed = 'move';
         },
         onDragEnd() {
             this.draggingId = null;
             this.activeDropZone = null;
+            setTimeout(() => { this.didJustDrag = false; }, 200);
         },
         onDragOver(zone) {
             this.activeDropZone = zone;
@@ -574,6 +577,431 @@
                             class="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-lg shadow-purple-600/30 transition-all cursor-pointer"
                         >
                             Save Co-op Split
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- Card Detail & Scope Calibration Slide-Over Drawer --}}
+    @if ($showSlideOver && $this->selectedPostIt)
+        @php
+            $selected = $this->selectedPostIt;
+            $calculator = app(\App\Services\BountyCalculator::class);
+            $splitData = $calculator->calculateSplit($selected->bounty_points, $selected->helper_split, (bool) $selected->helper_id);
+            $currentUser = auth()->user();
+            $canCalibrate = $currentUser && ($currentUser->role === 'admin' || (int) $currentUser->id === (int) $selected->assignee_id) && $selected->status !== 'done';
+            $canCancel = $currentUser && ($currentUser->role === 'admin' || ($selected->status === 'backlog' && (int) $currentUser->id === (int) $selected->requester_id));
+
+            $priorityBadgeClasses = match($selected->priority) {
+                'urgent' => 'bg-rose-500/20 text-rose-300 border-rose-500/30',
+                'high' => 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+                'low' => 'bg-slate-500/20 text-slate-400 border-slate-500/30',
+                default => 'bg-sky-500/20 text-sky-300 border-sky-500/30',
+            };
+
+            $statusBadgeClasses = match($selected->status) {
+                'done' => 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+                'doing' => 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+                default => 'bg-slate-500/20 text-slate-300 border-slate-500/30',
+            };
+        @endphp
+
+        <div
+            x-data="{ open: true }"
+            x-show="open"
+            @keydown.escape.window="$wire.closeSlideOver()"
+            class="fixed inset-0 z-50 overflow-hidden"
+            role="dialog"
+            aria-modal="true"
+        >
+            {{-- Backdrop --}}
+            <div
+                x-show="open"
+                x-transition:enter="ease-out duration-300"
+                x-transition:enter-start="opacity-0"
+                x-transition:enter-end="opacity-100"
+                x-transition:leave="ease-in duration-200"
+                x-transition:leave-start="opacity-100"
+                x-transition:leave-end="opacity-0"
+                class="fixed inset-0 bg-slate-950/75 backdrop-blur-sm transition-opacity"
+                wire:click="closeSlideOver"
+            ></div>
+
+            {{-- Slide-over Panel --}}
+            <div class="fixed inset-y-0 right-0 max-w-full flex pl-10">
+                <div
+                    x-show="open"
+                    x-transition:enter="transform transition ease-in-out duration-300"
+                    x-transition:enter-start="translate-x-full"
+                    x-transition:enter-end="translate-x-0"
+                    x-transition:leave="transform transition ease-in-out duration-200"
+                    x-transition:leave-start="translate-x-0"
+                    x-transition:leave-end="translate-x-full"
+                    class="w-screen max-w-md md:max-w-xl bg-slate-900/95 border-l border-slate-800 shadow-2xl flex flex-col backdrop-blur-xl"
+                >
+                    {{-- Header --}}
+                    <div class="px-6 py-5 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between shrink-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            {{-- Status Pill --}}
+                            <span class="px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider border {{ $statusBadgeClasses }}">
+                                {{ $selected->status }}
+                            </span>
+
+                            {{-- Priority Pill --}}
+                            <span class="px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider border {{ $priorityBadgeClasses }}">
+                                {{ $selected->priority }}
+                            </span>
+
+                            {{-- Weight Pill --}}
+                            <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-xs font-semibold border border-slate-700">
+                                W{{ $selected->weight }}
+                            </span>
+
+                            {{-- Department Pill --}}
+                            @if ($selected->department)
+                                <span
+                                    class="px-2 py-0.5 rounded text-xs font-semibold border truncate max-w-[140px]"
+                                    style="background-color: {{ $selected->department->color }}20; color: {{ $selected->department->color }}; border-color: {{ $selected->department->color }}40;"
+                                >
+                                    {{ $selected->department->name }}
+                                </span>
+                            @endif
+
+                            {{-- Bounty Points --}}
+                            <span class="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 text-xs font-bold">
+                                ⚡ {{ $selected->bounty_points }} pts
+                            </span>
+                        </div>
+
+                        <button
+                            wire:click="closeSlideOver"
+                            type="button"
+                            class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                            title="Close (Esc)"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                    </div>
+
+                    {{-- Scrollable Content Body --}}
+                    <div class="flex-1 overflow-y-auto p-6 space-y-6 text-slate-200">
+                        {{-- Title & Requester --}}
+                        <div>
+                            <h2 class="text-lg md:text-xl font-bold text-white leading-snug">
+                                {{ $selected->title }}
+                            </h2>
+
+                            <div class="mt-2 flex items-center gap-3 text-xs text-slate-400 flex-wrap">
+                                <span class="flex items-center gap-1.5">
+                                    <span class="text-slate-500">Αιτών:</span>
+                                    <span class="text-indigo-300 font-semibold">{{ $selected->requester?->name ?? 'User #'.$selected->requester_id }}</span>
+                                    <span class="text-slate-600">({{ $selected->requester?->email }})</span>
+                                </span>
+                                <span class="text-slate-600">•</span>
+                                <span>{{ $selected->created_at->diffForHumans() }} ({{ $selected->created_at->format('d/m/Y H:i') }})</span>
+                            </div>
+                        </div>
+
+                        {{-- Full Description --}}
+                        <div class="p-4 rounded-2xl bg-slate-950/70 border border-slate-800/80">
+                            <h4 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Περιγραφή Αιτήματος</h4>
+                            <p class="text-sm text-slate-300 leading-relaxed whitespace-pre-line">
+                                {{ $selected->description ?: 'Δεν έχει καταχωρηθεί περιγραφή για αυτό το αίτημα.' }}
+                            </p>
+                        </div>
+
+                        {{-- Metadata Grid: Assignee, Helper, Execution Timestamps --}}
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                            {{-- Assignee (Tantou) --}}
+                            <div class="p-3.5 rounded-xl bg-slate-950/50 border border-slate-800/60">
+                                <span class="text-slate-500 block text-[10px] uppercase font-bold tracking-wider mb-1">Υπεύθυνος (Tantou)</span>
+                                @if ($selected->assignee)
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-7 h-7 rounded-lg bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 flex items-center justify-center font-bold text-xs">
+                                            {{ strtoupper(substr($selected->assignee->name, 0, 1)) }}
+                                        </div>
+                                        <div>
+                                            <div class="font-semibold text-white">{{ $selected->assignee->name }}</div>
+                                            <div class="text-[10px] text-slate-400">{{ $selected->assignee->department?->name ?? 'Worker' }} ({{ $selected->assignee->current_capacity }}/{{ $selected->assignee->max_capacity }} cap)</div>
+                                        </div>
+                                    </div>
+                                @else
+                                    <span class="text-slate-400 italic">Χωρίς ανάθεση (Backlog)</span>
+                                @endif
+                            </div>
+
+                            {{-- Co-op Helper --}}
+                            <div class="p-3.5 rounded-xl bg-slate-950/50 border border-slate-800/60">
+                                <span class="text-slate-500 block text-[10px] uppercase font-bold tracking-wider mb-1">Συνεργάτης (Co-op)</span>
+                                @if ($selected->helper)
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-7 h-7 rounded-lg bg-purple-600/30 border border-purple-500/40 text-purple-300 flex items-center justify-center font-bold text-xs">
+                                            {{ strtoupper(substr($selected->helper->name, 0, 1)) }}
+                                        </div>
+                                        <div>
+                                            <div class="font-semibold text-white">{{ $selected->helper->name }}</div>
+                                            <div class="text-[10px] text-purple-300 font-medium">{{ $selected->helper_split }}% split ({{ $splitData['helper_points'] }} pts)</div>
+                                        </div>
+                                    </div>
+                                @else
+                                    <span class="text-slate-500 italic">Solo (Χωρίς helper)</span>
+                                @endif
+                            </div>
+
+                            {{-- Started At --}}
+                            <div class="p-3.5 rounded-xl bg-slate-950/50 border border-slate-800/60">
+                                <span class="text-slate-500 block text-[10px] uppercase font-bold tracking-wider mb-1">Έναρξη Εργασίας</span>
+                                <span class="font-medium text-slate-300">
+                                    {{ $selected->started_at ? $selected->started_at->format('d/m/Y H:i').' ('.$selected->started_at->diffForHumans().')' : '—' }}
+                                </span>
+                            </div>
+
+                            {{-- Completed At --}}
+                            <div class="p-3.5 rounded-xl bg-slate-950/50 border border-slate-800/60">
+                                <span class="text-slate-500 block text-[10px] uppercase font-bold tracking-wider mb-1">Ολοκλήρωση</span>
+                                <span class="font-medium {{ $selected->completed_at ? 'text-emerald-400' : 'text-slate-500' }}">
+                                    {{ $selected->completed_at ? $selected->completed_at->format('d/m/Y H:i').' ('.$selected->completed_at->diffForHumans().')' : 'Σε εξέλιξη' }}
+                                </span>
+                            </div>
+                        </div>
+
+                        {{-- Bounty Calculation Breakdown --}}
+                        <div class="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 via-slate-950 to-indigo-950/20 border border-amber-500/20">
+                            <div class="flex items-center justify-between mb-3">
+                                <h4 class="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                                    <span>⚡</span>
+                                    <span>Bounty Payout Breakdown</span>
+                                </h4>
+                                <span class="text-base font-extrabold text-amber-400">{{ $selected->bounty_points }} Total pts</span>
+                            </div>
+
+                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-slate-300">
+                                <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                                    <span class="text-[10px] text-slate-500 block">Base Weight</span>
+                                    <span class="font-bold text-white">W{{ $selected->weight }} ({{ $selected->weight * 10 }} pts)</span>
+                                </div>
+                                <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                                    <span class="text-[10px] text-slate-500 block">Priority Multiplier</span>
+                                    <span class="font-bold text-white capitalize">{{ $selected->priority }}</span>
+                                </div>
+                                <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 col-span-2 sm:col-span-1">
+                                    <span class="text-[10px] text-slate-500 block">Payout Mode</span>
+                                    <span class="font-bold text-purple-300">{{ $selected->helper_id ? 'Co-op Split' : 'Solo Tantou' }}</span>
+                                </div>
+                            </div>
+
+                            @if ($selected->helper_id)
+                                <div class="mt-3 pt-3 border-t border-amber-500/20 flex items-center justify-between text-xs">
+                                    <div>
+                                        <span class="text-slate-400 block text-[10px]">Tantou Assignee</span>
+                                        <span class="font-bold text-emerald-400">{{ $splitData['assignee_points'] }} pts ({{ 100 - $selected->helper_split }}%)</span>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="text-purple-300 block text-[10px]">Co-op Helper</span>
+                                        <span class="font-bold text-purple-400">{{ $splitData['helper_points'] }} pts ({{ $selected->helper_split }}%)</span>
+                                    </div>
+                                </div>
+                            @endif
+                        </div>
+
+                        {{-- Scope Calibration (for Assignee or Admin while status != 'done') --}}
+                        @if ($canCalibrate)
+                            <div class="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/30 space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="text-xs font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                                        <span>⚙️</span>
+                                        <span>Scope Calibration (Επαναβαθμολόγηση)</span>
+                                    </h4>
+                                    <span class="text-[10px] text-slate-400">Επαναϋπολογισμός Bounty & Capacity</span>
+                                </div>
+
+                                {{-- Weight Selector --}}
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Γνωστικό Βάρος / Weight (1–5)</label>
+                                    <div class="grid grid-cols-5 gap-1.5">
+                                        @foreach ([1 => 'W1 - Low', 2 => 'W2 - Light', 3 => 'W3 - Med', 4 => 'W4 - High', 5 => 'W5 - Max'] as $wVal => $wLabel)
+                                            <button
+                                                type="button"
+                                                wire:click="$set('slideOverWeight', {{ $wVal }})"
+                                                class="px-2 py-1.5 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer {{ $slideOverWeight === $wVal ? 'bg-indigo-600 text-white border-indigo-500 shadow-md' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700' }}"
+                                            >
+                                                {{ $wLabel }}
+                                            </button>
+                                        @endforeach
+                                    </div>
+                                </div>
+
+                                {{-- Priority Selector --}}
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Προτεραιότητα / Priority</label>
+                                    <div class="grid grid-cols-4 gap-1.5">
+                                        @foreach (['low' => 'Low', 'normal' => 'Normal', 'high' => 'High', 'urgent' => 'Urgent'] as $pVal => $pLabel)
+                                            <button
+                                                type="button"
+                                                wire:click="$set('slideOverPriority', '{{ $pVal }}')"
+                                                class="px-2 py-1.5 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer capitalize {{ $slideOverPriority === $pVal ? 'bg-amber-600 text-white border-amber-500 shadow-md' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700' }}"
+                                            >
+                                                {{ $pLabel }}
+                                            </button>
+                                        @endforeach
+                                    </div>
+                                </div>
+
+                                <div class="flex justify-end pt-1">
+                                    <button
+                                        type="button"
+                                        wire:click="saveScopeCalibration"
+                                        class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition-all cursor-pointer flex items-center gap-1.5"
+                                    >
+                                        <span>💾</span>
+                                        <span>Ενημέρωση Scope & Βαθμολόγησης</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {{-- Co-op Assist Configuration inside Slide-over --}}
+                            <div class="p-4 rounded-2xl bg-purple-950/30 border border-purple-500/30 space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="text-xs font-bold text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                                        <span>🤝</span>
+                                        <span>Co-op Assist Configuration</span>
+                                    </h4>
+                                    <span class="text-[10px] text-slate-400">Διαμοιρασμός Bounty 0–50%</span>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Επιλογή Co-op Συνεργάτη</label>
+                                    <select
+                                        wire:model="slideOverHelperId"
+                                        class="w-full rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"
+                                    >
+                                        <option value="">Κανένας συνεργάτης (Solo)</option>
+                                        @foreach ($availableCollaborators as $collab)
+                                            @if ((int) $collab->id !== (int) $selected->assignee_id)
+                                                <option value="{{ $collab->id }}">
+                                                    {{ $collab->name }} ({{ $collab->current_capacity }}/{{ $collab->max_capacity }} cap)
+                                                </option>
+                                            @endif
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                @if ($slideOverHelperId)
+                                    <div>
+                                        <div class="flex items-center justify-between mb-1.5">
+                                            <label class="block text-xs font-semibold text-slate-300">Ποσοστό Helper: <span class="text-purple-400 font-bold">{{ $slideOverHelperSplit }}%</span></label>
+                                            <span class="text-[10px] text-slate-400">Tantou: {{ 100 - $slideOverHelperSplit }}%</span>
+                                        </div>
+                                        <input
+                                            wire:model.live="slideOverHelperSplit"
+                                            type="range"
+                                            min="0"
+                                            max="50"
+                                            step="5"
+                                            class="w-full accent-purple-500 cursor-pointer"
+                                        >
+                                    </div>
+                                @endif
+
+                                <div class="flex justify-end pt-1">
+                                    <button
+                                        type="button"
+                                        wire:click="saveSlideOverCoOp"
+                                        class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-md shadow-purple-600/30 transition-all cursor-pointer flex items-center gap-1.5"
+                                    >
+                                        <span>🤝</span>
+                                        <span>Αποθήκευση Co-op Assist</span>
+                                    </button>
+                                </div>
+                            </div>
+                        @endif
+
+                        {{-- Real-Time Micro-Comments Thread --}}
+                        <div class="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <h4 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                                    <span>💬</span>
+                                    <span>Micro-Comments Thread ({{ $selected->comments->count() }})</span>
+                                </h4>
+                                <span class="text-[10px] text-slate-500 font-mono">Real-time sync</span>
+                            </div>
+
+                            {{-- Comments List --}}
+                            <div class="space-y-3 max-h-64 overflow-y-auto pr-1">
+                                @forelse ($selected->comments as $comment)
+                                    <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-xs space-y-1.5">
+                                        <div class="flex items-center justify-between text-[11px]">
+                                            <div class="flex items-center gap-2">
+                                                <div class="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500 to-indigo-700 text-white flex items-center justify-center font-bold text-[10px]">
+                                                    {{ strtoupper(substr($comment->user?->name ?? 'U', 0, 1)) }}
+                                                </div>
+                                                <span class="font-semibold text-slate-200">{{ $comment->user?->name ?? 'User' }}</span>
+                                                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-800 text-slate-400">
+                                                    {{ $comment->user?->role ?? 'user' }}
+                                                </span>
+                                            </div>
+                                            <span class="text-slate-500 text-[10px]">{{ $comment->created_at->diffForHumans() }}</span>
+                                        </div>
+                                        <p class="text-slate-300 pl-8 leading-relaxed whitespace-pre-line text-[11px]">
+                                            {{ $comment->body }}
+                                        </p>
+                                    </div>
+                                @empty
+                                    <div class="py-6 text-center text-xs text-slate-500 italic">
+                                        Δεν υπάρχουν σχόλια ακόμα. Ξεκινήστε τη συζήτηση για αυτό το αίτημα!
+                                    </div>
+                                @endforelse
+                            </div>
+
+                            {{-- Add New Comment Form --}}
+                            <form wire:submit.prevent="addComment" class="space-y-2 pt-2 border-t border-slate-800">
+                                <textarea
+                                    wire:model="newCommentBody"
+                                    rows="2"
+                                    placeholder="Γράψτε ένα σχόλιο, διευκρίνιση ή σημείωση προόδου..."
+                                    class="w-full rounded-xl bg-slate-900 border border-slate-800 px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none resize-none"
+                                ></textarea>
+                                @error('newCommentBody')
+                                    <span class="text-[10px] text-rose-400">{{ $message }}</span>
+                                @enderror
+
+                                <div class="flex justify-end">
+                                    <button
+                                        type="submit"
+                                        wire:loading.attr="disabled"
+                                        class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 transition-all cursor-pointer flex items-center gap-1.5"
+                                    >
+                                        <span wire:loading.remove wire:target="addComment">Αποστολή Σχολίου</span>
+                                        <span wire:loading wire:target="addComment">Αποστολή...</span>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    {{-- Footer: Close and Optional Cancel Request --}}
+                    <div class="px-6 py-4 border-t border-slate-800 bg-slate-900/80 flex items-center justify-between shrink-0">
+                        @if ($canCancel)
+                            <button
+                                wire:click="cancelPostIt"
+                                wire:confirm="Είστε σίγουροι ότι θέλετε να ακυρώσετε/διαγράψετε αυτό το αίτημα;"
+                                type="button"
+                                class="px-3.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/30 text-xs font-semibold transition-colors cursor-pointer"
+                            >
+                                🗑️ Ακύρωση Αιτήματος
+                            </button>
+                        @else
+                            <div></div>
+                        @endif
+
+                        <button
+                            wire:click="closeSlideOver"
+                            type="button"
+                            class="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+                        >
+                            Κλείσιμο
                         </button>
                     </div>
                 </div>
