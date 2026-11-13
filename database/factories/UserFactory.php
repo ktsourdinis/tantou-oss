@@ -40,6 +40,7 @@ class UserFactory extends Factory
             'current_capacity' => 0,
             'max_capacity' => 10,
             'total_points' => 0,
+            'locale' => 'en',
         ];
     }
 

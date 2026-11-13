@@ -28,7 +28,7 @@ class Login extends Component
         $this->validate();
 
         if (! Auth::attempt(['email' => $this->email, 'password' => $this->password], $this->remember)) {
-            $this->addError('email', 'The provided credentials do not match our records.');
+            $this->addError('email', __('The provided credentials do not match our records.'));
             $this->password = '';
 
             return null;
@@ -45,13 +45,13 @@ class Login extends Component
     public function quickLogin(string $email): mixed
     {
         if (! app()->environment('local', 'testing')) {
-            abort(403, 'Quick demo login is only available in local development.');
+            abort(403, __('Quick demo login is only available in local development.'));
         }
 
         $user = User::where('email', $email)->first();
 
         if ($user === null) {
-            $this->addError('email', "Demo user with email {$email} was not found. Please re-run seeders.");
+            $this->addError('email', __('Demo user with email :email was not found. Please re-run seeders.', ['email' => $email]));
 
             return null;
         }

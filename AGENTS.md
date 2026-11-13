@@ -232,6 +232,12 @@ This is a Multi-Tenant architecture (using a single database with `tenant_id` fo
    - **Open Attribution:** Requests created by internal staff or forwarded by colleagues openly display the collaborator's name (`"Από: {Requester}"` and `"Ανάθεση από: {AssignedBy}"`). Collaborators are never anonymized during internal assignments.
    - **Visual Flow Chain:** Cards that move across collaborators render an ordered assignee chain badge (e.g. `🔀 Nikos → Elena → Kostas → ✓`) and a dedicated timeline inside the Card Detail Slide-Over.
 
+10. **Internationalization & Localization (i18n — Step 11):**
+   - **English Default:** All code, Blade views, Livewire components, validation/flash messages, and server-side responses MUST use English strings wrapped in `__('...')`.
+   - **Greek Full Translation:** `lang/el.json` contains the primary Greek translations. `lang/en.json` contains English keys.
+   - **Persistent Locale Resolution:** The active locale is determined by `auth()->user()?->locale ?? session('locale', config('app.locale', 'en'))` via `App\Http\Middleware\SetLocale`. Allowed locales are strictly `['en', 'el']`. Switching locale updates the session and, for authenticated users, updates `users.locale`.
+   - **Future Development Rule:** Whenever new UI text, labels, messages, or placeholders are introduced, developers and AI agents MUST wrap them in `__('...')` using clean English keys and add corresponding Greek translations to `lang/el.json`.
+
 ## 4. The "Killer Feature" (UX/UI Rule)
 The central component of Tantou is the `Livewire` board. 
 - It must support Drag-and-Drop functionality using Alpine.js.

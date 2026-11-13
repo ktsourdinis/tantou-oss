@@ -128,7 +128,7 @@ class BoardUpgradeTest extends TestCase
                 $postIt = $workers->first()->assignedPostIts->where('id', $aliceTask->id)->first();
 
                 return $postIt
-                    && $postIt->display_requester_name === 'Ανώνυμο Αίτημα'
+                    && $postIt->display_requester_name === __('Anonymous Request')
                     && $postIt->is_masked === true
                     && $postIt->description === null
                     && $postIt->is_own === false;

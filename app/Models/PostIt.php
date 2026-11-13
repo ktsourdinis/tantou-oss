@@ -145,6 +145,16 @@ class PostIt extends Model
     }
 
     /**
+     * Get the file attachments on this post-it.
+     *
+     * @return HasMany<PostItAttachment, $this>
+     */
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(PostItAttachment::class);
+    }
+
+    /**
      * Get the handoff and assignment transfers trail.
      *
      * @return HasMany<PostItTransfer, $this>

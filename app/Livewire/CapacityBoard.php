@@ -5,20 +5,26 @@ namespace App\Livewire;
 use App\Events\BoardUpdated;
 use App\Models\Department;
 use App\Models\PostIt;
+use App\Models\PostItAttachment;
 use App\Models\PostItTransfer;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\BountyCalculator;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
 
 #[Layout('layouts.app')]
 class CapacityBoard extends Component
 {
+    use WithFileUploads;
+
     public int $tenantId = 0;
 
     public string $tenantName = '';
@@ -48,6 +54,9 @@ class CapacityBoard extends Component
     #[Validate('nullable|integer|exists:users,id')]
     public ?int $assigneeId = null;
 
+    /** @var array<int, TemporaryUploadedFile> */
+    public array $newAttachments = [];
+
     public bool $showCreateModal = false;
 
     // Co-op Assist Modal properties
@@ -73,6 +82,9 @@ class CapacityBoard extends Component
     public int $slideOverHelperSplit = 20;
 
     public string $newCommentBody = '';
+
+    /** @var array<int, TemporaryUploadedFile> */
+    public array $slideOverNewAttachments = [];
 
     /**
      * Mount the component and initialize the tenant.
@@ -105,6 +117,26 @@ class CapacityBoard extends Component
     public function selectDepartment(?int $departmentId = null): void
     {
         $this->selectedDepartmentId = $departmentId;
+    }
+
+    /**
+     * Switch application locale.
+     */
+    public function switchLocale(string $locale): void
+    {
+        if (! in_array($locale, ['en', 'el'], true)) {
+            return;
+        }
+
+        session()->put('locale', $locale);
+
+        if (Auth::check()) {
+            Auth::user()->update(['locale' => $locale]);
+        }
+
+        app()->setLocale($locale);
+
+        $this->redirect(request()->header('Referer', route('board')));
     }
 
     /**
@@ -522,6 +554,8 @@ class CapacityBoard extends Component
             'priority' => 'required|in:low,normal,high,urgent',
             'weight' => 'required|integer|min:1|max:5',
             'assigneeId' => 'nullable|integer|exists:users,id',
+            'newAttachments' => 'nullable|array|max:5',
+            'newAttachments.*' => 'file|max:10240|mimes:jpg,jpeg,png,webp,gif,pdf,doc,docx,xls,xlsx,csv,txt,zip',
         ]);
 
         $requester = Auth::user()
@@ -532,7 +566,7 @@ class CapacityBoard extends Component
         if ($requester->role === 'client' && $this->assigneeId !== null) {
             $collaborator = User::where('tenant_id', $this->tenantId)->find($this->assigneeId);
             if (! $collaborator || ! $collaborator->is_available || $collaborator->board_visibility !== 'public') {
-                $this->addError('assigneeId', 'This collaborator is currently away or not available for external requests.');
+                $this->addError('assigneeId', __('This collaborator is currently away or not available for external requests.'));
 
                 return;
             }
@@ -563,6 +597,19 @@ class CapacityBoard extends Component
             'started_at' => null,
         ]);
 
+        if (! empty($this->newAttachments)) {
+            foreach ($this->newAttachments as $file) {
+                $storedPath = $file->store("tenants/{$this->tenantId}/post-its/{$postIt->id}", 'local');
+                $postIt->attachments()->create([
+                    'uploader_id' => $requester->id,
+                    'original_name' => $file->getClientOriginalName(),
+                    'file_path' => $storedPath,
+                    'mime_type' => $file->getClientMimeType() ?: ($file->getMimeType() ?: 'application/octet-stream'),
+                    'file_size' => $file->getSize() ?: 0,
+                ]);
+            }
+        }
+
         if ($isAssigned) {
             PostItTransfer::create([
                 'post_it_id' => $postIt->id,
@@ -583,7 +630,7 @@ class CapacityBoard extends Component
             }
         }
 
-        $this->reset(['title', 'description', 'weight', 'priority', 'departmentId', 'assigneeId', 'showCreateModal']);
+        $this->reset(['title', 'description', 'weight', 'priority', 'departmentId', 'assigneeId', 'showCreateModal', 'newAttachments']);
 
         BoardUpdated::dispatch($this->tenantId);
     }
@@ -604,10 +651,10 @@ class CapacityBoard extends Component
             $postIt->display_requester_name = $postIt->requester?->name ?? 'User #'.$postIt->requester_id;
             $postIt->is_masked = false;
         } elseif ($isOwn) {
-            $postIt->display_requester_name = $postIt->requester?->name ?? 'Εγώ';
+            $postIt->display_requester_name = $postIt->requester?->name ?? __('Me');
             $postIt->is_masked = false;
         } else {
-            $postIt->display_requester_name = 'Ανώνυμο Αίτημα';
+            $postIt->display_requester_name = __('Anonymous Request');
             if ($currentUser->role === 'client') {
                 $postIt->is_masked = true;
                 $postIt->description = null;
@@ -752,6 +799,7 @@ class CapacityBoard extends Component
         $this->showSlideOver = false;
         $this->selectedPostItId = null;
         $this->newCommentBody = '';
+        $this->slideOverNewAttachments = [];
     }
 
     /**
@@ -886,6 +934,88 @@ class CapacityBoard extends Component
     }
 
     /**
+     * Auto-save attachments as soon as upload finishes in the slide-over drawer.
+     */
+    public function updatedSlideOverNewAttachments(): void
+    {
+        $this->uploadSlideOverAttachments();
+    }
+
+    /**
+     * Upload one or more attachments to the selected post-it from the slide-over drawer.
+     */
+    public function uploadSlideOverAttachments(): void
+    {
+        if (! $this->selectedPostItId) {
+            return;
+        }
+
+        $postIt = PostIt::where('tenant_id', $this->tenantId)->findOrFail($this->selectedPostItId);
+        $currentUser = Auth::user();
+
+        if (! $currentUser || ! $this->canInspectPostIt($postIt, $currentUser)) {
+            return;
+        }
+
+        $this->validate([
+            'slideOverNewAttachments' => 'required|array|min:1|max:5',
+            'slideOverNewAttachments.*' => 'file|max:10240|mimes:jpg,jpeg,png,webp,gif,pdf,doc,docx,xls,xlsx,csv,txt,zip',
+        ]);
+
+        foreach ($this->slideOverNewAttachments as $file) {
+            $path = $file->store("tenants/{$this->tenantId}/post-its/{$postIt->id}", 'local');
+            $postIt->attachments()->create([
+                'uploader_id' => $currentUser->id,
+                'original_name' => $file->getClientOriginalName(),
+                'file_path' => $path,
+                'mime_type' => $file->getClientMimeType() ?: ($file->getMimeType() ?: 'application/octet-stream'),
+                'file_size' => $file->getSize() ?: 0,
+            ]);
+        }
+
+        $this->slideOverNewAttachments = [];
+        unset($this->selectedPostIt);
+
+        BoardUpdated::dispatch($this->tenantId, $currentUser->id);
+    }
+
+    /**
+     * Delete an attachment from the selected post-it.
+     */
+    public function deleteAttachment(int $attachmentId): void
+    {
+        $currentUser = Auth::user();
+        if (! $currentUser) {
+            return;
+        }
+
+        $attachment = PostItAttachment::whereHas('postIt', function ($q): void {
+            $q->where('tenant_id', $this->tenantId);
+        })->with('postIt')->findOrFail($attachmentId);
+
+        $postIt = $attachment->postIt;
+
+        $canDelete = $currentUser->role === 'admin'
+            || (int) $currentUser->id === (int) $attachment->uploader_id
+            || (int) $currentUser->id === (int) $postIt->assignee_id
+            || ($currentUser->role === 'coordinator' && (
+                (int) $currentUser->department_id === (int) $postIt->department_id ||
+                (int) $currentUser->department_id === (int) $postIt->assignee?->department_id
+            ));
+
+        if (! $canDelete) {
+            return;
+        }
+
+        Storage::disk('local')->delete($attachment->file_path);
+        $attachment->delete();
+
+        unset($this->selectedPostIt);
+
+        BoardUpdated::dispatch($this->tenantId, $currentUser->id);
+    }
+
+    /**
      * Cancel / delete a backlog request (for owner client/worker or admin).
      */
     public function cancelPostIt(): void
@@ -945,6 +1075,7 @@ class CapacityBoard extends Component
                 'transfers.fromUser',
                 'transfers.toUser',
                 'comments' => fn ($query) => $query->with('user')->oldest(),
+                'attachments' => fn ($query) => $query->with('uploader')->latest('id'),
             ])
             ->find($this->selectedPostItId);
 
@@ -985,7 +1116,7 @@ class CapacityBoard extends Component
         $radarTabs = [
             [
                 'id' => null,
-                'name' => 'All Departments',
+                'name' => __('All Departments'),
                 'color' => '#6366f1',
                 'current_capacity' => $allCurrentCap,
                 'max_capacity' => $allMaxCap,
@@ -1019,8 +1150,15 @@ class CapacityBoard extends Component
         $columnsQuery = User::where('tenant_id', $this->tenantId)
             ->with(['department', 'assignedPostIts' => function ($query): void {
                 $query->whereIn('status', ['assigned', 'doing'])
-                    ->withCount('comments')
-                    ->with(['requester', 'assignedBy', 'helper', 'department', 'transfers.toUser']);
+                    ->withCount(['comments', 'attachments'])
+                    ->with([
+                        'requester:id,name,role',
+                        'assignee:id,name,board_visibility',
+                        'helper:id,name',
+                        'assignedBy:id,name',
+                        'department:id,name,color',
+                        'transfers.toUser:id,name',
+                    ]);
             }])
             ->orderBy('name');
 
@@ -1052,8 +1190,15 @@ class CapacityBoard extends Component
                 $query->where('status', 'backlog')
                     ->orWhereNull('assignee_id');
             })
-            ->withCount('comments')
-            ->with(['requester', 'assignedBy', 'department', 'transfers.toUser'])
+            ->withCount(['comments', 'attachments'])
+            ->with([
+                'requester:id,name,role',
+                'assignee:id,name,board_visibility',
+                'helper:id,name',
+                'assignedBy:id,name',
+                'department:id,name,color',
+                'transfers.toUser:id,name',
+            ])
             ->latest('id');
 
         if ($this->selectedDepartmentId !== null) {
@@ -1079,8 +1224,15 @@ class CapacityBoard extends Component
             });
         }
 
-        $donePostIts = $doneQuery->withCount('comments')
-            ->with(['requester', 'assignee', 'assignedBy', 'helper', 'department', 'transfers.toUser'])
+        $donePostIts = $doneQuery->withCount(['comments', 'attachments'])
+            ->with([
+                'requester:id,name,role',
+                'assignee:id,name,board_visibility',
+                'helper:id,name',
+                'assignedBy:id,name',
+                'department:id,name,color',
+                'transfers.toUser:id,name',
+            ])
             ->latest('completed_at')
             ->get();
 

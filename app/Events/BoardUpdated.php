@@ -16,8 +16,24 @@ class BoardUpdated implements ShouldBroadcastNow
      * Create a new event instance.
      */
     public function __construct(
-        public int $tenantId
-    ) {}
+        public int $tenantId,
+        public ?int $actorUserId = null
+    ) {
+        $this->actorUserId ??= auth()->id();
+    }
+
+    /**
+     * Get the data to broadcast.
+     *
+     * @return array<string, mixed>
+     */
+    public function broadcastWith(): array
+    {
+        return [
+            'tenantId' => $this->tenantId,
+            'actorUserId' => $this->actorUserId,
+        ];
+    }
 
     /**
      * Get the channels the event should broadcast on.

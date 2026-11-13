@@ -235,8 +235,8 @@ class Step9BFirewallAndTransferChainTest extends TestCase
         // When viewed by another client, requester is anonymized but forwarded by is displayed
         Livewire::actingAs($anotherClient)
             ->test(CapacityBoard::class)
-            ->assertSee('Ανώνυμο Αίτημα')
-            ->assertSee('Ανάθεση από:')
+            ->assertSee(__('Anonymous Request'))
+            ->assertSee(__('Assigned by'))
             ->assertSee('Nikos Coordinator');
     }
 

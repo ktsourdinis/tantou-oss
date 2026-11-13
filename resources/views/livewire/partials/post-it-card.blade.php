@@ -72,6 +72,7 @@
 @endphp
 
 <div
+    data-post-it-id="{{ $postIt->id }}"
     draggable="{{ $canDrag ? 'true' : 'false' }}"
     @if ($canDrag)
         @dragstart="onDragStart($event, {{ $postIt->id }}, {{ $isClientRequester ? 'true' : 'false' }})"
@@ -82,7 +83,7 @@
     @endif
     class="group relative rounded-xl border border-slate-800 bg-slate-900/90 border-l-4 {{ $priorityBorder }} {{ $weightMinHeight }} p-3 shadow-md hover:shadow-xl hover:border-slate-700 transition-all {{ $isDone ? 'opacity-85' : '' }} {{ $canDrag ? 'cursor-grab active:cursor-grabbing hover:-translate-y-0.5' : ($canInspect ? 'cursor-pointer hover:-translate-y-0.5' : 'cursor-default') }}"
     @if (! $canInspect)
-        title="Προστατευμένο αίτημα (πρόσβαση μόνο για τον αιτούντα και την ομάδα ανάθεσης)"
+        title="{{ __('Protected request (accessible only to requester and assignee team)') }}"
     @endif
 >
     {{-- Card Header: Priority & Department & Bounty Points --}}
@@ -90,22 +91,22 @@
         <div class="flex items-center gap-1.5 flex-wrap">
             {{-- Priority Pill --}}
             <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border {{ $priorityBadge }}">
-                {{ $postIt->priority }}
+                {{ __($postIt->priority) }}
             </span>
 
             {{-- Weight Tag --}}
-            <span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-semibold" title="Weight (Cognitive Load)">
+            <span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px] font-semibold" title="{{ __('Weight (Cognitive Load)') }}">
                 W{{ $postIt->weight }}
             </span>
 
             {{-- Two-Stage Status Indicator (Assigned vs Doing) --}}
             @if ($isAssigned)
-                <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-sky-500/15 text-sky-300 border border-sky-500/30" title="Assigned but not yet started">
-                    Assigned
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-sky-500/15 text-sky-300 border border-sky-500/30" title="{{ __('Assigned but not yet started') }}">
+                    {{ __('Assigned') }}
                 </span>
             @elseif ($isDoing)
-                <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30" title="Actively in progress">
-                    Doing
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30" title="{{ __('Actively in progress') }}">
+                    {{ __('Doing') }}
                 </span>
             @endif
 
@@ -122,20 +123,20 @@
             {{-- User's Own Request Highlight Badge --}}
             @if ($postIt->is_own)
                 <span class="px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-bold border border-indigo-500/40 animate-pulse">
-                    Δικό μου
+                    {{ __('Mine') }}
                 </span>
             @endif
 
             {{-- In Progress Lock for Client --}}
             @if ($isLockedForClient)
-                <span class="px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/40" title="Card is actively being worked on and locked from client reassignment">
-                    🔒 In Progress
+                <span class="px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/40" title="{{ __('Card is actively being worked on and locked from client reassignment') }}">
+                    🔒 {{ __('In Progress') }}
                 </span>
             @endif
         </div>
 
         {{-- Calculated Bounty Points Badge --}}
-        <div class="shrink-0 flex items-center gap-1 font-bold text-xs {{ $isDone ? 'text-emerald-400' : 'text-amber-400' }}" title="Calculated Bounty Points">
+        <div class="shrink-0 flex items-center gap-1 font-bold text-xs {{ $isDone ? 'text-emerald-400' : 'text-amber-400' }}" title="{{ __('Calculated Bounty Points') }}">
             <span>⚡</span>
             <span>{{ $postIt->bounty_points }} pts</span>
         </div>
@@ -153,7 +154,7 @@
         </p>
     @elseif ($postIt->is_masked)
         <p class="text-[10px] text-slate-600 italic mt-1">
-            [Προστατευμένη περιγραφή]
+            [{{ __('Protected description') }}]
         </p>
     @endif
 
@@ -191,7 +192,7 @@
         <div class="flex items-center justify-between text-[10px] text-slate-400">
             {{-- Requester Info (open for internal staff, anonymized for non-admins on other cards) --}}
             <div class="flex items-center gap-1.5 truncate max-w-[130px]">
-                <span class="text-slate-500">Aπό:</span>
+                <span class="text-slate-500">{{ __('From:') }}</span>
                 <span class="truncate font-medium {{ $postIt->is_own ? 'text-indigo-300 font-semibold' : 'text-slate-300' }}">
                     {{ $postIt->display_requester_name }}
                 </span>
@@ -204,10 +205,10 @@
                         wire:click.stop="startPostIt({{ $postIt->id }})"
                         type="button"
                         class="px-2 py-0.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] shadow-sm flex items-center gap-1 transition-all cursor-pointer"
-                        title="Start working on this task (marks as Doing)"
+                        title="{{ __('Start working on this task (marks as Doing)') }}"
                     >
                         <span>▶</span>
-                        <span>Start</span>
+                        <span>{{ __('Start') }}</span>
                     </button>
                 @endif
 
@@ -216,16 +217,23 @@
                         wire:click.stop="openCoOpModal({{ $postIt->id }})"
                         type="button"
                         class="px-1.5 py-0.5 rounded bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 hover:text-purple-200 border border-purple-500/30 transition-all cursor-pointer font-medium text-[10px]"
-                        title="Assign Co-op Assistant"
+                        title="{{ __('Assign Co-op Assistant') }}"
                     >
-                        🤝 Co-op
+                        🤝 {{ __('Co-op') }}
                     </button>
                 @endif
 
                 @if (($postIt->comments_count ?? 0) > 0)
-                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-800/90 text-slate-300 text-[10px] border border-slate-700/60" title="{{ $postIt->comments_count }} σχόλια">
+                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-800/90 text-slate-300 text-[10px] border border-slate-700/60" title="{{ $postIt->comments_count }} {{ __('comments') }}">
                         <span>💬</span>
                         <span class="font-semibold">{{ $postIt->comments_count }}</span>
+                    </span>
+                @endif
+
+                @if (($postIt->attachments_count ?? 0) > 0)
+                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-800/90 text-slate-300 text-[10px] border border-slate-700/60" title="{{ $postIt->attachments_count }} {{ __('attachments') }}">
+                        <span>📎</span>
+                        <span class="font-semibold">{{ $postIt->attachments_count }}</span>
                     </span>
                 @endif
 
@@ -240,7 +248,7 @@
         {{-- Forwarded / Assigned By attribution --}}
         @if (!empty($postIt->display_assigned_by_name) && (int) $postIt->assigned_by_id !== (int) $postIt->requester_id)
             <div class="text-[9px] text-slate-400 truncate flex items-center gap-1">
-                <span class="text-slate-500">Ανάθεση από:</span>
+                <span class="text-slate-500">{{ __('Assigned by:') }}</span>
                 <span class="text-indigo-300 font-medium truncate">{{ $postIt->display_assigned_by_name }}</span>
             </div>
         @endif
