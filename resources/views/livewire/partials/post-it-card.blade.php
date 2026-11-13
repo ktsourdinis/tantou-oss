@@ -81,14 +81,14 @@
     @if ($canInspect)
         @click="if (!didJustDrag && !$event.target.closest('button, select, input, a')) { $wire.openSlideOver({{ $postIt->id }}) }"
     @endif
-    class="group relative rounded-xl border border-slate-800 bg-slate-900/90 border-l-4 {{ $priorityBorder }} {{ $weightMinHeight }} p-3 shadow-md hover:shadow-xl hover:border-slate-700 transition-all {{ $isDone ? 'opacity-85' : '' }} {{ $canDrag ? 'cursor-grab active:cursor-grabbing hover:-translate-y-0.5' : ($canInspect ? 'cursor-pointer hover:-translate-y-0.5' : 'cursor-default') }}"
+    class="group relative rounded-xl border border-slate-800 bg-slate-900/90 border-l-4 {{ $priorityBorder }} {{ $weightMinHeight }} p-3 shadow-md hover:shadow-xl hover:border-slate-700 transition-all min-w-0 max-w-full overflow-hidden {{ $isDone ? 'opacity-85' : '' }} {{ $canDrag ? 'cursor-grab active:cursor-grabbing hover:-translate-y-0.5' : ($canInspect ? 'cursor-pointer hover:-translate-y-0.5' : 'cursor-default') }}"
     @if (! $canInspect)
         title="{{ __('Protected request (accessible only to requester and assignee team)') }}"
     @endif
 >
     {{-- Card Header: Priority & Department & Bounty Points --}}
-    <div class="flex items-center justify-between gap-1.5 mb-1.5">
-        <div class="flex items-center gap-1.5 flex-wrap">
+    <div class="flex items-center justify-between gap-1.5 mb-1.5 min-w-0">
+        <div class="flex items-center gap-1.5 flex-wrap min-w-0">
             {{-- Priority Pill --}}
             <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border {{ $priorityBadge }}">
                 {{ __(ucfirst($postIt->priority)) }}
@@ -143,7 +143,7 @@
     </div>
 
     {{-- Task Title --}}
-    <h4 class="text-xs font-semibold text-slate-100 leading-snug group-hover:text-white transition-colors {{ $isDone ? 'line-through text-slate-400' : '' }}">
+    <h4 class="text-xs font-semibold text-slate-100 leading-snug group-hover:text-white transition-colors break-words min-w-0 {{ $isDone ? 'line-through text-slate-400' : '' }}">
         {{ $postIt->title }}
     </h4>
 

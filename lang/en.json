@@ -254,6 +254,8 @@
     "Live Preview:": "Live Preview:",
     "You do not have access to this workspace.": "You do not have access to this workspace.",
     "Invalid or expired signed URL.": "Invalid or expired signed URL.",
-    "User does not belong to this organization.": "User does not belong to this organization."
+    "User does not belong to this organization.": "User does not belong to this organization.",
+    "Sorted by: In Progress → Priority → Oldest (FIFO)": "Sorted by: In Progress → Priority → Oldest (FIFO)",
+    "Deterministic queue ordering rule for all columns": "Deterministic queue ordering rule for all columns"
 }
 

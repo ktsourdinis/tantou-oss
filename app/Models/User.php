@@ -97,7 +97,7 @@ class User extends Authenticatable
      */
     public function assignedPostIts(): HasMany
     {
-        return $this->hasMany(PostIt::class, 'assignee_id');
+        return $this->hasMany(PostIt::class, 'assignee_id')->smartOrder();
     }
 
     /**
@@ -148,5 +148,58 @@ class User extends Authenticatable
     public function attachments(): HasMany
     {
         return $this->hasMany(PostItAttachment::class, 'uploader_id');
+    }
+
+    /**
+     * Check if user is an admin.
+     */
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    /**
+     * Check if user is a coordinator.
+     */
+    public function isCoordinator(): bool
+    {
+        return $this->role === 'coordinator';
+    }
+
+    /**
+     * Check if user is a worker/collaborator.
+     */
+    public function isWorker(): bool
+    {
+        return $this->role === 'worker';
+    }
+
+    /**
+     * Check if user is a client.
+     */
+    public function isClient(): bool
+    {
+        return $this->role === 'client';
+    }
+
+    /**
+     * Determine if this user is authorized to change the board visibility mode of a target user.
+     * Only admins (for any user within the tenant) or coordinators (for users within their managed department) are allowed.
+     */
+    public function canChangeBoardVisibilityOf(self $targetUser): bool
+    {
+        if ((int) $this->tenant_id !== (int) $targetUser->tenant_id) {
+            return false;
+        }
+
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        if ($this->isCoordinator() && $targetUser->department_id !== null && (int) $this->department_id === (int) $targetUser->department_id) {
+            return true;
+        }
+
+        return false;
     }
 }

@@ -1,5 +1,6 @@
 <div
     x-data="{
+        mobileTab: 'board',
         draggingId: null,
         draggingIsClient: false,
         activeDropZone: null,
@@ -68,113 +69,117 @@
             channel.listen('.BoardUpdated', handleBoardUpdate);
         }
     "
-    class="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white"
+    class="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white overflow-x-hidden"
 >
     {{-- Top Navigation Bar --}}
-    <header class="border-b border-slate-800/80 bg-slate-900/70 backdrop-blur-xl sticky top-0 z-30 px-6 py-3.5">
-        <div class="max-w-[1920px] mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div class="flex items-center space-x-3.5">
-                <a href="{{ route('landing') }}" class="h-10 w-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-amber-400 flex items-center justify-center font-bold text-lg text-white shadow-lg shadow-indigo-500/20 hover:scale-105 transition-transform">
-                    担
-                </a>
-                <div>
-                    <div class="flex items-center gap-2">
-                        <h1 class="text-xl font-bold tracking-tight text-white">Tantou <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">担当</span></h1>
-                        <span class="text-slate-600 text-sm">/</span>
-                        <span class="text-slate-300 font-semibold text-sm">{{ $tenantName }}</span>
+    <header class="border-b border-slate-800/80 bg-slate-900/70 backdrop-blur-xl sticky top-0 z-30 px-4 sm:px-6 py-3">
+        <div class="max-w-[1920px] mx-auto flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div class="flex items-center justify-between gap-3 w-full md:w-auto">
+                <div class="flex items-center space-x-3 min-w-0">
+                    <a href="{{ route('landing') }}" class="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-amber-400 flex items-center justify-center font-bold text-base sm:text-lg text-white shadow-lg shadow-indigo-500/20 hover:scale-105 transition-transform shrink-0">
+                        担
+                    </a>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                            <h1 class="text-lg sm:text-xl font-bold tracking-tight text-white truncate">Tantou <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">担当</span></h1>
+                            <span class="text-slate-600 text-sm">/</span>
+                            <span class="text-slate-300 font-semibold text-xs sm:text-sm truncate">{{ $tenantName }}</span>
+                        </div>
+                        <p class="hidden md:block text-[11px] text-slate-400 truncate">{{ __('Human Capacity OS & Workload Marketplace') }}</p>
                     </div>
-                    <p class="text-[11px] text-slate-400">{{ __('Human Capacity OS & Workload Marketplace') }}</p>
                 </div>
+
+                {{-- Navigation Switcher (Capacity Board vs Team & Leaderboard) --}}
+                <nav class="flex items-center p-1 rounded-xl bg-slate-950/80 border border-slate-800 text-xs shrink-0">
+                    <a
+                        href="{{ route('board') }}"
+                        class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold bg-indigo-600 text-white shadow-sm transition-all"
+                    >
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" /></svg>
+                        <span>{{ __('Capacity Board') }}</span>
+                    </a>
+
+                    @if (auth()->user()?->role !== 'client')
+                        <a
+                            href="{{ route('team') }}"
+                            class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg font-medium text-slate-400 hover:text-slate-200 transition-all"
+                        >
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                            <span class="hidden sm:inline">{{ __('Team & Leaderboard') }}</span>
+                        </a>
+                    @endif
+                </nav>
             </div>
 
-            {{-- Navigation Switcher (Capacity Board vs Team & Leaderboard) --}}
-            <nav class="flex items-center p-1 rounded-xl bg-slate-950/80 border border-slate-800 text-xs">
-                <a
-                    href="{{ route('board') }}"
-                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold bg-indigo-600 text-white shadow-sm transition-all"
-                >
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" /></svg>
-                    <span>{{ __('Capacity Board') }}</span>
-                </a>
-
-                @if (auth()->user()?->role !== 'client')
-                    <a
-                        href="{{ route('team') }}"
-                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium text-slate-400 hover:text-slate-200 transition-all"
-                    >
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-                        <span>{{ __('Team & Leaderboard') }}</span>
-                    </a>
-                @endif
-            </nav>
-
-            <div class="flex items-center gap-3">
-                {{-- Language Switcher (EN | ΕΛ) --}}
-                <x-language-switcher />
-
-                {{-- Live Reverb Status Indicator --}}
-                <div class="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-950/60 border border-emerald-800/40 text-emerald-400 text-xs font-medium">
-                    <span class="relative flex h-2 w-2">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    {{ __('Reverb Sync Live') }}
-                </div>
-
-                {{-- View Density Toggle --}}
-                <button
-                    wire:click="toggleCompactView"
-                    type="button"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-xs font-medium text-slate-300 transition-colors cursor-pointer"
-                    title="{{ __('Toggle Card Density') }}"
-                >
-                    <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
-                    <span>{{ $isCompact ? __('Compact') : __('Detailed') }}</span>
-                </button>
-
-                @auth
-                    {{-- User Profile Indicator --}}
-                    <div class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-800/70 border border-slate-700/60 text-xs">
-                        <div class="h-6 w-6 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold flex items-center justify-center text-xs">
-                            {{ substr(auth()->user()->name, 0, 1) }}
-                        </div>
-                        <div class="flex flex-col">
-                            <span class="font-semibold text-slate-200 leading-tight">{{ auth()->user()->name }}</span>
-                            <div class="flex items-center gap-1.5 text-[10px]">
-                                <span class="capitalize px-1.5 py-0.2 rounded font-medium {{ auth()->user()->role === 'admin' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : (auth()->user()->role === 'worker' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-blue-500/20 text-blue-300 border border-blue-500/30') }}">
-                                    {{ __(ucfirst(auth()->user()->role)) }}
-                                </span>
-                                @if (auth()->user()->role === 'worker')
-                                    <span class="text-amber-400 font-medium">★ {{ auth()->user()->total_points }} pts</span>
-                                @endif
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- Logout Button --}}
-                    <button
-                        wire:click="logout"
-                        type="button"
-                        class="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all cursor-pointer"
-                        title="{{ __('Sign Out') }}"
-                    >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                        </svg>
-                    </button>
-                @endauth
-
+            <div class="flex flex-wrap items-center gap-2 w-full md:w-auto justify-between sm:justify-end">
                 {{-- Create Post-It Button --}}
                 <button
                     wire:click="$set('showCreateModal', true)"
                     type="button"
-                    class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
+                    class="w-full sm:w-auto justify-center order-first sm:order-last inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
                 >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
                     <span>{{ __('New Post-it') }}</span>
                 </button>
+
+                <div class="flex items-center gap-2 flex-wrap">
+                    {{-- Language Switcher (EN | ΕΛ) --}}
+                    <x-language-switcher />
+
+                    {{-- Live Reverb Status Indicator --}}
+                    <div class="hidden sm:inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-emerald-950/60 border border-emerald-800/40 text-emerald-400 text-xs font-medium">
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        <span class="hidden md:inline">{{ __('Reverb Sync Live') }}</span>
+                    </div>
+
+                    {{-- View Density Toggle --}}
+                    <button
+                        wire:click="toggleCompactView"
+                        type="button"
+                        class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-xs font-medium text-slate-300 transition-colors cursor-pointer"
+                        title="{{ __('Toggle Card Density') }}"
+                    >
+                        <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
+                        <span>{{ $isCompact ? __('Compact') : __('Detailed') }}</span>
+                    </button>
+
+                    @auth
+                        {{-- User Profile Indicator --}}
+                        <div class="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-slate-800/70 border border-slate-700/60 text-xs max-w-[140px] sm:max-w-none">
+                            <div class="h-6 w-6 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold flex items-center justify-center text-xs shrink-0">
+                                {{ substr(auth()->user()->name, 0, 1) }}
+                            </div>
+                            <div class="flex flex-col min-w-0">
+                                <span class="font-semibold text-slate-200 leading-tight truncate text-xs">{{ auth()->user()->name }}</span>
+                                <div class="hidden sm:flex items-center gap-1.5 text-[10px]">
+                                    <span class="capitalize px-1.5 py-0.2 rounded font-medium {{ auth()->user()->role === 'admin' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : (auth()->user()->role === 'worker' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-blue-500/20 text-blue-300 border border-blue-500/30') }}">
+                                        {{ __(ucfirst(auth()->user()->role)) }}
+                                    </span>
+                                    @if (auth()->user()->role === 'worker')
+                                        <span class="text-amber-400 font-medium">★ {{ auth()->user()->total_points }} pts</span>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Logout Button --}}
+                        <button
+                            wire:click="logout"
+                            type="button"
+                            class="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all cursor-pointer"
+                            title="{{ __('Sign Out') }}"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                        </button>
+                    @endauth
+                </div>
             </div>
         </div>
     </header>
@@ -216,27 +221,78 @@
                 @endforeach
             </div>
 
-            <div class="hidden lg:flex items-center gap-4 text-[11px] text-slate-400 shrink-0">
-                <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-emerald-400"></span> {{ __('Healthy (<70%)') }}</span>
-                <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-amber-400"></span> {{ __('Busy (70-99%)') }}</span>
-                <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></span> {{ __('Max (>=100%)') }}</span>
+            <div class="hidden md:flex items-center gap-4 text-[11px] text-slate-400 shrink-0">
+                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/60 border border-slate-800/80 text-slate-300" title="{{ __('Deterministic queue ordering rule for all columns') }}">
+                    <svg class="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                    </svg>
+                    <span>{{ __('Sorted by: In Progress → Priority → Oldest (FIFO)') }}</span>
+                </div>
+
+                <div class="hidden lg:flex items-center gap-4">
+                    <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-emerald-400"></span> {{ __('Healthy (<70%)') }}</span>
+                    <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-amber-400"></span> {{ __('Busy (70-99%)') }}</span>
+                    <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></span> {{ __('Max (>=100%)') }}</span>
+                </div>
             </div>
         </div>
     </div>
 
     {{-- Main Kanban Canvas Layout with Collapsible Backlog & Done Drawers --}}
-    <main class="flex-1 p-6 overflow-x-auto">
-        <div class="max-w-[1920px] mx-auto flex gap-5 items-start">
+    <main class="flex-1 p-3 sm:p-6 overflow-x-auto">
+        {{-- Mobile-Only 3-Tab Switcher Bar --}}
+        <div class="flex md:hidden items-center justify-between gap-1 p-1 bg-slate-900/90 border border-slate-800 rounded-xl mb-3">
+            <button
+                @click="mobileTab = 'backlog'"
+                type="button"
+                :class="mobileTab === 'backlog' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'"
+                class="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+            >
+                <span>{{ __('Backlog') }}</span>
+                <span :class="mobileTab === 'backlog' ? 'bg-indigo-700/60 text-white' : 'bg-slate-800 text-slate-300'" class="px-1.5 py-0.2 rounded-full text-[10px]">
+                    {{ $backlogPostIts->count() }}
+                </span>
+            </button>
+
+            <button
+                @click="mobileTab = 'board'"
+                type="button"
+                :class="mobileTab === 'board' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'"
+                class="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+            >
+                <span>{{ __('Collaborators') }}</span>
+                <span :class="mobileTab === 'board' ? 'bg-indigo-700/60 text-white' : 'bg-slate-800 text-slate-300'" class="px-1.5 py-0.2 rounded-full text-[10px]">
+                    {{ $workers->count() }}
+                </span>
+            </button>
+
+            <button
+                @click="mobileTab = 'completed'"
+                type="button"
+                :class="mobileTab === 'completed' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'"
+                class="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+            >
+                <span>{{ __('Completed') }}</span>
+                <span :class="mobileTab === 'completed' ? 'bg-emerald-700/60 text-white' : 'bg-slate-800 text-slate-300'" class="px-1.5 py-0.2 rounded-full text-[10px]">
+                    {{ $donePostIts->count() }}
+                </span>
+            </button>
+        </div>
+
+        <div class="max-w-[1920px] mx-auto flex flex-col md:flex-row gap-5 items-start">
 
             {{-- 1. BACKLOG DRAWER (Left) --}}
             <div
-                :class="openBacklog ? 'w-80 shrink-0' : 'w-12 shrink-0'"
-                class="transition-all duration-300 flex flex-col"
+                :class="[
+                    mobileTab === 'backlog' ? 'w-full flex' : 'hidden md:flex',
+                    openBacklog ? 'md:w-80 md:shrink-0' : 'md:w-12 md:shrink-0'
+                ]"
+                class="transition-all duration-300 flex-col"
             >
-                <div class="rounded-2xl bg-slate-900/60 border border-slate-800/70 p-3.5 flex flex-col shadow-xl">
+                <div class="rounded-2xl bg-slate-900/60 border border-slate-800/70 p-3.5 flex flex-col shadow-xl w-full">
                     <div class="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-3">
-                        <div x-show="openBacklog" class="flex items-center gap-2">
-                            <span class="text-xs font-bold text-slate-200 uppercase tracking-wider">{{ __('Unassigned') }}</span>
+                        <div :class="openBacklog || mobileTab === 'backlog' ? 'flex' : 'hidden md:hidden'" class="items-center gap-2">
+                            <span class="text-xs font-bold text-slate-200 uppercase tracking-wider" title="{{ __('Sorted by: In Progress → Priority → Oldest (FIFO)') }}">{{ __('Unassigned') }}</span>
                             <span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 text-[11px] font-bold">
                                 {{ $backlogPostIts->count() }}
                             </span>
@@ -244,7 +300,7 @@
                         <button
                             @click="openBacklog = !openBacklog"
                             type="button"
-                            class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                            class="hidden md:inline-flex p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
                             :title="openBacklog ? '{{ __('Collapse Backlog') }}' : '{{ __('Expand Backlog') }}'"
                         >
                             <svg x-show="openBacklog" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
@@ -252,8 +308,8 @@
                         </button>
                     </div>
 
-                    {{-- Collapsed Indicator --}}
-                    <div x-show="!openBacklog" class="flex flex-col items-center py-6 gap-3 cursor-pointer" @click="openBacklog = true">
+                    {{-- Collapsed Indicator (Desktop Only) --}}
+                    <div x-show="!openBacklog" class="hidden md:flex flex-col items-center py-6 gap-3 cursor-pointer" @click="openBacklog = true">
                         <span class="[writing-mode:vertical-rl] text-xs font-bold text-slate-400 tracking-wider uppercase rotate-180">
                             {{ __('Backlog') }} ({{ $backlogPostIts->count() }})
                         </span>
@@ -261,11 +317,13 @@
 
                     {{-- Expanded Card List Drop Zone --}}
                     <div
-                        x-show="openBacklog"
+                        :class="[
+                            openBacklog || mobileTab === 'backlog' ? 'block' : 'hidden md:hidden',
+                            activeDropZone === 'backlog' ? 'border-indigo-500 bg-indigo-950/20' : 'border-transparent'
+                        ]"
                         @dragover.prevent="onDragOver('backlog')"
                         @dragleave="onDragLeave('backlog')"
                         @drop.prevent="onDrop($event, null, 'backlog')"
-                        :class="activeDropZone === 'backlog' ? 'border-indigo-500 bg-indigo-950/20' : 'border-transparent'"
                         class="space-y-3 min-h-[300px] rounded-xl border-2 border-dashed p-1 transition-all"
                     >
                         @forelse ($backlogPostIts as $postIt)
@@ -280,7 +338,10 @@
             </div>
 
             {{-- 2. WORKER CAPACITY COLUMNS (Center / Marketplace) --}}
-            <div class="flex-1 flex gap-5 overflow-x-auto pb-4">
+            <div
+                :class="mobileTab === 'board' ? 'flex' : 'hidden md:flex'"
+                class="flex-1 w-full gap-4 sm:gap-5 overflow-x-auto snap-x snap-mandatory pb-4"
+            >
                 @forelse ($workers as $worker)
                     @php
                         $loadRatio = $worker->max_capacity > 0 ? ($worker->current_capacity / $worker->max_capacity) * 100 : 0;
@@ -302,26 +363,25 @@
                             (auth()->user()->role === 'coordinator' && $worker->department_id !== null && (int) auth()->user()->department_id === (int) $worker->department_id)
                         );
 
-                        $canChangeVisibility = auth()->user() && (
-                            auth()->user()->role === 'admin' ||
-                            (int) auth()->user()->id === (int) $worker->id ||
-                            (auth()->user()->role === 'coordinator' && $worker->department_id !== null && (int) auth()->user()->department_id === (int) $worker->department_id)
-                        );
+                        $canChangeVisibility = auth()->user()?->canChangeBoardVisibilityOf($worker) ?? false;
                     @endphp
 
-                    <div class="w-64 shrink-0 flex flex-col rounded-2xl border {{ $headerBg }} p-3.5 shadow-xl transition-all {{ $isAway ? 'opacity-60 saturate-50' : '' }}">
+                    <div
+                        class="w-[calc(100vw-2rem)] sm:w-[320px] md:w-[340px] shrink-0 snap-center flex flex-col rounded-2xl border {{ $headerBg }} p-3.5 shadow-xl transition-all min-w-0 {{ $isAway ? 'opacity-60 saturate-50' : '' }}"
+                        title="{{ __('Sorted by: In Progress → Priority → Oldest (FIFO)') }}"
+                    >
                         {{-- Worker Header --}}
-                        <div class="pb-3 border-b border-slate-800/80 mb-3 space-y-2">
-                            <div class="flex items-center justify-between">
+                        <div class="pb-3 border-b border-slate-800/80 mb-3 space-y-2 min-w-0">
+                            <div class="flex items-center justify-between gap-2 min-w-0">
                                 <div class="flex items-center gap-2 min-w-0">
                                     <div class="h-7 w-7 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold flex items-center justify-center text-xs shrink-0">
                                         {{ substr($worker->name, 0, 1) }}
                                     </div>
                                     <div class="min-w-0">
                                         <h3 class="text-xs font-bold text-white truncate flex items-center gap-1.5">
-                                            <span>{{ $worker->name }}</span>
+                                            <span class="truncate">{{ $worker->name }}</span>
                                             @if ($isAway)
-                                                <span class="px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-bold">
+                                                <span class="px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-bold shrink-0">
                                                     {{ __('AWAY') }}
                                                 </span>
                                             @endif
@@ -337,7 +397,7 @@
                             </div>
 
                             {{-- Availability Toggle & Column Visibility Controls --}}
-                            <div class="flex items-center justify-between gap-1.5 pt-1 text-[10px]">
+                            <div class="flex items-center justify-between gap-1.5 pt-1 text-[10px] min-w-0 flex-wrap">
                                 {{-- Working / Away Interactive Toggle --}}
                                 @if ($canToggleAvailability)
                                     <button
@@ -369,7 +429,7 @@
                                         <option value="none" @selected($worker->board_visibility === 'none')>{{ __('Hidden (None)') }}</option>
                                     </select>
                                 @else
-                                    <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider {{ $worker->board_visibility === 'public' ? 'bg-indigo-500/10 text-indigo-300 border border-indigo-500/20' : ($worker->board_visibility === 'internal' ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20' : 'bg-purple-500/10 text-purple-300 border border-purple-500/20') }}">
+                                    <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider cursor-default {{ $worker->board_visibility === 'public' ? 'bg-indigo-500/10 text-indigo-300 border border-indigo-500/20' : ($worker->board_visibility === 'internal' ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20' : ($worker->board_visibility === 'private' ? 'bg-purple-500/10 text-purple-300 border border-purple-500/20' : 'bg-slate-500/10 text-slate-300 border border-slate-500/20')) }}">
                                         {{ __(ucfirst($worker->board_visibility)) }}
                                     </span>
                                 @endif
@@ -396,7 +456,7 @@
                                 activeDropZone === 'worker-{{ $worker->id }}' ? 'border-indigo-500 bg-indigo-950/20' : 'border-transparent',
                                 (draggingIsClient && {{ $isNonPublic ? 'true' : 'false' }}) ? 'opacity-30 border-rose-500/40 cursor-not-allowed' : ''
                             ]"
-                            class="space-y-3 min-h-[300px] rounded-xl border-2 border-dashed p-1 transition-all"
+                            class="space-y-3 min-h-[300px] rounded-xl border-2 border-dashed p-1 transition-all min-w-0"
                         >
                             @forelse ($worker->assignedPostIts as $postIt)
                                 @include('livewire.partials.post-it-card', ['postIt' => $postIt, 'zone' => 'doing', 'worker' => $worker])
@@ -416,22 +476,25 @@
 
             {{-- 3. DONE DRAWER (Right) --}}
             <div
-                :class="openDone ? 'w-80 shrink-0' : 'w-12 shrink-0'"
-                class="transition-all duration-300 flex flex-col"
+                :class="[
+                    mobileTab === 'completed' ? 'w-full flex' : 'hidden md:flex',
+                    openDone ? 'md:w-80 md:shrink-0' : 'md:w-12 md:shrink-0'
+                ]"
+                class="transition-all duration-300 flex-col"
             >
-                <div class="rounded-2xl bg-slate-900/60 border border-slate-800/70 p-3.5 flex flex-col shadow-xl">
+                <div class="rounded-2xl bg-slate-900/60 border border-slate-800/70 p-3.5 flex flex-col shadow-xl w-full">
                     <div class="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-3">
                         <button
                             @click="openDone = !openDone"
                             type="button"
-                            class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                            class="hidden md:inline-flex p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
                             :title="openDone ? '{{ __('Collapse Completed') }}' : '{{ __('Expand Completed') }}'"
                         >
                             <svg x-show="openDone" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                             <svg x-show="!openDone" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
                         </button>
 
-                        <div x-show="openDone" class="flex items-center gap-2">
+                        <div :class="openDone || mobileTab === 'completed' ? 'flex' : 'hidden md:hidden'" class="items-center gap-2">
                             <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">{{ __('Completed') }}</span>
                             <span class="px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-800/40 text-[11px] font-bold">
                                 {{ $donePostIts->count() }}
@@ -439,8 +502,8 @@
                         </div>
                     </div>
 
-                    {{-- Collapsed Indicator --}}
-                    <div x-show="!openDone" class="flex flex-col items-center py-6 gap-3 cursor-pointer" @click="openDone = true">
+                    {{-- Collapsed Indicator (Desktop Only) --}}
+                    <div x-show="!openDone" class="hidden md:flex flex-col items-center py-6 gap-3 cursor-pointer" @click="openDone = true">
                         <span class="[writing-mode:vertical-rl] text-xs font-bold text-emerald-400 tracking-wider uppercase rotate-180">
                             {{ __('Completed') }} ({{ $donePostIts->count() }})
                         </span>
@@ -448,11 +511,13 @@
 
                     {{-- Expanded Card List Drop Zone --}}
                     <div
-                        x-show="openDone"
+                        :class="[
+                            openDone || mobileTab === 'completed' ? 'block' : 'hidden md:hidden',
+                            activeDropZone === 'done' ? 'border-emerald-500 bg-emerald-950/20' : 'border-transparent'
+                        ]"
                         @dragover.prevent="onDragOver('done')"
                         @dragleave="onDragLeave('done')"
                         @drop.prevent="onDrop($event, null, 'done')"
-                        :class="activeDropZone === 'done' ? 'border-emerald-500 bg-emerald-950/20' : 'border-transparent'"
                         class="space-y-3 min-h-[300px] rounded-xl border-2 border-dashed p-1 transition-all"
                     >
                         @forelse ($donePostIts as $postIt)
