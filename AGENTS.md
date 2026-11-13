@@ -178,10 +178,13 @@ This is a Multi-Tenant architecture (using a single database with `tenant_id` fo
    - Belongs to a `Tenant` (`tenant_id`, `name`, `slug`, `color`).
    - Groups users and categorizes post-its.
 
-3. **User (The Worker/Client/Admin):**
+3. **User (The Worker/Coordinator/Client/Admin):**
    - Belongs to a `Tenant` (`tenant_id`).
    - Belongs to a `Department` (`department_id`, nullable).
-   - Role: `admin`, `worker`, `client`.
+   - 4 Roles: `admin`, `coordinator` (Team Lead for their department), `worker`, `client`.
+   - Column & Availability fields:
+     - `board_visibility`: `'public'`, `'internal'`, `'private'`, `'none'`.
+     - `is_available`: boolean (`true` = Working 🟢, `false` = Away 🌙).
    - Capacity & Gamification fields: `current_capacity`, `max_capacity`, `total_points`.
 
 4. **PostIt (The Task/Ticket):**
@@ -189,20 +192,45 @@ This is a Multi-Tenant architecture (using a single database with `tenant_id` fo
    - Belongs to a `Department` (`department_id`, nullable).
    - `requester_id` (User who created it).
    - `assignee_id` (User who took it - The "Tantou", nullable).
-   - `helper_id` (Co-op assistant worker, nullable).
+   - `helper_id` (Co-op assistant worker, nullable, must not equal `assignee_id`).
    - `helper_split` (Integer 0–50%: percentage of bounty split awarded to helper upon completion).
-   - `title`, `description` (nullable), `status` (`backlog`, `doing`, `done`).
+   - `title`, `description` (nullable), `status` (`backlog`, `assigned`, `doing`, `done`).
    - `weight` (Integer 1–5: represents cognitive load / capacity consumption & card height).
    - `priority` (`low`, `normal`, `high`, `urgent` — represents visual urgency).
-   - `bounty_points` (Integer default 0: system-calculated gamification points based on weight, priority multiplier, and historical duration bonus, replacing manual complexity score).
+   - `bounty_points` (Integer default 0: system-calculated gamification points based on weight, priority multiplier, and historical duration bonus).
    - `started_at`, `completed_at` (timestamps for tracking execution and historical duration metrics).
 
-5. **Visibility & Privacy Rules:**
-   - **Admins:** Full visibility into all requests, requesters, descriptions, and columns.
+5. **Column Visibility Modes & Dual-Lens Department Radar:**
+   - **Board Columns:** Visible users whose `board_visibility` is `'public'`, `'internal'`, or `'private'`:
+     - `client` viewers ONLY see columns where `board_visibility === 'public'`.
+     - Internal staff (`worker`, `coordinator`, `admin`) see `'public'` and `'internal'` columns, plus their own column if `'private'` (strictly owner-only).
+   - **Dual-Lens Radar:**
+     - For `client` viewers: aggregates only available (`is_available === true`) `'public'` collaborator columns.
+     - For internal staff (`worker`, `coordinator`, `admin`): aggregates available `'public'` + `'internal'` columns (excluding private columns and away staff).
+   - **Availability Toggle:** Away collaborators (`is_available === false`) are visually dimmed with an `"AWAY"` badge, cannot receive client requests, and their `max_capacity` is excluded from the Department Radar denominator.
+
+6. **Two-Stage Active Workflow (`assigned` vs `doing`) & Reassignment:**
+   - When a card is placed on a collaborator's column, it starts as `status = 'assigned'` (`started_at = null`). Both `'assigned'` and `'doing'` consume worker capacity.
+   - Clicking **"▶ Start"** transitions the card to `status = 'doing'` and sets `started_at = now()`.
+   - Clients can reassign their own unstarted cards (`status = 'assigned'` or `'backlog'`) between available public collaborators. Once started (`status = 'doing'`), the card is locked for client moves.
+   - Coordinators can rebalance/move cards across collaborators within their department.
+   - Moving a card back to `backlog` automatically resets `helper_id = null`, `helper_split = 0`, and `started_at = null`. Helpers must match the collaborator's column mode (`public` with `public`, `internal` with `internal`; `private` has no Co-op).
+
+7. **Visibility & Privacy Rules:**
+   - **Admins & Coordinators (within dept):** Full visibility into requests and team load.
    - **Non-admin users (Workers & Clients):**
-     - See their own requests with full details across all columns (`backlog`, `doing`, `done`).
-     - Active requests (`backlog` and `doing`) of other users appear anonymized (requester identity hidden; description hidden from clients) so the board reflects real team capacity without leaking sensitive requester context.
+     - See their own requests with full details across all columns (`backlog`, `assigned`, `doing`, `done`).
+     - Active requests (`backlog`, `assigned`, `doing`) of other users appear anonymized (requester identity hidden; description hidden from clients).
      - Completed (`done`) requests of other users are excluded completely.
+
+8. **Away Column Exclusion for Clients & Strict Internal Column Firewall (Step 9B):**
+   - **Client Away Filter:** Collaborators where `is_available === false` are completely excluded from client board columns and the "New Post-it" modal collaborator selector. Internal staff (`worker`, `coordinator`, `admin`) continue to see away columns (dimmed with `AWAY` badge).
+   - **Strict Firewall:** Post-its created by `client` users can ONLY enter `'public'` columns. Dragging or assigning a client-originated Post-it onto an `'internal'` or `'private'` column is blocked for ALL roles (including admins and coordinators). `'internal'` columns can only receive requests originated by internal staff (`worker`, `coordinator`, `admin`).
+
+9. **Assignment Flow Chain (`PostItTransfer`) & Open Collaborator Attribution (Step 9B):**
+   - **Workflow Trail:** Every handoff (`assigned`, `transferred`, `started`, `completed`, `unassigned`) is tracked in `post_it_transfers` with `actor_id`, `from_user_id`, and `to_user_id`. `assigned_by_id` is maintained on `post_its`.
+   - **Open Attribution:** Requests created by internal staff or forwarded by colleagues openly display the collaborator's name (`"Από: {Requester}"` and `"Ανάθεση από: {AssignedBy}"`). Collaborators are never anonymized during internal assignments.
+   - **Visual Flow Chain:** Cards that move across collaborators render an ordered assignee chain badge (e.g. `🔀 Nikos → Elena → Kostas → ✓`) and a dedicated timeline inside the Card Detail Slide-Over.
 
 ## 4. The "Killer Feature" (UX/UI Rule)
 The central component of Tantou is the `Livewire` board. 

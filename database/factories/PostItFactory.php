@@ -24,6 +24,7 @@ class PostItFactory extends Factory
             'department_id' => null,
             'requester_id' => User::factory(),
             'assignee_id' => null,
+            'assigned_by_id' => null,
             'helper_id' => null,
             'helper_split' => 0,
             'title' => fake()->sentence(4),

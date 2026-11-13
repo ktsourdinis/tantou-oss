@@ -35,6 +35,8 @@ class UserFactory extends Factory
             'tenant_id' => null,
             'department_id' => null,
             'role' => 'worker',
+            'board_visibility' => 'public',
+            'is_available' => true,
             'current_capacity' => 0,
             'max_capacity' => 10,
             'total_points' => 0,
@@ -78,6 +80,18 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'role' => 'admin',
+            'board_visibility' => 'none',
+        ]);
+    }
+
+    /**
+     * Indicate that the user is a coordinator (team lead for department).
+     */
+    public function coordinator(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'coordinator',
+            'board_visibility' => 'public',
         ]);
     }
 
@@ -88,6 +102,7 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'role' => 'worker',
+            'board_visibility' => 'public',
         ]);
     }
 
@@ -98,6 +113,27 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'role' => 'client',
+            'board_visibility' => 'none',
+        ]);
+    }
+
+    /**
+     * Indicate that the user is away.
+     */
+    public function away(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_available' => false,
+        ]);
+    }
+
+    /**
+     * Indicate board visibility mode.
+     */
+    public function withVisibility(string $visibility): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'board_visibility' => $visibility,
         ]);
     }
 }

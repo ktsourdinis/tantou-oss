@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Events\BoardUpdated;
 use App\Models\Department;
 use App\Models\PostIt;
+use App\Models\PostItTransfer;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\BountyCalculator;
@@ -148,13 +149,31 @@ class CapacityBoard extends Component
             return;
         }
 
-        $postIt = PostIt::where('tenant_id', $this->tenantId)->findOrFail($this->coOpPostItId);
+        $postIt = PostIt::where('tenant_id', $this->tenantId)->with('assignee')->findOrFail($this->coOpPostItId);
 
         $currentUser = Auth::user();
-        $canManage = $currentUser && ($currentUser->role === 'admin' || (int) $currentUser->id === (int) $postIt->assignee_id);
+        $isCoordinator = $currentUser && $currentUser->role === 'coordinator' && (
+            (int) $currentUser->department_id === (int) $postIt->department_id ||
+            (int) $currentUser->department_id === (int) $postIt->assignee?->department_id
+        );
+        $canManage = $currentUser && ($currentUser->role === 'admin' || $isCoordinator || (int) $currentUser->id === (int) $postIt->assignee_id);
 
         if (! $canManage) {
             return;
+        }
+
+        // Enforce Co-op matching & self-assignment prevention
+        if ($this->coOpHelperId !== null) {
+            if ($this->coOpHelperId === (int) $postIt->assignee_id) {
+                return; // User cannot be assigned as their own helper
+            }
+
+            $helper = User::where('tenant_id', $this->tenantId)->find($this->coOpHelperId);
+            $assigneeVisibility = $postIt->assignee?->board_visibility;
+
+            if (! $helper || $assigneeVisibility === 'private' || $helper->board_visibility !== $assigneeVisibility) {
+                return; // Mode mismatch or private column
+            }
         }
 
         $postIt->update([
@@ -169,11 +188,120 @@ class CapacityBoard extends Component
     }
 
     /**
+     * Start working on an assigned post-it card (transitions 'assigned' -> 'doing').
+     */
+    public function startPostIt(int $postItId): void
+    {
+        $postIt = PostIt::where('tenant_id', $this->tenantId)->with('assignee')->findOrFail($postItId);
+
+        $currentUser = Auth::user();
+        if (! $currentUser) {
+            return;
+        }
+
+        $canStart = $currentUser->role === 'admin'
+            || (int) $postIt->assignee_id === (int) $currentUser->id
+            || (
+                $currentUser->role === 'coordinator' &&
+                (
+                    (int) $postIt->department_id === (int) $currentUser->department_id ||
+                    (int) $postIt->assignee?->department_id === (int) $currentUser->department_id
+                )
+            );
+
+        if (! $canStart) {
+            return;
+        }
+
+        $postIt->update([
+            'status' => 'doing',
+            'started_at' => now(),
+        ]);
+
+        PostItTransfer::create([
+            'post_it_id' => $postIt->id,
+            'actor_id' => $currentUser->id,
+            'from_user_id' => $postIt->assignee_id,
+            'to_user_id' => $postIt->assignee_id,
+            'action' => 'started',
+            'created_at' => now(),
+        ]);
+
+        BoardUpdated::dispatch($this->tenantId);
+    }
+
+    /**
+     * Toggle collaborator working / away availability state.
+     */
+    public function toggleAvailability(int $userId): void
+    {
+        $currentUser = Auth::user();
+        if (! $currentUser) {
+            return;
+        }
+
+        $targetUser = User::where('tenant_id', $this->tenantId)->findOrFail($userId);
+
+        $canToggle = $currentUser->role === 'admin'
+            || (int) $currentUser->id === (int) $targetUser->id
+            || (
+                $currentUser->role === 'coordinator' &&
+                $targetUser->department_id !== null &&
+                (int) $targetUser->department_id === (int) $currentUser->department_id
+            );
+
+        if (! $canToggle) {
+            return;
+        }
+
+        $targetUser->update([
+            'is_available' => ! $targetUser->is_available,
+        ]);
+
+        BoardUpdated::dispatch($this->tenantId);
+    }
+
+    /**
+     * Update collaborator board visibility mode (public, internal, private, none).
+     */
+    public function updateBoardVisibility(int $userId, string $visibility): void
+    {
+        if (! in_array($visibility, ['public', 'internal', 'private', 'none'], true)) {
+            return;
+        }
+
+        $currentUser = Auth::user();
+        if (! $currentUser) {
+            return;
+        }
+
+        $targetUser = User::where('tenant_id', $this->tenantId)->findOrFail($userId);
+
+        $canChange = $currentUser->role === 'admin'
+            || (int) $currentUser->id === (int) $targetUser->id
+            || (
+                $currentUser->role === 'coordinator' &&
+                $targetUser->department_id !== null &&
+                (int) $targetUser->department_id === (int) $currentUser->department_id
+            );
+
+        if (! $canChange) {
+            return;
+        }
+
+        $targetUser->update([
+            'board_visibility' => $visibility,
+        ]);
+
+        BoardUpdated::dispatch($this->tenantId);
+    }
+
+    /**
      * Move a post-it to a target column/worker and update capacity & bounty splits.
      */
     public function movePostIt(int $postItId, ?int $assigneeId, string $targetStatus): void
     {
-        $postIt = PostIt::where('tenant_id', $this->tenantId)->findOrFail($postItId);
+        $postIt = PostIt::where('tenant_id', $this->tenantId)->with(['assignee', 'requester'])->findOrFail($postItId);
 
         $currentUser = Auth::user();
         if (! $currentUser) {
@@ -181,11 +309,36 @@ class CapacityBoard extends Component
         }
 
         // Strict role-based guardrails:
-        // admin: Can drag/move any card across any column.
-        // worker: Can pull cards from backlog, move cards where they are assignee or helper, and transition to done.
-        // client: CANNOT drag active doing cards between workers or mark tasks as done.
+        // - admin: Can drag/move any card across any column.
+        // - coordinator: Can rebalance cards across collaborators within their department.
+        // - worker: Can pull cards from backlog, move cards where they are assignee or helper, and transition to done.
+        // - client: CAN drag own unstarted cards ('backlog' or 'assigned', started_at === null) between available public workers.
         if (! $this->canMovePostIt($postIt, $currentUser)) {
             return;
+        }
+
+        $requester = $postIt->requester ?? User::find($postIt->requester_id);
+        $isClientRequest = $requester && $requester->role === 'client';
+
+        // Strict Firewall: Client requests CANNOT enter 'internal' or 'private' columns,
+        // even if an admin, coordinator, or worker attempts the move.
+        // 'internal' columns can only receive Post-its created by internal staff (worker, coordinator, admin).
+        if ($isClientRequest && $assigneeId !== null) {
+            $targetCollaborator = User::where('tenant_id', $this->tenantId)->find($assigneeId);
+            if (! $targetCollaborator || $targetCollaborator->board_visibility !== 'public') {
+                return;
+            }
+
+            if ($currentUser->role === 'client' && ! $targetCollaborator->is_available) {
+                return;
+            }
+        }
+
+        // Specific client restrictions on target
+        if ($currentUser->role === 'client') {
+            if ($targetStatus === 'done') {
+                return; // Clients cannot mark tasks as done
+            }
         }
 
         if ($currentUser->role === 'worker') {
@@ -198,13 +351,21 @@ class CapacityBoard extends Component
         $previousStatus = $postIt->status;
 
         $targetStatus = match ($targetStatus) {
-            'doing' => 'doing',
             'done' => 'done',
+            'doing' => 'doing',
+            'assigned' => 'assigned',
             default => 'backlog',
         };
 
-        if ($targetStatus === 'backlog') {
+        if ($targetStatus === 'backlog' || $assigneeId === null) {
             $assigneeId = null;
+            $targetStatus = 'backlog';
+        } elseif ($targetStatus === 'doing') {
+            $targetStatus = 'doing';
+        } elseif ($targetStatus === 'done') {
+            $targetStatus = 'done';
+        } else {
+            $targetStatus = 'assigned';
         }
 
         $updates = [
@@ -212,19 +373,121 @@ class CapacityBoard extends Component
             'assignee_id' => $assigneeId,
         ];
 
-        if ($targetStatus === 'doing' && $previousStatus !== 'doing') {
-            $updates['started_at'] = now();
+        // Status transition rules & transfer history:
+        if ($targetStatus === 'backlog') {
+            // Automatically reset helper_id = null, helper_split = 0, and started_at = null
+            $updates['helper_id'] = null;
+            $updates['helper_split'] = 0;
+            $updates['started_at'] = null;
+            $updates['assigned_by_id'] = null;
+
+            if ($previousAssigneeId !== null) {
+                PostItTransfer::create([
+                    'post_it_id' => $postIt->id,
+                    'actor_id' => $currentUser->id,
+                    'from_user_id' => $previousAssigneeId,
+                    'to_user_id' => null,
+                    'action' => 'unassigned',
+                    'created_at' => now(),
+                ]);
+            }
+        } elseif ($targetStatus === 'assigned') {
+            $updates['started_at'] = null;
+
+            if ($previousAssigneeId === null && $assigneeId !== null) {
+                $updates['assigned_by_id'] = $currentUser->id;
+                PostItTransfer::create([
+                    'post_it_id' => $postIt->id,
+                    'actor_id' => $currentUser->id,
+                    'from_user_id' => null,
+                    'to_user_id' => $assigneeId,
+                    'action' => 'assigned',
+                    'created_at' => now(),
+                ]);
+            } elseif ($previousAssigneeId !== null && $assigneeId !== null && (int) $previousAssigneeId !== (int) $assigneeId) {
+                $updates['assigned_by_id'] = $currentUser->id;
+                PostItTransfer::create([
+                    'post_it_id' => $postIt->id,
+                    'actor_id' => $currentUser->id,
+                    'from_user_id' => $previousAssigneeId,
+                    'to_user_id' => $assigneeId,
+                    'action' => 'transferred',
+                    'created_at' => now(),
+                ]);
+            }
+
+            // Fix self-helper if reassigning
+            if ($postIt->helper_id !== null) {
+                if ((int) $postIt->helper_id === (int) $assigneeId) {
+                    $updates['helper_id'] = null;
+                    $updates['helper_split'] = 0;
+                } else {
+                    $newAssignee = User::find($assigneeId);
+                    $existingHelper = User::find($postIt->helper_id);
+                    if ($newAssignee?->board_visibility === 'private' || $existingHelper?->board_visibility !== $newAssignee?->board_visibility) {
+                        $updates['helper_id'] = null;
+                        $updates['helper_split'] = 0;
+                    }
+                }
+            }
+        } elseif ($targetStatus === 'doing') {
+            if ($previousStatus !== 'doing' || $postIt->started_at === null) {
+                $updates['started_at'] = now();
+            }
+
+            if ($previousAssigneeId === null && $assigneeId !== null) {
+                $updates['assigned_by_id'] = $currentUser->id;
+                PostItTransfer::create([
+                    'post_it_id' => $postIt->id,
+                    'actor_id' => $currentUser->id,
+                    'from_user_id' => null,
+                    'to_user_id' => $assigneeId,
+                    'action' => 'assigned',
+                    'created_at' => now(),
+                ]);
+            } elseif ($previousAssigneeId !== null && $assigneeId !== null && (int) $previousAssigneeId !== (int) $assigneeId) {
+                $updates['assigned_by_id'] = $currentUser->id;
+                PostItTransfer::create([
+                    'post_it_id' => $postIt->id,
+                    'actor_id' => $currentUser->id,
+                    'from_user_id' => $previousAssigneeId,
+                    'to_user_id' => $assigneeId,
+                    'action' => 'transferred',
+                    'created_at' => now(),
+                ]);
+            }
+
+            if ($previousStatus !== 'doing') {
+                PostItTransfer::create([
+                    'post_it_id' => $postIt->id,
+                    'actor_id' => $currentUser->id,
+                    'from_user_id' => $assigneeId,
+                    'to_user_id' => $assigneeId,
+                    'action' => 'started',
+                    'created_at' => now(),
+                ]);
+            }
         }
 
         if ($targetStatus === 'done') {
             $updates['completed_at'] = now();
+            if ($previousStatus !== 'done') {
+                PostItTransfer::create([
+                    'post_it_id' => $postIt->id,
+                    'actor_id' => $currentUser->id,
+                    'from_user_id' => $postIt->assignee_id,
+                    'to_user_id' => $postIt->assignee_id,
+                    'action' => 'completed',
+                    'created_at' => now(),
+                ]);
+            }
         } elseif ($previousStatus === 'done' && $targetStatus !== 'done') {
             $updates['completed_at'] = null;
         }
 
         $postIt->update($updates);
 
-        // Recalculate current_capacity for affected workers
+        // Recalculate current_capacity for affected workers (both 'assigned' and 'doing' count)
         $affectedUserIds = array_unique(array_filter([$previousAssigneeId, $assigneeId]));
 
         foreach ($affectedUserIds as $userId) {
@@ -232,7 +495,7 @@ class CapacityBoard extends Component
             if ($user !== null) {
                 $user->update([
                     'current_capacity' => (int) PostIt::where('assignee_id', $userId)
-                        ->where('status', 'doing')
+                        ->whereIn('status', ['assigned', 'doing'])
                         ->sum('weight'),
                 ]);
             }
@@ -265,6 +528,16 @@ class CapacityBoard extends Component
             ?? User::where('tenant_id', $this->tenantId)->where('role', 'client')->first()
             ?? User::where('tenant_id', $this->tenantId)->first();
 
+        // If client assigning, verify collaborator is available and public
+        if ($requester->role === 'client' && $this->assigneeId !== null) {
+            $collaborator = User::where('tenant_id', $this->tenantId)->find($this->assigneeId);
+            if (! $collaborator || ! $collaborator->is_available || $collaborator->board_visibility !== 'public') {
+                $this->addError('assigneeId', 'This collaborator is currently away or not available for external requests.');
+
+                return;
+            }
+        }
+
         $calculator = app(BountyCalculator::class);
         $bountyPoints = $calculator->calculate(
             weight: $this->weight,
@@ -273,28 +546,38 @@ class CapacityBoard extends Component
         );
 
         $isAssigned = $this->assigneeId !== null;
-        $status = $isAssigned ? 'doing' : 'backlog';
+        $status = $isAssigned ? 'assigned' : 'backlog';
 
         $postIt = PostIt::create([
             'tenant_id' => $this->tenantId,
             'department_id' => $this->departmentId,
             'requester_id' => $requester->id,
             'assignee_id' => $this->assigneeId,
+            'assigned_by_id' => $isAssigned ? $requester->id : null,
             'title' => $this->title,
             'description' => $this->description !== '' ? $this->description : null,
             'status' => $status,
             'priority' => $this->priority,
             'weight' => $this->weight,
             'bounty_points' => $bountyPoints,
-            'started_at' => $isAssigned ? now() : null,
+            'started_at' => null,
         ]);
 
         if ($isAssigned) {
+            PostItTransfer::create([
+                'post_it_id' => $postIt->id,
+                'actor_id' => $requester->id,
+                'from_user_id' => null,
+                'to_user_id' => $this->assigneeId,
+                'action' => 'assigned',
+                'created_at' => now(),
+            ]);
+
             $assignedWorker = User::find($this->assigneeId);
             if ($assignedWorker !== null) {
                 $assignedWorker->update([
                     'current_capacity' => (int) PostIt::where('assignee_id', $assignedWorker->id)
-                        ->where('status', 'doing')
+                        ->whereIn('status', ['assigned', 'doing'])
                         ->sum('weight'),
                 ]);
             }
@@ -313,14 +596,14 @@ class CapacityBoard extends Component
         $isOwn = $currentUser && (int) $postIt->requester_id === (int) $currentUser->id;
         $postIt->is_own = $isOwn;
 
-        if (! $currentUser || $currentUser->role === 'admin') {
+        $isInternalRequester = $postIt->requester && in_array($postIt->requester->role, ['worker', 'coordinator', 'admin'], true);
+
+        // Open collaborator attribution:
+        // Internal staff requesters are NEVER anonymized across the application.
+        if (! $currentUser || $currentUser->role === 'admin' || $isInternalRequester) {
             $postIt->display_requester_name = $postIt->requester?->name ?? 'User #'.$postIt->requester_id;
             $postIt->is_masked = false;
-
-            return;
-        }
-
-        if ($isOwn) {
+        } elseif ($isOwn) {
             $postIt->display_requester_name = $postIt->requester?->name ?? 'Εγώ';
             $postIt->is_masked = false;
         } else {
@@ -331,6 +614,13 @@ class CapacityBoard extends Component
             } else {
                 $postIt->is_masked = false;
             }
+        }
+
+        // Assigned By attribution (openly displays who forwarded/assigned the card)
+        if ($postIt->assigned_by_id && $postIt->assignedBy) {
+            $postIt->display_assigned_by_name = $postIt->assignedBy->name;
+        } else {
+            $postIt->display_assigned_by_name = null;
         }
     }
 
@@ -355,6 +645,15 @@ class CapacityBoard extends Component
             return true;
         }
 
+        if ($user->role === 'coordinator') {
+            if ($postIt->status === 'backlog') {
+                return true;
+            }
+            if ((int) $postIt->department_id === (int) $user->department_id || (int) $postIt->assignee?->department_id === (int) $user->department_id) {
+                return true;
+            }
+        }
+
         if ($user->role === 'worker' && $postIt->status === 'backlog') {
             return true;
         }
@@ -375,6 +674,17 @@ class CapacityBoard extends Component
             return true;
         }
 
+        if ($user->role === 'coordinator') {
+            if ($postIt->status === 'backlog') {
+                return true;
+            }
+
+            return (int) $postIt->assignee_id === (int) $user->id
+                || (int) $postIt->helper_id === (int) $user->id
+                || (int) $postIt->department_id === (int) $user->department_id
+                || (int) $postIt->assignee?->department_id === (int) $user->department_id;
+        }
+
         if ($user->role === 'worker') {
             if ($postIt->status === 'backlog') {
                 return true;
@@ -383,7 +693,35 @@ class CapacityBoard extends Component
             return (int) $postIt->assignee_id === (int) $user->id || (int) $postIt->helper_id === (int) $user->id;
         }
 
+        if ($user->role === 'client') {
+            // Client can drag own unstarted cards ('backlog' or 'assigned', started_at === null)
+            return (int) $postIt->requester_id === (int) $user->id
+                && in_array($postIt->status, ['backlog', 'assigned'], true)
+                && $postIt->started_at === null;
+        }
+
         return false;
+    }
+
+    /**
+     * Get eligible helpers for a given post-it based on assignee's visibility mode.
+     */
+    public function getEligibleHelpers(?PostIt $postIt)
+    {
+        if (! $postIt || ! $postIt->assignee_id) {
+            return collect();
+        }
+
+        $assignee = $postIt->assignee ?? User::find($postIt->assignee_id);
+        if (! $assignee || $assignee->board_visibility === 'private' || $assignee->board_visibility === 'none') {
+            return collect();
+        }
+
+        return User::where('tenant_id', $this->tenantId)
+            ->where('id', '!=', $assignee->id)
+            ->where('board_visibility', $assignee->board_visibility)
+            ->orderBy('name')
+            ->get();
     }
 
     /**
@@ -432,7 +770,11 @@ class CapacityBoard extends Component
 
         $postIt = PostIt::where('tenant_id', $this->tenantId)->findOrFail($this->selectedPostItId);
         $currentUser = Auth::user();
-        $canCalibrate = $currentUser && ($currentUser->role === 'admin' || (int) $currentUser->id === (int) $postIt->assignee_id) && $postIt->status !== 'done';
+        $isCoordinator = $currentUser && $currentUser->role === 'coordinator' && (
+            (int) $currentUser->department_id === (int) $postIt->department_id ||
+            (int) $currentUser->department_id === (int) $postIt->assignee?->department_id
+        );
+        $canCalibrate = $currentUser && ($currentUser->role === 'admin' || $isCoordinator || (int) $currentUser->id === (int) $postIt->assignee_id) && $postIt->status !== 'done';
 
         if (! $canCalibrate) {
             return;
@@ -451,12 +793,12 @@ class CapacityBoard extends Component
             'bounty_points' => $newBountyPoints,
         ]);
 
-        if ($postIt->assignee_id && $postIt->status === 'doing') {
+        if ($postIt->assignee_id) {
             $assignee = User::find($postIt->assignee_id);
             if ($assignee) {
                 $assignee->update([
                     'current_capacity' => (int) PostIt::where('assignee_id', $assignee->id)
-                        ->where('status', 'doing')
+                        ->whereIn('status', ['assigned', 'doing'])
                         ->sum('weight'),
                 ]);
             }
@@ -479,12 +821,30 @@ class CapacityBoard extends Component
             return;
         }
 
-        $postIt = PostIt::where('tenant_id', $this->tenantId)->findOrFail($this->selectedPostItId);
+        $postIt = PostIt::where('tenant_id', $this->tenantId)->with('assignee')->findOrFail($this->selectedPostItId);
         $currentUser = Auth::user();
-        $canManage = $currentUser && ($currentUser->role === 'admin' || (int) $currentUser->id === (int) $postIt->assignee_id) && $postIt->status !== 'done';
+        $isCoordinator = $currentUser && $currentUser->role === 'coordinator' && (
+            (int) $currentUser->department_id === (int) $postIt->department_id ||
+            (int) $currentUser->department_id === (int) $postIt->assignee?->department_id
+        );
+        $canManage = $currentUser && ($currentUser->role === 'admin' || $isCoordinator || (int) $currentUser->id === (int) $postIt->assignee_id) && $postIt->status !== 'done';
 
         if (! $canManage) {
             return;
+        }
+
+        // Enforce Co-op matching & self-assignment prevention
+        if ($this->slideOverHelperId !== null) {
+            if ($this->slideOverHelperId === (int) $postIt->assignee_id) {
+                return; // User cannot be assigned as their own helper
+            }
+
+            $helper = User::where('tenant_id', $this->tenantId)->find($this->slideOverHelperId);
+            $assigneeVisibility = $postIt->assignee?->board_visibility;
+
+            if (! $helper || $assigneeVisibility === 'private' || $helper->board_visibility !== $assigneeVisibility) {
+                return; // Mode mismatch or private column
+            }
         }
 
         $postIt->update([
@@ -554,7 +914,7 @@ class CapacityBoard extends Component
             if ($worker) {
                 $worker->update([
                     'current_capacity' => (int) PostIt::where('assignee_id', $worker->id)
-                        ->where('status', 'doing')
+                        ->whereIn('status', ['assigned', 'doing'])
                         ->sum('weight'),
                 ]);
             }
@@ -578,8 +938,12 @@ class CapacityBoard extends Component
             ->with([
                 'requester',
                 'assignee.department',
+                'assignedBy',
                 'helper',
                 'department',
+                'transfers.actor',
+                'transfers.fromUser',
+                'transfers.toUser',
                 'comments' => fn ($query) => $query->with('user')->oldest(),
             ])
             ->find($this->selectedPostItId);
@@ -598,15 +962,24 @@ class CapacityBoard extends Component
     {
         $currentUser = Auth::user();
 
-        // 1. Department Radar Calculation
+        // 1. Dual-Lens Department Radar Calculation
+        // - Clients: aggregate ONLY 'public' & is_available === true columns.
+        // - Internal Staff: aggregate 'public' + 'internal' & is_available === true columns (excluding private & away).
         $departments = Department::where('tenant_id', $this->tenantId)->get();
 
-        $allTenantWorkers = User::where('tenant_id', $this->tenantId)
-            ->where('role', 'worker')
-            ->get();
+        $radarUsersQuery = User::where('tenant_id', $this->tenantId)
+            ->where('is_available', true);
 
-        $allCurrentCap = (int) $allTenantWorkers->sum('current_capacity');
-        $allMaxCap = (int) $allTenantWorkers->sum('max_capacity');
+        if ($currentUser && $currentUser->role === 'client') {
+            $radarUsersQuery->where('board_visibility', 'public');
+        } else {
+            $radarUsersQuery->whereIn('board_visibility', ['public', 'internal']);
+        }
+
+        $activeRadarUsers = $radarUsersQuery->get();
+
+        $allCurrentCap = (int) $activeRadarUsers->sum('current_capacity');
+        $allMaxCap = (int) $activeRadarUsers->sum('max_capacity');
         $allRatio = $allMaxCap > 0 ? (int) round(($allCurrentCap / $allMaxCap) * 100) : 0;
 
         $radarTabs = [
@@ -622,7 +995,7 @@ class CapacityBoard extends Component
         ];
 
         foreach ($departments as $dept) {
-            $deptWorkers = $allTenantWorkers->where('department_id', $dept->id);
+            $deptWorkers = $activeRadarUsers->where('department_id', $dept->id);
             $cur = (int) $deptWorkers->sum('current_capacity');
             $max = (int) $deptWorkers->sum('max_capacity');
             $rat = $max > 0 ? (int) round(($cur / $max) * 100) : 0;
@@ -638,21 +1011,40 @@ class CapacityBoard extends Component
             ];
         }
 
-        // 2. Query Workers for Columns (filtered by selected department)
-        $workersQuery = User::where('tenant_id', $this->tenantId)
-            ->where('role', 'worker')
+        // 2. Query Columns based on Viewer Filter
+        // - client viewers ONLY see columns where board_visibility === 'public' AND is_available === true (Away workers completely hidden from clients).
+        // - staff (worker, coordinator, admin) see all 'public' and 'internal' columns,
+        //   PLUS their own column if board_visibility === 'private'.
+        // - board_visibility === 'none' never appears as a column.
+        $columnsQuery = User::where('tenant_id', $this->tenantId)
             ->with(['department', 'assignedPostIts' => function ($query): void {
-                $query->where('status', 'doing')
+                $query->whereIn('status', ['assigned', 'doing'])
                     ->withCount('comments')
-                    ->with(['requester', 'helper', 'department']);
+                    ->with(['requester', 'assignedBy', 'helper', 'department', 'transfers.toUser']);
             }])
             ->orderBy('name');
 
-        if ($this->selectedDepartmentId !== null) {
-            $workersQuery->where('department_id', $this->selectedDepartmentId);
+        if ($currentUser && $currentUser->role === 'client') {
+            $columnsQuery->where('board_visibility', 'public')
+                ->where('is_available', true);
+        } else {
+            $currentUserId = $currentUser?->id;
+            $columnsQuery->where(function ($query) use ($currentUserId): void {
+                $query->whereIn('board_visibility', ['public', 'internal']);
+                if ($currentUserId) {
+                    $query->orWhere(function ($sub) use ($currentUserId): void {
+                        $sub->where('board_visibility', 'private')
+                            ->where('id', $currentUserId);
+                    });
+                }
+            });
         }
 
-        $workers = $workersQuery->get();
+        if ($this->selectedDepartmentId !== null) {
+            $columnsQuery->where('department_id', $this->selectedDepartmentId);
+        }
+
+        $workers = $columnsQuery->get();
 
         // 3. Query Backlog Post-Its (filtered by selected department)
         $backlogQuery = PostIt::where('tenant_id', $this->tenantId)
@@ -661,7 +1053,7 @@ class CapacityBoard extends Component
                     ->orWhereNull('assignee_id');
             })
             ->withCount('comments')
-            ->with(['requester', 'department'])
+            ->with(['requester', 'assignedBy', 'department', 'transfers.toUser'])
             ->latest('id');
 
         if ($this->selectedDepartmentId !== null) {
@@ -688,7 +1080,7 @@ class CapacityBoard extends Component
         }
 
         $donePostIts = $doneQuery->withCount('comments')
-            ->with(['requester', 'assignee', 'helper', 'department'])
+            ->with(['requester', 'assignee', 'assignedBy', 'helper', 'department', 'transfers.toUser'])
             ->latest('completed_at')
             ->get();
 
@@ -707,12 +1099,14 @@ class CapacityBoard extends Component
             $this->sanitizePostIt($postIt, $currentUser);
         }
 
-        // Available workers for direct collaborator selection in the create modal
-        $availableCollaborators = User::where('tenant_id', $this->tenantId)
-            ->where('role', 'worker')
-            ->with('department')
-            ->orderBy('name')
-            ->get();
+        // Available collaborators for direct assignment in the create modal
+        $availableQuery = User::where('tenant_id', $this->tenantId)->orderBy('name');
+        if ($currentUser && $currentUser->role === 'client') {
+            $availableQuery->where('board_visibility', 'public')->where('is_available', true);
+        } else {
+            $availableQuery->whereIn('board_visibility', ['public', 'internal']);
+        }
+        $availableCollaborators = $availableQuery->with('department')->get();
 
         return view('livewire.capacity-board', [
             'radarTabs' => $radarTabs,
