@@ -29,21 +29,23 @@
                         <div class="flex items-center gap-2">
                             <span class="text-xl font-bold tracking-tight text-white">Tantou <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">担当</span></span>
                         </div>
-                        <p class="text-[11px] text-slate-400">Human Capacity OS</p>
+                        <p class="text-[11px] text-slate-400">{{ __('Human Capacity OS') }}</p>
                     </div>
                 </a>
 
                 <div class="flex items-center gap-3">
+                    <x-language-switcher />
+
                     @auth
                         <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs">
                             <span class="font-medium text-slate-300">{{ auth()->user()->name }}</span>
-                            <span class="text-amber-400 font-semibold">★ {{ auth()->user()->total_points }} pts</span>
+                            <span class="text-amber-400 font-semibold">★ {{ auth()->user()->total_points }} {{ __('pts') }}</span>
                         </div>
                         <a
                             href="{{ route('board') }}"
                             class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/25 transition-all"
                         >
-                            Open Canvas
+                            {{ __('Open Canvas') }}
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                         </a>
                         <form method="POST" action="{{ route('logout') }}" class="inline">
@@ -52,7 +54,7 @@
                                 type="submit"
                                 class="px-3 py-2 text-xs font-medium text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
                             >
-                                Sign Out
+                                {{ __('Sign Out') }}
                             </button>
                         </form>
                     @else
@@ -60,13 +62,13 @@
                             href="{{ route('login') }}"
                             class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-all"
                         >
-                            Sign In
+                            {{ __('Sign In') }}
                         </a>
                         <a
                             href="{{ route('register') }}"
                             class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 transition-all"
                         >
-                            Create Workspace
+                            {{ __('Create Workspace') }}
                         </a>
                     @endauth
                 </div>
@@ -77,18 +79,18 @@
         <section class="max-w-7xl mx-auto px-6 pt-16 pb-20 text-center">
             <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-medium mb-8">
                 <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>The Workload Marketplace • Inversion of Control</span>
+                <span>{{ __('The Workload Marketplace • Inversion of Control') }}</span>
             </div>
 
             <h1 class="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white max-w-4xl mx-auto leading-tight">
-                Stop routing tickets.<br>
+                {{ __('Stop routing tickets.') }}<br>
                 <span class="bg-gradient-to-r from-indigo-400 via-purple-300 to-amber-300 bg-clip-text text-transparent">
-                    Visualize real team capacity.
+                    {{ __('Visualize real team capacity.') }}
                 </span>
             </h1>
 
             <p class="mt-6 text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed">
-                Tantou is NOT a traditional helpdesk. It is an interactive Human Capacity OS where tasks are managed via a live Drag-and-Drop canvas with real-time capacity transparency and automated gamified bounty rewards.
+                {{ __('Tantou is NOT a traditional helpdesk. It is an interactive Human Capacity OS where tasks are managed via a live Drag-and-Drop canvas with real-time capacity transparency and automated gamified bounty rewards.') }}
             </p>
 
             <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -97,7 +99,7 @@
                         href="{{ route('board') }}"
                         class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-semibold shadow-xl shadow-indigo-600/30 text-sm transition-all"
                     >
-                        <span>Launch Your Board ({{ auth()->user()->tenant->name ?? 'Demo' }})</span>
+                        <span>{{ __('Launch Your Board (:tenant)', ['tenant' => auth()->user()->tenant->name ?? 'Demo']) }}</span>
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                     </a>
                 @else
@@ -105,14 +107,14 @@
                         href="{{ route('register') }}"
                         class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-semibold shadow-xl shadow-indigo-600/30 text-sm transition-all"
                     >
-                        <span>Create Free Workspace</span>
+                        <span>{{ __('Create Free Workspace') }}</span>
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                     </a>
                     <a
                         href="{{ route('login') }}"
                         class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-800 font-semibold text-sm transition-all"
                     >
-                        <span>Sign In / Demo Login</span>
+                        <span>{{ __('Sign In / Demo Login') }}</span>
                     </a>
                 @endauth
             </div>
@@ -125,11 +127,11 @@
                             <span class="h-3 w-3 rounded-full bg-rose-500/80 inline-block"></span>
                             <span class="h-3 w-3 rounded-full bg-amber-500/80 inline-block"></span>
                             <span class="h-3 w-3 rounded-full bg-emerald-500/80 inline-block"></span>
-                            <span class="text-xs text-slate-400 font-mono ml-2">Tantou Live Canvas • Hellenic Demo Ops</span>
+                            <span class="text-xs text-slate-400 font-mono ml-2">{{ __('Tantou Live Canvas • Hellenic Demo Ops') }}</span>
                         </div>
                         <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-950/60 border border-emerald-800/40 text-emerald-400 text-[11px] font-medium">
                             <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                            WebSockets Connected (Reverb)
+                            {{ __('WebSockets Connected (Reverb)') }}
                         </div>
                     </div>
 
@@ -138,19 +140,19 @@
                         {{-- Backlog Preview --}}
                         <div class="rounded-2xl bg-slate-900/60 border border-slate-800/60 p-4">
                             <div class="flex items-center justify-between mb-3">
-                                <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Unassigned Backlog</span>
+                                <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">{{ __('Unassigned Backlog') }}</span>
                                 <span class="text-xs bg-slate-800 px-2 py-0.5 rounded-full text-slate-400 font-medium">3</span>
                             </div>
                             <div class="space-y-3">
                                 <div class="p-3.5 rounded-xl bg-slate-950/80 border border-indigo-500/30 shadow-sm">
                                     <div class="flex items-center justify-between text-[11px] mb-1.5">
                                         <span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-semibold border border-blue-500/20">Software</span>
-                                        <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold text-[10px]">URGENT</span>
+                                        <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold text-[10px]">{{ __('URGENT') }}</span>
                                     </div>
                                     <h4 class="text-xs font-semibold text-white">Stripe billing webhooks</h4>
                                     <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-900 text-[11px] text-slate-400">
-                                        <span>Weight: 3</span>
-                                        <span class="text-amber-400 font-semibold">★ 38 pts</span>
+                                        <span>{{ __('Weight') }}: 3</span>
+                                        <span class="text-amber-400 font-semibold">★ 38 {{ __('pts') }}</span>
                                     </div>
                                 </div>
                             </div>
@@ -163,7 +165,7 @@
                                     <div class="h-6 w-6 rounded-lg bg-indigo-500/20 text-indigo-300 flex items-center justify-center font-bold text-xs">N</div>
                                     <span class="text-xs font-bold text-white">Nikos Pappas</span>
                                 </div>
-                                <span class="text-[11px] font-semibold text-rose-400">9/10 Cap</span>
+                                <span class="text-[11px] font-semibold text-rose-400">9/10 {{ __('Cap') }}</span>
                             </div>
                             {{-- High load progress bar --}}
                             <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-3">
@@ -172,12 +174,12 @@
                             <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800">
                                 <div class="flex items-center justify-between text-[11px] mb-1.5">
                                     <span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-semibold border border-blue-500/20">Software</span>
-                                    <span class="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-medium text-[10px]">Co-Op 30%</span>
+                                    <span class="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-medium text-[10px]">{{ __('Co-Op') }} 30%</span>
                                 </div>
                                 <h4 class="text-xs font-semibold text-white">Resolve MariaDB deadlocks</h4>
                                 <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-900 text-[11px] text-slate-400">
-                                    <span>Helper: Kostas</span>
-                                    <span class="text-amber-400 font-semibold">★ 50 pts</span>
+                                    <span>{{ __('Helper') }}: Kostas</span>
+                                    <span class="text-amber-400 font-semibold">★ 50 {{ __('pts') }}</span>
                                 </div>
                             </div>
                         </div>
@@ -185,18 +187,18 @@
                         {{-- Completed Column Preview --}}
                         <div class="rounded-2xl bg-slate-900/60 border border-slate-800/60 p-4">
                             <div class="flex items-center justify-between mb-3">
-                                <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Completed / Done</span>
+                                <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">{{ __('Completed') }}</span>
                                 <span class="text-xs bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.5 rounded-full text-emerald-300 font-medium">2</span>
                             </div>
                             <div class="p-3.5 rounded-xl bg-slate-950/80 border border-emerald-900/30">
                                 <div class="flex items-center justify-between text-[11px] mb-1.5">
-                                    <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20">Υποδομές</span>
-                                    <span class="text-emerald-400 font-bold">✓ DONE</span>
+                                    <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20">Infrastructure</span>
+                                    <span class="text-emerald-400 font-bold">✓ {{ __('DONE') }}</span>
                                 </div>
                                 <h4 class="text-xs font-semibold text-slate-300">Scaffold TALL stack & Docker</h4>
                                 <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-900 text-[11px] text-slate-400">
-                                    <span>Tantou: Nikos</span>
-                                    <span class="text-emerald-400 font-semibold">+38 pts</span>
+                                    <span>{{ __('Tantou') }}: Nikos</span>
+                                    <span class="text-emerald-400 font-semibold">+38 {{ __('pts') }}</span>
                                 </div>
                             </div>
                         </div>
@@ -208,8 +210,8 @@
         {{-- Core Value Pillars (3-Column Grid) --}}
         <section class="max-w-7xl mx-auto px-6 py-20 border-t border-slate-800/80">
             <div class="text-center max-w-2xl mx-auto mb-16">
-                <h2 class="text-3xl font-bold tracking-tight text-white">Why Modern Teams Switch to Tantou</h2>
-                <p class="mt-3 text-sm text-slate-400">Radical transparency eliminates the friction of traditional ticketing queues.</p>
+                <h2 class="text-3xl font-bold tracking-tight text-white">{{ __('Why Modern Teams Switch to Tantou') }}</h2>
+                <p class="mt-3 text-sm text-slate-400">{{ __('Radical transparency eliminates the friction of traditional ticketing queues.') }}</p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -218,9 +220,9 @@
                     <div class="h-12 w-12 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center text-xl mb-6 group-hover:scale-110 transition-transform">
                         ⚡
                     </div>
-                    <h3 class="text-lg font-bold text-white mb-2">Total Capacity Transparency</h3>
+                    <h3 class="text-lg font-bold text-white mb-2">{{ __('Total Capacity Transparency') }}</h3>
                     <p class="text-sm text-slate-400 leading-relaxed">
-                        Requesters see actual worker load before dropping tickets. Visual capacity gauges warn when a teammate is nearing cognitive burnout.
+                        {{ __('Requesters see actual worker load before dropping tickets. Visual capacity gauges warn when a teammate is nearing cognitive burnout.') }}
                     </p>
                 </div>
 
@@ -229,9 +231,9 @@
                     <div class="h-12 w-12 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center text-xl mb-6 group-hover:scale-110 transition-transform">
                         🎯
                     </div>
-                    <h3 class="text-lg font-bold text-white mb-2">Direct Tantou Selection</h3>
+                    <h3 class="text-lg font-bold text-white mb-2">{{ __('Direct Tantou Selection') }}</h3>
                     <p class="text-sm text-slate-400 leading-relaxed">
-                        No middle managers routing tickets. Requesters drop post-its directly onto the chosen collaborator, or workers pull unassigned tasks from the backlog.
+                        {{ __('No middle managers routing tickets. Requesters drop post-its directly onto the chosen collaborator, or workers pull unassigned tasks from the backlog.') }}
                     </p>
                 </div>
 
@@ -240,9 +242,9 @@
                     <div class="h-12 w-12 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center text-xl mb-6 group-hover:scale-110 transition-transform">
                         🏆
                     </div>
-                    <h3 class="text-lg font-bold text-white mb-2">Automated Bounty & Co-Op</h3>
+                    <h3 class="text-lg font-bold text-white mb-2">{{ __('Automated Bounty & Co-Op') }}</h3>
                     <p class="text-sm text-slate-400 leading-relaxed">
-                        Points calculate automatically from cognitive load, urgency priority multipliers, and historical durations. Co-op helpers earn a fair split (up to 50%).
+                        {{ __('Points calculate automatically from cognitive load, urgency priority multipliers, and historical durations. Co-op helpers earn a fair split (up to 50%).') }}
                     </p>
                 </div>
             </div>
@@ -254,7 +256,7 @@
                 <div class="flex items-center gap-2">
                     <span class="font-bold text-slate-300">Tantou (担当)</span>
                     <span>•</span>
-                    <span>Human Capacity OS & Workload Marketplace</span>
+                    <span>{{ __('Human Capacity OS & Workload Marketplace') }}</span>
                 </div>
                 <div class="flex items-center gap-4 text-slate-400 font-mono text-[11px]">
                     <span>Laravel 13</span>

@@ -124,6 +124,26 @@ class TeamManagement extends Component
     }
 
     /**
+     * Switch application locale.
+     */
+    public function switchLocale(string $locale): void
+    {
+        if (! in_array($locale, ['en', 'el'], true)) {
+            return;
+        }
+
+        session()->put('locale', $locale);
+
+        if (Auth::check()) {
+            Auth::user()->update(['locale' => $locale]);
+        }
+
+        app()->setLocale($locale);
+
+        $this->redirect(request()->header('Referer', route('team')));
+    }
+
+    /**
      * Open modal to create a new department.
      */
     public function openCreateDepartmentModal(): void

@@ -24,6 +24,7 @@ use Illuminate\Notifications\Notifiable;
     'current_capacity',
     'max_capacity',
     'total_points',
+    'locale',
 ])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
@@ -48,6 +49,7 @@ class User extends Authenticatable
         'current_capacity',
         'max_capacity',
         'total_points',
+        'locale',
     ];
 
     /**
@@ -136,5 +138,15 @@ class User extends Authenticatable
     public function initiatedTransfers(): HasMany
     {
         return $this->hasMany(PostItTransfer::class, 'actor_id');
+    }
+
+    /**
+     * Get the attachments uploaded by this user.
+     *
+     * @return HasMany<PostItAttachment, $this>
+     */
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(PostItAttachment::class, 'uploader_id');
     }
 }
