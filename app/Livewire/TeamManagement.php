@@ -345,10 +345,14 @@ class TeamManagement extends Component
      */
     public function quickUpdateVisibility(int $userId, string $visibility): void
     {
-        abort_unless(Auth::user()?->role === 'admin', 403);
         abort_unless(in_array($visibility, ['public', 'internal', 'private', 'none'], true), 422);
 
+        $currentUser = Auth::user();
+        abort_unless($currentUser !== null, 403);
+
         $user = User::where('tenant_id', $this->tenantId)->findOrFail($userId);
+        abort_unless($currentUser->canChangeBoardVisibilityOf($user), 403);
+
         $user->update(['board_visibility' => $visibility]);
 
         BoardUpdated::dispatch($this->tenantId);

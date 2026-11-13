@@ -306,21 +306,13 @@ class CapacityBoard extends Component
 
         $currentUser = Auth::user();
         if (! $currentUser) {
-            return;
+            abort(401);
         }
 
         $targetUser = User::where('tenant_id', $this->tenantId)->findOrFail($userId);
 
-        $canChange = $currentUser->role === 'admin'
-            || (int) $currentUser->id === (int) $targetUser->id
-            || (
-                $currentUser->role === 'coordinator' &&
-                $targetUser->department_id !== null &&
-                (int) $targetUser->department_id === (int) $currentUser->department_id
-            );
-
-        if (! $canChange) {
-            return;
+        if (! $currentUser->canChangeBoardVisibilityOf($targetUser)) {
+            abort(403, 'Unauthorized to change column visibility.');
         }
 
         $targetUser->update([
@@ -1152,6 +1144,7 @@ class CapacityBoard extends Component
         $columnsQuery = User::where('tenant_id', $this->tenantId)
             ->with(['department', 'assignedPostIts' => function ($query): void {
                 $query->whereIn('status', ['assigned', 'doing'])
+                    ->smartOrder()
                     ->withCount(['comments', 'attachments'])
                     ->with([
                         'requester:id,name,role',
@@ -1201,7 +1194,7 @@ class CapacityBoard extends Component
                 'department:id,name,color',
                 'transfers.toUser:id,name',
             ])
-            ->latest('id');
+            ->smartOrder();
 
         if ($this->selectedDepartmentId !== null) {
             $backlogQuery->where('department_id', $this->selectedDepartmentId);
@@ -1235,7 +1228,7 @@ class CapacityBoard extends Component
                 'department:id,name,color',
                 'transfers.toUser:id,name',
             ])
-            ->latest('completed_at')
+            ->smartOrder()
             ->get();
 
         // 5. Sanitize cards for privacy & visibility rules

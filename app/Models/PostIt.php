@@ -5,10 +5,12 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToTenant;
 use Database\Factories\PostItFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 #[Fillable([
     'tenant_id',
@@ -203,5 +205,103 @@ class PostIt extends Model
     public function setComplexityScoreAttribute(?int $value): void
     {
         $this->attributes['bounty_points'] = $value ?? 0;
+    }
+
+    /**
+     * Scope a query to sort post-its according to Tantou's smart deterministic queue ordering:
+     * 1. Status rank: 'doing' (1) -> 'assigned' (2) -> 'backlog' (3) -> 'done' (4).
+     * 2. Priority rank (active cards): 'urgent' (1) -> 'high' (2) -> 'normal' (3) -> 'low' (4).
+     * 3. FIFO / SLA fairness tie-breaker:
+     *    - Active cards ('doing', 'assigned', 'backlog'): created_at ASC, then id ASC.
+     *    - Done cards ('done'): completed_at DESC, then id DESC.
+     *
+     * @param  Builder<PostIt>  $query
+     * @return Builder<PostIt>
+     */
+    public function scopeSmartOrder(Builder $query): Builder
+    {
+        $status = $this->qualifyColumn('status');
+        $priority = $this->qualifyColumn('priority');
+        $completedAt = $this->qualifyColumn('completed_at');
+        $updatedAt = $this->qualifyColumn('updated_at');
+        $createdAt = $this->qualifyColumn('created_at');
+        $id = $this->qualifyColumn('id');
+
+        return $query
+            ->orderByRaw("CASE {$status} WHEN 'doing' THEN 1 WHEN 'assigned' THEN 2 WHEN 'backlog' THEN 3 WHEN 'done' THEN 4 ELSE 5 END ASC")
+            ->orderByRaw("CASE WHEN {$status} != 'done' THEN (CASE {$priority} WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'normal' THEN 3 WHEN 'low' THEN 4 ELSE 5 END) ELSE 0 END ASC")
+            ->orderByRaw("CASE WHEN {$status} = 'done' THEN COALESCE({$completedAt}, {$updatedAt}) END DESC")
+            ->orderByRaw("CASE WHEN {$status} = 'done' THEN {$id} END DESC")
+            ->orderByRaw("CASE WHEN {$status} != 'done' THEN {$createdAt} END ASC")
+            ->orderByRaw("CASE WHEN {$status} != 'done' THEN {$id} END ASC");
+    }
+
+    /**
+     * Sort an in-memory collection of PostIt models according to smart deterministic queue ordering.
+     *
+     * @param  Collection<int, PostIt>  $postIts
+     * @return Collection<int, PostIt>
+     */
+    public static function sortCollection(Collection $postIts): Collection
+    {
+        return $postIts->sort(function (PostIt $a, PostIt $b): int {
+            $statusRankA = match ($a->status) {
+                'doing' => 1,
+                'assigned' => 2,
+                'backlog' => 3,
+                'done' => 4,
+                default => 5,
+            };
+            $statusRankB = match ($b->status) {
+                'doing' => 1,
+                'assigned' => 2,
+                'backlog' => 3,
+                'done' => 4,
+                default => 5,
+            };
+
+            if ($statusRankA !== $statusRankB) {
+                return $statusRankA <=> $statusRankB;
+            }
+
+            if ($a->status === 'done') {
+                $completedA = $a->completed_at?->timestamp ?? $a->updated_at?->timestamp ?? 0;
+                $completedB = $b->completed_at?->timestamp ?? $b->updated_at?->timestamp ?? 0;
+
+                if ($completedA !== $completedB) {
+                    return $completedB <=> $completedA;
+                }
+
+                return $b->id <=> $a->id;
+            }
+
+            $priorityRankA = match ($a->priority) {
+                'urgent' => 1,
+                'high' => 2,
+                'normal' => 3,
+                'low' => 4,
+                default => 5,
+            };
+            $priorityRankB = match ($b->priority) {
+                'urgent' => 1,
+                'high' => 2,
+                'normal' => 3,
+                'low' => 4,
+                default => 5,
+            };
+
+            if ($priorityRankA !== $priorityRankB) {
+                return $priorityRankA <=> $priorityRankB;
+            }
+
+            $createdA = $a->created_at?->timestamp ?? 0;
+            $createdB = $b->created_at?->timestamp ?? 0;
+
+            if ($createdA !== $createdB) {
+                return $createdA <=> $createdB;
+            }
+
+            return $a->id <=> $b->id;
+        })->values();
     }
 }

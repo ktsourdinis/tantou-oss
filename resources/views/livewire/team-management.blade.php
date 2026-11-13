@@ -515,7 +515,7 @@
 
                                     {{-- Visibility Mode --}}
                                     <td class="py-3.5 px-4">
-                                        @if (auth()->user()?->role === 'admin')
+                                        @if (auth()->user()?->canChangeBoardVisibilityOf($user))
                                             <select
                                                 wire:change="quickUpdateVisibility({{ $user->id }}, $event.target.value)"
                                                 class="text-[10px] bg-slate-950 border border-slate-700 rounded-lg px-2 py-0.5 text-slate-300 cursor-pointer focus:outline-none"
@@ -526,7 +526,7 @@
                                                 <option value="none" @selected($user->board_visibility === 'none')>{{ __('None (Hide)') }}</option>
                                             </select>
                                         @else
-                                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider {{ $user->board_visibility === 'public' ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30' : ($user->board_visibility === 'internal' ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' : 'bg-purple-500/15 text-purple-300 border border-purple-500/30') }}">
+                                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider cursor-default {{ $user->board_visibility === 'public' ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30' : ($user->board_visibility === 'internal' ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' : 'bg-purple-500/15 text-purple-300 border border-purple-500/30') }}">
                                                 {{ $user->board_visibility }}
                                             </span>
                                         @endif

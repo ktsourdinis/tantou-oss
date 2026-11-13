@@ -254,6 +254,8 @@
     "Live Preview:": "Ζωντανή Προεπισκόπηση:",
     "You do not have access to this workspace.": "Δεν έχετε πρόσβαση σε αυτόν τον χώρο εργασίας.",
     "Invalid or expired signed URL.": "Μη έγκυρος ή ληγμένος υπογεγραμμένος σύνδεσμος.",
-    "User does not belong to this organization.": "Ο χρήστης δεν ανήκει σε αυτόν τον οργανισμό."
+    "User does not belong to this organization.": "Ο χρήστης δεν ανήκει σε αυτόν τον οργανισμό.",
+    "Sorted by: In Progress → Priority → Oldest (FIFO)": "Ταξινόμηση: Σε Εξέλιξη → Προτεραιότητα → Παλαιότερα (FIFO)",
+    "Deterministic queue ordering rule for all columns": "Κανόνας ντετερμινιστικής ταξινόμησης ουράς για όλες τις στήλες"
 }
 
