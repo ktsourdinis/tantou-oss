@@ -1,7 +1,52 @@
 <?php
 
+use App\Http\Controllers\AttachmentController;
+use App\Livewire\Auth\Login;
+use App\Livewire\Auth\Register;
+use App\Livewire\CapacityBoard;
+use App\Livewire\TeamManagement;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
+// Public Landing Page
+Route::view('/', 'welcome')->name('landing');
+
+// Locale Switcher Route
+Route::post('/locale/{locale}', function (Request $request, string $locale) {
+    if (! in_array($locale, ['en', 'el'], true)) {
+        abort(400);
+    }
+
+    $request->session()->put('locale', $locale);
+
+    if ($request->user()) {
+        $request->user()->update(['locale' => $locale]);
+    }
+
+    return redirect()->back();
+})->name('locale.switch');
+
+// Guest Authentication Routes
+Route::middleware('guest')->group(function (): void {
+    Route::get('/login', Login::class)->name('login');
+    Route::get('/register', Register::class)->name('register');
+});
+
+// Authenticated Application Routes
+Route::middleware('auth')->group(function (): void {
+    Route::get('/board', CapacityBoard::class)->name('board');
+    Route::get('/team', TeamManagement::class)->name('team');
+
+    // Secure attachments handling
+    Route::get('/attachments/{attachment}', [AttachmentController::class, 'show'])->name('attachments.show');
+    Route::delete('/attachments/{attachment}', [AttachmentController::class, 'destroy'])->name('attachments.destroy');
+
+    Route::post('/logout', function (Request $request) {
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect('/');
+    })->name('logout');
 });
