@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'slug', 'settings'])]
+#[Fillable(['name', 'slug', 'settings', 'strict_client_isolation', 'public_submission_enabled'])]
 class Tenant extends Model
 {
     /** @use HasFactory<TenantFactory> */
@@ -23,6 +23,8 @@ class Tenant extends Model
         'name',
         'slug',
         'settings',
+        'strict_client_isolation',
+        'public_submission_enabled',
     ];
 
     /**
@@ -34,6 +36,8 @@ class Tenant extends Model
     {
         return [
             'settings' => 'array',
+            'strict_client_isolation' => 'boolean',
+            'public_submission_enabled' => 'boolean',
         ];
     }
 

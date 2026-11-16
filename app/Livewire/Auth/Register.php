@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Auth;
 
-use App\Cloud\Http\Middleware\ResolveCloudSubdomain;
 use App\Models\Department;
 use App\Models\Tenant;
 use App\Models\User;
@@ -24,6 +23,11 @@ class Register extends Component
     public string $slug = '';
 
     public bool $customSlug = false;
+
+    /**
+     * @var list<string>
+     */
+    public array $suggestedSlugs = [];
 
     public string $name = '';
 
@@ -54,6 +58,7 @@ class Register extends Component
     {
         if (! $this->customSlug && Edition::isCloud()) {
             $this->slug = Str::slug($value);
+            $this->checkSlugAvailability();
         }
     }
 
@@ -63,6 +68,40 @@ class Register extends Component
     public function updatedSlug(): void
     {
         $this->customSlug = true;
+        $this->checkSlugAvailability();
+    }
+
+    /**
+     * Check if current slug is available or suggest alternatives.
+     */
+    public function checkSlugAvailability(): void
+    {
+        if (! Edition::isCloud() || empty($this->slug)) {
+            $this->suggestedSlugs = [];
+
+            return;
+        }
+
+        $cleanSlug = Str::slug($this->slug);
+        $isTaken = Tenant::where('slug', $cleanSlug)->exists()
+            || in_array($cleanSlug, Edition::RESERVED_SLUGS, true);
+
+        if ($isTaken) {
+            $this->suggestedSlugs = Edition::suggestAvailableSlugs($cleanSlug);
+        } else {
+            $this->suggestedSlugs = [];
+        }
+    }
+
+    /**
+     * Select a suggested slug.
+     */
+    public function selectSuggestedSlug(string $slug): void
+    {
+        $this->slug = $slug;
+        $this->suggestedSlugs = [];
+        $this->customSlug = true;
+        $this->resetValidation('slug');
     }
 
     /**
@@ -84,6 +123,14 @@ class Register extends Component
         ];
 
         if (Edition::isCloud()) {
+            $cleanSlug = Str::slug($this->slug);
+            $isTaken = Tenant::where('slug', $cleanSlug)->exists()
+                || in_array($cleanSlug, Edition::RESERVED_SLUGS, true);
+
+            if ($isTaken) {
+                $this->suggestedSlugs = Edition::suggestAvailableSlugs($cleanSlug);
+            }
+
             $rules['slug'] = [
                 'required',
                 'string',
@@ -91,7 +138,7 @@ class Register extends Component
                 'min:2',
                 'max:50',
                 'unique:tenants,slug',
-                Rule::notIn(ResolveCloudSubdomain::RESERVED_SUBDOMAINS),
+                Rule::notIn(Edition::RESERVED_SLUGS),
             ];
         }
 
@@ -146,22 +193,11 @@ class Register extends Component
 
         // In Cloud mode, redirect to the newly provisioned tenant subdomain via autologin signed URL
         if (Edition::isCloud()) {
-            $baseDomain = Edition::baseDomain();
-            $cleanBaseDomain = parse_url('http://'.$baseDomain, PHP_URL_HOST) ?? $baseDomain;
-            $port = request()->getPort();
-            $portString = in_array($port, [80, 443], true) ? '' : ":{$port}";
-            $scheme = request()->getScheme();
-            $targetRoot = "{$scheme}://{$tenant->slug}.{$cleanBaseDomain}{$portString}";
+            $signedUrl = Edition::signedTenantAutoLoginUrl($user, request());
 
-            URL::forceRootUrl($targetRoot);
-            $signedUrl = URL::temporarySignedRoute(
-                'cloud.autologin',
-                now()->addMinutes(15),
-                ['user' => $user->id]
-            );
-            URL::forceRootUrl(null);
+            $this->redirect($signedUrl, navigate: false);
 
-            return redirect()->away($signedUrl);
+            return null;
         }
 
         Auth::login($user);

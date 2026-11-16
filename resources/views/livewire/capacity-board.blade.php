@@ -74,7 +74,8 @@
     {{-- Top Navigation Bar --}}
     <header class="border-b border-slate-800/80 bg-slate-900/70 backdrop-blur-xl sticky top-0 z-30 px-4 sm:px-6 py-3">
         <div class="max-w-[1920px] mx-auto flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div class="flex items-center justify-between gap-3 w-full md:w-auto">
+            {{-- Left Section: Brand & Primary Navigation Switcher --}}
+            <div class="flex items-center justify-between md:justify-start gap-4 w-full md:w-auto">
                 <div class="flex items-center space-x-3 min-w-0">
                     <a href="{{ route('landing') }}" class="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-amber-400 flex items-center justify-center font-bold text-base sm:text-lg text-white shadow-lg shadow-indigo-500/20 hover:scale-105 transition-transform shrink-0">
                         担
@@ -84,12 +85,33 @@
                             <h1 class="text-lg sm:text-xl font-bold tracking-tight text-white truncate">Tantou <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">担当</span></h1>
                             <span class="text-slate-600 text-sm">/</span>
                             <span class="text-slate-300 font-semibold text-xs sm:text-sm truncate">{{ $tenantName }}</span>
+                            @if(\App\Support\Edition::isCloud())
+                                <span class="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                    <span>{{ $tenantSlug }}.{{ \App\Support\Edition::baseDomain() }}</span>
+                                </span>
+                            @else
+                                <span class="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-slate-800/80 text-slate-400 border border-slate-700/60">
+                                    <span>/{{ $tenantSlug }}</span>
+                                </span>
+                            @endif
+
+                            @if (auth()->user()?->isAdmin())
+                                <button
+                                    wire:click="openWorkspaceSettingsModal"
+                                    type="button"
+                                    class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 border border-transparent hover:border-slate-700 transition-all cursor-pointer text-xs"
+                                    title="{{ __('Workspace Settings') }}"
+                                >
+                                    ⚙️
+                                </button>
+                            @endif
                         </div>
                         <p class="hidden md:block text-[11px] text-slate-400 truncate">{{ __('Human Capacity OS & Workload Marketplace') }}</p>
                     </div>
                 </div>
 
-                {{-- Navigation Switcher (Capacity Board vs Team & Leaderboard) --}}
+                {{-- Primary Navigation Pill Switcher (Capacity Board vs Team & Leaderboard) --}}
                 <nav class="flex items-center p-1 rounded-xl bg-slate-950/80 border border-slate-800 text-xs shrink-0">
                     <a
                         href="{{ route('board') }}"
@@ -111,12 +133,47 @@
                 </nav>
             </div>
 
-            <div class="flex flex-wrap items-center gap-2 w-full md:w-auto justify-between sm:justify-end">
+            {{-- Right Section: Language Switcher, Controls, User Profile & Actions --}}
+            <div class="flex items-center gap-2.5 flex-wrap w-full md:w-auto justify-between sm:justify-end">
+                {{-- Language Switcher (EN | ΕΛ) --}}
+                <x-language-switcher />
+
+                {{-- Live Reverb Status Indicator --}}
+                <div class="hidden sm:inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-emerald-950/60 border border-emerald-800/40 text-emerald-400 text-xs font-medium">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <span class="hidden md:inline">{{ __('Reverb Sync Live') }}</span>
+                </div>
+
+                {{-- View Density Toggle --}}
+                <button
+                    wire:click="toggleCompactView"
+                    type="button"
+                    class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-xs font-medium text-slate-300 transition-colors cursor-pointer"
+                    title="{{ __('Toggle Card Density') }}"
+                >
+                    <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
+                    <span>{{ $isCompact ? __('Compact') : __('Detailed') }}</span>
+                </button>
+
+                {{-- Requests History Button --}}
+                <button
+                    wire:click="openRequestsHistoryModal"
+                    type="button"
+                    class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-xs font-medium text-slate-300 hover:text-white transition-colors cursor-pointer"
+                    title="{{ __('Requests History') }}"
+                >
+                    <span>📋</span>
+                    <span>{{ __('History') }}</span>
+                </button>
+
                 {{-- Create Post-It Button --}}
                 <button
-                    wire:click="$set('showCreateModal', true)"
+                    wire:click="openCreateModal"
                     type="button"
-                    class="w-full sm:w-auto justify-center order-first sm:order-last inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
+                    class="w-full sm:w-auto order-first sm:order-none inline-flex items-center justify-center gap-2 px-3.5 sm:px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
                 >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -124,62 +181,37 @@
                     <span>{{ __('New Post-it') }}</span>
                 </button>
 
-                <div class="flex items-center gap-2 flex-wrap">
-                    {{-- Language Switcher (EN | ΕΛ) --}}
-                    <x-language-switcher />
-
-                    {{-- Live Reverb Status Indicator --}}
-                    <div class="hidden sm:inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-emerald-950/60 border border-emerald-800/40 text-emerald-400 text-xs font-medium">
-                        <span class="relative flex h-2 w-2">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                        </span>
-                        <span class="hidden md:inline">{{ __('Reverb Sync Live') }}</span>
-                    </div>
-
-                    {{-- View Density Toggle --}}
-                    <button
-                        wire:click="toggleCompactView"
-                        type="button"
-                        class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-xs font-medium text-slate-300 transition-colors cursor-pointer"
-                        title="{{ __('Toggle Card Density') }}"
-                    >
-                        <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
-                        <span>{{ $isCompact ? __('Compact') : __('Detailed') }}</span>
-                    </button>
-
-                    @auth
-                        {{-- User Profile Indicator --}}
-                        <div class="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-slate-800/70 border border-slate-700/60 text-xs max-w-[140px] sm:max-w-none">
-                            <div class="h-6 w-6 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold flex items-center justify-center text-xs shrink-0">
-                                {{ substr(auth()->user()->name, 0, 1) }}
-                            </div>
-                            <div class="flex flex-col min-w-0">
-                                <span class="font-semibold text-slate-200 leading-tight truncate text-xs">{{ auth()->user()->name }}</span>
-                                <div class="hidden sm:flex items-center gap-1.5 text-[10px]">
-                                    <span class="capitalize px-1.5 py-0.2 rounded font-medium {{ auth()->user()->role === 'admin' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : (auth()->user()->role === 'worker' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-blue-500/20 text-blue-300 border border-blue-500/30') }}">
-                                        {{ __(ucfirst(auth()->user()->role)) }}
-                                    </span>
-                                    @if (auth()->user()->role === 'worker')
-                                        <span class="text-amber-400 font-medium">★ {{ auth()->user()->total_points }} pts</span>
-                                    @endif
-                                </div>
+                @auth
+                    {{-- User Profile Indicator --}}
+                    <div class="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-slate-800/70 border border-slate-700/60 text-xs max-w-[140px] sm:max-w-none">
+                        <div class="h-6 w-6 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold flex items-center justify-center text-xs shrink-0">
+                            {{ substr(auth()->user()->name, 0, 1) }}
+                        </div>
+                        <div class="flex flex-col min-w-0">
+                            <span class="font-semibold text-slate-200 leading-tight truncate text-xs">{{ auth()->user()->name }}</span>
+                            <div class="hidden sm:flex items-center gap-1.5 text-[10px]">
+                                <span class="capitalize px-1.5 py-0.2 rounded font-medium {{ auth()->user()->role === 'admin' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : (auth()->user()->role === 'worker' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-blue-500/20 text-blue-300 border border-blue-500/30') }}">
+                                    {{ __(ucfirst(auth()->user()->role)) }}
+                                </span>
+                                @if (auth()->user()->role === 'worker')
+                                    <span class="text-amber-400 font-medium">★ {{ auth()->user()->total_points }} pts</span>
+                                @endif
                             </div>
                         </div>
+                    </div>
 
-                        {{-- Logout Button --}}
-                        <button
-                            wire:click="logout"
-                            type="button"
-                            class="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all cursor-pointer"
-                            title="{{ __('Sign Out') }}"
-                        >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                            </svg>
-                        </button>
-                    @endauth
-                </div>
+                    {{-- Logout Button --}}
+                    <button
+                        wire:click="logout"
+                        type="button"
+                        class="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all cursor-pointer"
+                        title="{{ __('Sign Out') }}"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                    </button>
+                @endauth
             </div>
         </div>
     </header>
@@ -329,10 +361,34 @@
                         @forelse ($backlogPostIts as $postIt)
                             @include('livewire.partials.post-it-card', ['postIt' => $postIt, 'zone' => 'backlog'])
                         @empty
-                            <div class="py-12 px-4 text-center border border-dashed border-slate-800 rounded-xl text-slate-500 text-xs">
-                                {{ __('Backlog is clear!') }}
-                            </div>
+                            <button
+                                wire:click="openCreateModal(null, true)"
+                                type="button"
+                                class="group w-full py-10 px-4 text-center rounded-2xl border-2 border-dashed border-slate-800/90 hover:border-violet-500/70 bg-slate-900/20 hover:bg-violet-500/10 transition-all duration-200 flex flex-col items-center justify-center gap-2 cursor-pointer text-slate-500 hover:text-violet-300"
+                            >
+                                <div class="w-10 h-10 rounded-full bg-slate-800/80 group-hover:bg-violet-600 group-hover:text-white flex items-center justify-center text-xl font-semibold transition-transform group-hover:scale-110">
+                                    +
+                                </div>
+                                <div class="space-y-0.5">
+                                    <span class="text-xs font-bold text-slate-300 block">{{ __('Backlog is clear!') }}</span>
+                                    <span class="text-[11px] text-slate-400 group-hover:text-violet-300 transition-colors block">{{ __('Click to queue an unassigned request') }}</span>
+                                </div>
+                            </button>
                         @endforelse
+
+                        @if ($backlogPostIts->isNotEmpty())
+                            <button
+                                wire:click="openCreateModal(null, true)"
+                                type="button"
+                                class="group w-full min-h-[96px] rounded-2xl border-2 border-dashed border-slate-800/90 hover:border-violet-500/70 bg-slate-900/20 hover:bg-violet-500/10 transition-all duration-200 flex flex-col items-center justify-center gap-1.5 p-4 cursor-pointer text-slate-500 hover:text-violet-300"
+                                title="{{ __('Queue Post-it') }}"
+                            >
+                                <div class="w-9 h-9 rounded-full bg-slate-800/80 group-hover:bg-violet-600 group-hover:text-white flex items-center justify-center text-xl font-semibold transition-transform group-hover:scale-110">
+                                    +
+                                </div>
+                                <span class="text-xs font-medium tracking-wide">{{ __('Queue Post-it') }}</span>
+                            </button>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -364,6 +420,7 @@
                         );
 
                         $canChangeVisibility = auth()->user()?->canChangeBoardVisibilityOf($worker) ?? false;
+                        $canAssign = auth()->user()?->canAssignTo($worker) ?? false;
                     @endphp
 
                     <div
@@ -461,10 +518,31 @@
                             @forelse ($worker->assignedPostIts as $postIt)
                                 @include('livewire.partials.post-it-card', ['postIt' => $postIt, 'zone' => 'doing', 'worker' => $worker])
                             @empty
-                                <div class="py-12 px-3 text-center border border-dashed border-slate-800/80 rounded-xl text-slate-500 text-xs">
-                                    {{ $isAway ? __('Collaborator is away') : __('Capacity available') }}
-                                </div>
+                                @if ($isAway)
+                                    <div class="py-12 px-3 text-center border border-dashed border-slate-800/80 rounded-xl text-slate-500 text-xs">
+                                        {{ __('Collaborator is away') }}
+                                    </div>
+                                @elseif (! $canAssign)
+                                    <div class="py-12 px-3 text-center border border-dashed border-slate-800/80 rounded-xl text-slate-500 text-xs">
+                                        {{ __('Capacity available') }}
+                                    </div>
+                                @endif
                             @endforelse
+
+                            {{-- Large Tactile Ghost Post-It Card (Append to Queue) --}}
+                            @if ($canAssign && ! $isAway)
+                                <button
+                                    wire:click="openCreateModal({{ $worker->id }})"
+                                    type="button"
+                                    class="group w-full min-h-[96px] rounded-2xl border-2 border-dashed border-slate-800/90 hover:border-violet-500/70 bg-slate-900/20 hover:bg-violet-500/10 transition-all duration-200 flex flex-col items-center justify-center gap-1.5 p-4 cursor-pointer text-slate-500 hover:text-violet-300"
+                                    title="{{ __('Queue Post-it') }}"
+                                >
+                                    <div class="w-9 h-9 rounded-full bg-slate-800/80 group-hover:bg-violet-600 group-hover:text-white flex items-center justify-center text-xl font-semibold transition-transform group-hover:scale-110">
+                                        +
+                                    </div>
+                                    <span class="text-xs font-medium tracking-wide">{{ __('Queue Post-it') }}</span>
+                                </button>
+                            @endif
                         </div>
                     </div>
                 @empty
@@ -483,22 +561,48 @@
                 class="transition-all duration-300 flex-col"
             >
                 <div class="rounded-2xl bg-slate-900/60 border border-slate-800/70 p-3.5 flex flex-col shadow-xl w-full">
-                    <div class="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-3">
-                        <button
-                            @click="openDone = !openDone"
-                            type="button"
-                            class="hidden md:inline-flex p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-                            :title="openDone ? '{{ __('Collapse Completed') }}' : '{{ __('Expand Completed') }}'"
-                        >
-                            <svg x-show="openDone" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-                            <svg x-show="!openDone" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-                        </button>
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-3 gap-2">
+                        <div class="flex items-center gap-2">
+                            <button
+                                @click="openDone = !openDone"
+                                type="button"
+                                class="hidden md:inline-flex p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                                :title="openDone ? '{{ __('Collapse Completed') }}' : '{{ __('Expand Completed') }}'"
+                            >
+                                <svg x-show="openDone" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                                <svg x-show="!openDone" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                            </button>
 
-                        <div :class="openDone || mobileTab === 'completed' ? 'flex' : 'hidden md:hidden'" class="items-center gap-2">
-                            <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">{{ __('Completed') }}</span>
-                            <span class="px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-800/40 text-[11px] font-bold">
-                                {{ $donePostIts->count() }}
-                            </span>
+                            <div :class="openDone || mobileTab === 'completed' ? 'flex' : 'hidden md:hidden'" class="items-center gap-2">
+                                <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">{{ __('Completed') }}</span>
+                                <span class="px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-800/40 text-[11px] font-bold">
+                                    {{ $donePostIts->count() }}
+                                </span>
+                            </div>
+                        </div>
+
+                        {{-- History Button & Staff Filter Toggle --}}
+                        <div :class="openDone || mobileTab === 'completed' ? 'flex' : 'hidden md:hidden'" class="items-center gap-1.5">
+                            @if (auth()->user()?->role !== 'client')
+                                <button
+                                    wire:click="toggleFilterCompletedMineOnly"
+                                    type="button"
+                                    class="px-2 py-0.5 rounded-lg text-[10px] font-semibold border transition-all cursor-pointer {{ $filterCompletedMineOnly ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm' : 'bg-slate-950/60 text-slate-400 border-slate-800 hover:text-slate-200' }}"
+                                    title="{{ __('Toggle all completed vs Mine / My Facility') }}"
+                                >
+                                    {{ $filterCompletedMineOnly ? __('Mine') : __('All') }}
+                                </button>
+                            @endif
+
+                            <button
+                                wire:click="openRequestsHistoryModal"
+                                type="button"
+                                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-950/50 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-800/50 text-[10px] font-semibold transition-all cursor-pointer"
+                                title="{{ __('Requests History') }}"
+                            >
+                                <span>📋</span>
+                                <span>{{ __('History') }}</span>
+                            </button>
                         </div>
                     </div>
 
@@ -519,14 +623,110 @@
                         @dragleave="onDragLeave('done')"
                         @drop.prevent="onDrop($event, null, 'done')"
                         class="space-y-3 min-h-[300px] rounded-xl border-2 border-dashed p-1 transition-all"
+                        x-data="{
+                            todayOpen: true,
+                            weekOpen: {{ $doneToday->isEmpty() ? 'true' : 'false' }},
+                            earlierOpen: false
+                        }"
                     >
-                        @forelse ($donePostIts as $postIt)
-                            @include('livewire.partials.post-it-card', ['postIt' => $postIt, 'zone' => 'done'])
-                        @empty
+                        @if ($donePostIts->isEmpty())
                             <div class="py-12 px-4 text-center border border-dashed border-slate-800 rounded-xl text-slate-500 text-xs">
                                 {{ __('No completed tasks yet.') }}
                             </div>
-                        @endforelse
+                        @else
+                            {{-- Accordion 1: Today --}}
+                            <div class="rounded-xl border border-slate-800/80 bg-slate-950/40 overflow-hidden">
+                                <button
+                                    @click="todayOpen = !todayOpen"
+                                    type="button"
+                                    class="w-full px-3 py-2 flex items-center justify-between text-xs font-bold text-slate-200 hover:text-white bg-slate-900/80 hover:bg-slate-800/70 transition-colors cursor-pointer select-none"
+                                >
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-emerald-400">⚡</span>
+                                        <span>{{ __('Today') }}</span>
+                                        <span class="px-1.5 py-0.2 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800/40 text-[10px] font-mono">
+                                            {{ $doneToday->count() }}
+                                        </span>
+                                    </div>
+                                    <svg
+                                        class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200"
+                                        :class="todayOpen ? 'rotate-180' : ''"
+                                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                    >
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+                                <div x-show="todayOpen" class="p-2 space-y-2.5">
+                                    @forelse ($doneToday as $postIt)
+                                        @include('livewire.partials.post-it-card', ['postIt' => $postIt, 'zone' => 'done'])
+                                    @empty
+                                        <p class="py-3 text-center text-slate-500 text-[11px] italic">{{ __('No tasks completed today.') }}</p>
+                                    @endforelse
+                                </div>
+                            </div>
+
+                            {{-- Accordion 2: This Week --}}
+                            <div class="rounded-xl border border-slate-800/80 bg-slate-950/40 overflow-hidden">
+                                <button
+                                    @click="weekOpen = !weekOpen"
+                                    type="button"
+                                    class="w-full px-3 py-2 flex items-center justify-between text-xs font-bold text-slate-200 hover:text-white bg-slate-900/80 hover:bg-slate-800/70 transition-colors cursor-pointer select-none"
+                                >
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-indigo-400">📅</span>
+                                        <span>{{ __('This Week') }}</span>
+                                        <span class="px-1.5 py-0.2 rounded-full bg-indigo-950/80 text-indigo-300 border border-indigo-800/40 text-[10px] font-mono">
+                                            {{ $doneThisWeek->count() }}
+                                        </span>
+                                    </div>
+                                    <svg
+                                        class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200"
+                                        :class="weekOpen ? 'rotate-180' : ''"
+                                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                    >
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+                                <div x-show="weekOpen" class="p-2 space-y-2.5">
+                                    @forelse ($doneThisWeek as $postIt)
+                                        @include('livewire.partials.post-it-card', ['postIt' => $postIt, 'zone' => 'done'])
+                                    @empty
+                                        <p class="py-3 text-center text-slate-500 text-[11px] italic">{{ __('No other tasks this week.') }}</p>
+                                    @endforelse
+                                </div>
+                            </div>
+
+                            {{-- Accordion 3: Earlier / Archive --}}
+                            <div class="rounded-xl border border-slate-800/80 bg-slate-950/40 overflow-hidden">
+                                <button
+                                    @click="earlierOpen = !earlierOpen"
+                                    type="button"
+                                    class="w-full px-3 py-2 flex items-center justify-between text-xs font-bold text-slate-200 hover:text-white bg-slate-900/80 hover:bg-slate-800/70 transition-colors cursor-pointer select-none"
+                                >
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-slate-400">📦</span>
+                                        <span>{{ __('Earlier / Archive') }}</span>
+                                        <span class="px-1.5 py-0.2 rounded-full bg-slate-900 text-slate-400 border border-slate-800 text-[10px] font-mono">
+                                            {{ $doneEarlier->count() }}
+                                        </span>
+                                    </div>
+                                    <svg
+                                        class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200"
+                                        :class="earlierOpen ? 'rotate-180' : ''"
+                                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                    >
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+                                <div x-show="earlierOpen" class="p-2 space-y-2.5">
+                                    @forelse ($doneEarlier as $postIt)
+                                        @include('livewire.partials.post-it-card', ['postIt' => $postIt, 'zone' => 'done'])
+                                    @empty
+                                        <p class="py-3 text-center text-slate-500 text-[11px] italic">{{ __('No earlier archived tasks.') }}</p>
+                                    @endforelse
+                                </div>
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -584,7 +784,7 @@
                         <div>
                             <label class="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1">{{ __('Department') }}</label>
                             <select
-                                wire:model="departmentId"
+                                wire:model.live="departmentId"
                                 class="w-full rounded-xl bg-slate-950/80 border border-slate-800 px-2.5 py-1.5 text-xs text-white focus:border-indigo-500 focus:outline-none"
                             >
                                 <option value="">{{ __('Select Department...') }}</option>
@@ -594,10 +794,10 @@
                             </select>
                         </div>
 
-                        {{-- Collaborator (Tantou) --}}
+                        {{-- Assigned To --}}
                         <div>
                             <label class="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                                {{ __('Collaborator (Tantou)') }}
+                                {{ __('Assigned To') }}
                             </label>
                             <select
                                 wire:model="assigneeId"
@@ -605,14 +805,16 @@
                             >
                                 <option value="">{{ __('None — Send to Backlog') }}</option>
                                 @foreach ($availableCollaborators as $collab)
-                                    @php
-                                        $collabStatus = $collab->current_capacity >= $collab->max_capacity
-                                            ? __('High Load')
-                                            : ($collab->current_capacity >= ($collab->max_capacity * 0.7) ? __('Busy') : __('Healthy'));
-                                    @endphp
-                                    <option value="{{ $collab->id }}">
-                                        {{ $collab->name }} ({{ $collab->current_capacity }}/{{ $collab->max_capacity }})
-                                    </option>
+                                    @if (! $departmentId || (int) $collab->department_id === (int) $departmentId)
+                                        @php
+                                            $collabStatus = $collab->current_capacity >= $collab->max_capacity
+                                                ? __('High Load')
+                                                : ($collab->current_capacity >= ($collab->max_capacity * 0.7) ? __('Busy') : __('Healthy'));
+                                        @endphp
+                                        <option value="{{ $collab->id }}">
+                                            {{ $collab->name }} ({{ $collab->current_capacity }}/{{ $collab->max_capacity }})
+                                        </option>
+                                    @endif
                                 @endforeach
                             </select>
                         </div>
@@ -853,15 +1055,41 @@
         </div>
     @endif
 
-    {{-- Card Detail & Scope Calibration Slide-Over Drawer --}}
+    {{-- MODAL 3: Centered Post-it Detail & Edit Modal Dialog --}}
     @if ($showSlideOver && $this->selectedPostIt)
         @php
             $selected = $this->selectedPostIt;
             $calculator = app(\App\Services\BountyCalculator::class);
             $splitData = $calculator->calculateSplit($selected->bounty_points, $selected->helper_split, (bool) $selected->helper_id);
             $currentUser = auth()->user();
+            $canEdit = $this->canEditPostIt($selected, $currentUser);
             $canCalibrate = $currentUser && ($currentUser->role === 'admin' || (int) $currentUser->id === (int) $selected->assignee_id) && $selected->status !== 'done';
             $canCancel = $currentUser && ($currentUser->role === 'admin' || ($selected->status === 'backlog' && (int) $currentUser->id === (int) $selected->requester_id));
+
+            $canStart = $currentUser && (
+                $currentUser->role === 'admin'
+                || (int) $selected->assignee_id === (int) $currentUser->id
+                || (
+                    $currentUser->role === 'coordinator' &&
+                    (
+                        (int) $selected->department_id === (int) $currentUser->department_id ||
+                        (int) $selected->assignee?->department_id === (int) $currentUser->department_id
+                    )
+                )
+            );
+
+            $canComplete = $currentUser && (
+                $currentUser->role === 'admin'
+                || (int) $selected->assignee_id === (int) $currentUser->id
+                || (int) $selected->helper_id === (int) $currentUser->id
+                || (
+                    $currentUser->role === 'coordinator' &&
+                    (
+                        (int) $selected->department_id === (int) $currentUser->department_id ||
+                        (int) $selected->assignee?->department_id === (int) $currentUser->department_id
+                    )
+                )
+            );
 
             $priorityBadgeClasses = match($selected->priority) {
                 'urgent' => 'bg-rose-500/20 text-rose-300 border-rose-500/30',
@@ -881,37 +1109,17 @@
             x-data="{ open: true }"
             x-show="open"
             @keydown.escape.window="$wire.closeSlideOver()"
-            class="fixed inset-0 z-50 overflow-hidden"
+            class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-md"
             role="dialog"
             aria-modal="true"
         >
-            {{-- Backdrop --}}
             <div
-                x-show="open"
-                x-transition:enter="ease-out duration-300"
-                x-transition:enter-start="opacity-0"
-                x-transition:enter-end="opacity-100"
-                x-transition:leave="ease-in duration-200"
-                x-transition:leave-start="opacity-100"
-                x-transition:leave-end="opacity-0"
-                class="fixed inset-0 bg-slate-950/75 backdrop-blur-sm transition-opacity"
-                wire:click="closeSlideOver"
-            ></div>
-
-            {{-- Slide-over Panel --}}
-            <div class="fixed inset-y-0 right-0 max-w-full flex pl-10">
-                <div
-                    x-show="open"
-                    x-transition:enter="transform transition ease-in-out duration-300"
-                    x-transition:enter-start="translate-x-full"
-                    x-transition:enter-end="translate-x-0"
-                    x-transition:leave="transform transition ease-in-out duration-200"
-                    x-transition:leave-start="translate-x-0"
-                    x-transition:leave-end="translate-x-full"
-                    class="w-screen max-w-md bg-slate-900/95 border-l border-slate-800 shadow-2xl flex flex-col backdrop-blur-xl"
-                >
-                    {{-- Header --}}
-                    <div class="px-4 py-3 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between shrink-0">
+                class="w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden text-left"
+                @click.outside="$wire.closeSlideOver()"
+            >
+                {{-- Sticky Modal Header --}}
+                <div class="px-5 py-4 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md shrink-0 space-y-2.5">
+                    <div class="flex items-center justify-between gap-3">
                         <div class="flex items-center gap-1.5 flex-wrap">
                             {{-- Status Pill --}}
                             <span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider border {{ $statusBadgeClasses }}">
@@ -931,7 +1139,7 @@
                             {{-- Department Pill --}}
                             @if ($selected->department)
                                 <span
-                                    class="px-2 py-0.5 rounded text-[11px] font-semibold border truncate max-w-[120px]"
+                                    class="px-2 py-0.5 rounded text-[11px] font-semibold border truncate max-w-[140px]"
                                     style="background-color: {{ $selected->department->color }}20; color: {{ $selected->department->color }}; border-color: {{ $selected->department->color }}40;"
                                 >
                                     {{ $selected->department->name }}
@@ -944,29 +1152,58 @@
                             </span>
                         </div>
 
-                        <button
-                            wire:click="closeSlideOver"
-                            type="button"
-                            class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-                            title="{{ __('Close (Esc)') }}"
-                        >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
+                        <div class="flex items-center gap-2 shrink-0">
+                            @if ($canEdit && ! $isEditingDetail)
+                                <button
+                                    wire:click="startEditingDetail"
+                                    type="button"
+                                    class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold border border-slate-700 transition-colors flex items-center gap-1 cursor-pointer"
+                                    title="{{ __('Edit Details') }}"
+                                >
+                                    <span>✏️</span>
+                                    <span class="hidden sm:inline">{{ __('Edit Details') }}</span>
+                                </button>
+                            @endif
+
+                            <button
+                                wire:click="closeSlideOver"
+                                type="button"
+                                class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                                title="{{ __('Close (Esc)') }}"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
                     </div>
 
-                    {{-- Scrollable Content Body --}}
-                    <div class="flex-1 overflow-y-auto p-4 space-y-3 text-slate-200">
-                        {{-- Title & Requester --}}
+                    {{-- Title & Requester Row --}}
+                    @if ($isEditingDetail)
                         <div>
-                            <h2 class="text-base font-bold text-white leading-snug">
+                            <label class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">{{ __('Title') }}</label>
+                            <input
+                                wire:model="editTitle"
+                                type="text"
+                                required
+                                class="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-1.5 text-sm font-semibold text-white focus:border-indigo-500 focus:outline-none"
+                            >
+                            @error('editTitle') <span class="text-rose-400 text-xs mt-0.5 block">{{ $message }}</span> @enderror
+                        </div>
+                    @else
+                        <div>
+                            <h2 class="text-lg font-bold text-white leading-snug break-words">
                                 {{ $selected->title }}
                             </h2>
 
                             <div class="mt-1 flex items-center gap-2 text-xs text-slate-400 flex-wrap">
-                                <span class="flex items-center gap-1">
+                                <span class="flex items-center gap-1.5 flex-wrap">
                                     <span class="text-slate-500">{{ __('Requester:') }}</span>
                                     <span class="text-indigo-300 font-semibold">{{ $selected->display_requester_name ?? $selected->requester?->name ?? 'User #'.$selected->requester_id }}</span>
-                                    @if (!$selected->is_masked && $selected->requester)
+                                    @if (!empty($selected->facility_name) && !$selected->is_masked)
+                                        <span class="px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[10px] font-medium" title="{{ __('Facility / Unit') }}">
+                                            🏢 {{ $selected->facility_name }}
+                                        </span>
+                                    @endif
+                                    @if (! $selected->is_masked && $selected->requester)
                                         <span class="text-slate-600">({{ $selected->requester->email }})</span>
                                     @endif
                                 </span>
@@ -981,260 +1218,331 @@
                                 <span class="text-[11px]">{{ $selected->created_at->diffForHumans() }}</span>
                             </div>
                         </div>
+                    @endif
+                </div>
 
-                        {{-- Compact Description (if present) --}}
-                        @if ($selected->description)
-                            <div class="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80">
-                                <p class="text-xs text-slate-300 leading-relaxed whitespace-pre-line">{{ $selected->description }}</p>
-                            </div>
-                        @endif
-
-                        {{-- Compact Metadata Strip (2 small rows) --}}
-                        <div class="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 grid grid-cols-2 gap-2 text-xs">
-                            {{-- Row 1, Col 1: Tantou (Assignee) --}}
-                            <div class="flex items-center gap-2 min-w-0">
-                                <div class="w-6 h-6 rounded-lg bg-indigo-600/30 text-indigo-300 font-bold flex items-center justify-center text-[10px] shrink-0 border border-indigo-500/30">
-                                    {{ $selected->assignee ? strtoupper(substr($selected->assignee->name, 0, 1)) : '?' }}
-                                </div>
-                                <div class="min-w-0">
-                                    <span class="text-[9px] text-slate-500 uppercase block font-semibold leading-tight">{{ __('Tantou') }}</span>
-                                    <span class="font-semibold text-white truncate text-[11px] block">{{ $selected->assignee?->name ?? __('Unassigned') }}</span>
-                                </div>
-                            </div>
-
-                            {{-- Row 1, Col 2: Co-op Assistant --}}
-                            <div class="flex items-center gap-2 min-w-0">
-                                <div class="w-6 h-6 rounded-lg bg-purple-600/30 text-purple-300 font-bold flex items-center justify-center text-[10px] shrink-0 border border-purple-500/30">
-                                    🤝
-                                </div>
-                                <div class="min-w-0">
-                                    <span class="text-[9px] text-slate-500 uppercase block font-semibold leading-tight">{{ __('Co-op') }}</span>
-                                    <span class="font-semibold text-purple-300 truncate text-[11px] block">
-                                        {{ $selected->helper ? $selected->helper->name.' ('.$selected->helper_split.'%)' : __('Solo') }}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {{-- Row 2, Col 1: Execution Timeline --}}
-                            <div class="flex items-center gap-2 min-w-0">
-                                <div class="w-6 h-6 rounded-lg bg-slate-800 text-slate-400 flex items-center justify-center text-[10px] shrink-0 border border-slate-700">
-                                    ⏱️
-                                </div>
-                                <div class="min-w-0">
-                                    <span class="text-[9px] text-slate-500 uppercase block font-semibold leading-tight">{{ __('Timeline') }}</span>
-                                    <span class="text-slate-300 text-[10px] truncate block font-mono">
-                                        {{ $selected->started_at ? $selected->started_at->format('d/m H:i') : __('Not started') }} → {{ $selected->completed_at ? $selected->completed_at->format('d/m H:i') : __('In Progress') }}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {{-- Row 2, Col 2: Bounty Breakdown --}}
-                            <div class="flex items-center gap-2 min-w-0">
-                                <div class="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-[10px] shrink-0 border border-amber-500/30">
-                                    ⚡
-                                </div>
-                                <div class="min-w-0">
-                                    <span class="text-[9px] text-slate-500 uppercase block font-semibold leading-tight">{{ __('Bounty') }}</span>
-                                    <span class="font-bold text-amber-400 text-[11px] truncate block">
-                                        {{ $selected->bounty_points }} pts <span class="text-[9px] font-normal text-slate-400">(W{{ $selected->weight }} · {{ __(ucfirst($selected->priority)) }})</span>
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {{-- Assignment & Workflow Chain Timeline --}}
-                        <div class="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-3">
-                            <div class="flex items-center justify-between">
+                {{-- Scrollable 2-Column Body on Desktop --}}
+                <div class="overflow-y-auto p-5 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 text-slate-200">
+                    {{-- Left Column (lg:col-span-7 space-y-5) --}}
+                    <div class="lg:col-span-7 space-y-5">
+                        @if ($isEditingDetail)
+                            {{-- Inline Edit Fields --}}
+                            <div class="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-4">
                                 <h4 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-                                    <span>🔀</span>
-                                    <span>{{ __('Assignment & Workflow Chain') }}</span>
+                                    <span>✏️</span>
+                                    <span>{{ __('Edit Post-it Details') }}</span>
                                 </h4>
-                                @php
-                                    $assignmentChain = $selected->getAssignmentChain();
-                                @endphp
-                                @if (count($assignmentChain) >= 2)
-                                    <span class="text-[10px] font-semibold text-indigo-300 bg-indigo-950/60 border border-indigo-500/30 px-2 py-0.5 rounded-full">
-                                        {{ implode(' → ', $assignmentChain) }}{{ $selected->status === 'done' ? ' → ✓' : '' }}
-                                    </span>
-                                @endif
-                            </div>
 
-                            @if ($selected->transfers->isEmpty())
-                                <div class="py-4 text-center text-xs text-slate-500 italic">
-                                    {{ __('No transfer history recorded for this request.') }}
-                                </div>
-                            @else
-                                <div class="relative pl-6 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-800">
-                                    @foreach ($selected->transfers as $transfer)
-                                        @php
-                                            $dotClass = match($transfer->action) {
-                                                'completed' => 'bg-emerald-500 ring-emerald-500/30',
-                                                'started' => 'bg-indigo-500 ring-indigo-500/30',
-                                                'transferred' => 'bg-purple-500 ring-purple-500/30',
-                                                'unassigned' => 'bg-slate-500 ring-slate-500/30',
-                                                default => 'bg-sky-500 ring-sky-500/30',
-                                            };
-                                        @endphp
-                                        <div class="relative text-xs">
-                                            <span class="absolute -left-6 top-1 h-2.5 w-2.5 rounded-full ring-4 {{ $dotClass }}"></span>
-                                            <div class="flex items-center justify-between gap-2">
-                                                <span class="font-semibold text-white">
-                                                    @if ($transfer->action === 'assigned')
-                                                        {{ __('Assigned to') }} <span class="text-sky-300">{{ $transfer->toUser?->name ?? 'User #'.$transfer->to_user_id }}</span>
-                                                    @elseif ($transfer->action === 'transferred')
-                                                        {{ __('Transferred from') }} <span class="text-slate-300">{{ $transfer->fromUser?->name ?? 'User #'.$transfer->from_user_id }}</span> {{ __('to') }} <span class="text-purple-300">{{ $transfer->toUser?->name ?? 'User #'.$transfer->to_user_id }}</span>
-                                                    @elseif ($transfer->action === 'started')
-                                                        {{ __('Work started') }}
-                                                    @elseif ($transfer->action === 'completed')
-                                                        {{ __('Task completed') }}
-                                                    @elseif ($transfer->action === 'unassigned')
-                                                        {{ __('Returned to Backlog (Unassigned)') }}
-                                                    @else
-                                                        {{ __(ucfirst($transfer->action)) }}
-                                                    @endif
-                                                </span>
-                                                <span class="text-[10px] text-slate-500 shrink-0">
-                                                    {{ $transfer->created_at?->format('d/m/Y H:i') }}
-                                                </span>
-                                            </div>
-                                            <div class="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5">
-                                                <span class="text-slate-500">{{ __('By:') }}</span>
-                                                <span class="text-indigo-300 font-medium">{{ $transfer->actor?->name ?? 'System' }}</span>
-                                                <span class="text-slate-600">•</span>
-                                                <span class="text-slate-500 text-[10px]">{{ $transfer->created_at?->diffForHumans() }}</span>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            @endif
-                        </div>
-
-                        {{-- Scope Calibration (for Assignee or Admin while status != 'done') --}}
-                        @if ($canCalibrate)
-                            <div class="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/30 space-y-4">
-                                <div class="flex items-center justify-between">
-                                    <h4 class="text-xs font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
-                                        <span>⚙️</span>
-                                        <span>{{ __('Scope Calibration') }}</span>
-                                    </h4>
-                                    <span class="text-[10px] text-slate-400">{{ __('Recalculate Bounty & Capacity') }}</span>
-                                </div>
-
-                                {{-- Weight Selector --}}
+                                {{-- Description --}}
                                 <div>
-                                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">{{ __('Cognitive Load / Weight (1–5)') }}</label>
-                                    <div class="grid grid-cols-5 gap-1.5">
-                                        @foreach ([1 => 'Low', 2 => 'Light', 3 => 'Med', 4 => 'High', 5 => 'Max'] as $wVal => $wLabel)
-                                            <button
-                                                type="button"
-                                                wire:click="$set('slideOverWeight', {{ $wVal }})"
-                                                class="px-2 py-1.5 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer {{ $slideOverWeight === $wVal ? 'bg-indigo-600 text-white border-indigo-500 shadow-md' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700' }}"
-                                            >
-                                                W{{ $wVal }} - {{ __($wLabel) }}
-                                            </button>
-                                        @endforeach
-                                    </div>
+                                    <label class="block text-xs font-semibold text-slate-300 mb-1">{{ __('Description') }}</label>
+                                    <textarea
+                                        wire:model="editDescription"
+                                        rows="3"
+                                        placeholder="{{ __('Provide context or specifications...') }}"
+                                        class="w-full rounded-xl bg-slate-900 border border-slate-800 px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                                    ></textarea>
+                                    @error('editDescription') <span class="text-rose-400 text-xs mt-0.5 block">{{ $message }}</span> @enderror
                                 </div>
 
-                                {{-- Priority Selector --}}
-                                <div>
-                                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">{{ __('Priority') }}</label>
-                                    <div class="grid grid-cols-4 gap-1.5">
-                                        @foreach (['low' => 'Low', 'normal' => 'Normal', 'high' => 'High', 'urgent' => 'Urgent'] as $pVal => $pLabel)
-                                            <button
-                                                type="button"
-                                                wire:click="$set('slideOverPriority', '{{ $pVal }}')"
-                                                class="px-2 py-1.5 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer capitalize {{ $slideOverPriority === $pVal ? 'bg-amber-600 text-white border-amber-500 shadow-md' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700' }}"
-                                            >
-                                                {{ __($pLabel) }}
-                                            </button>
-                                        @endforeach
-                                    </div>
-                                </div>
-
-                                <div class="flex justify-end pt-1">
-                                    <button
-                                        type="button"
-                                        wire:click="saveScopeCalibration"
-                                        class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition-all cursor-pointer flex items-center gap-1.5"
-                                    >
-                                        <span>💾</span>
-                                        <span>{{ __('Update Scope & Calibration') }}</span>
-                                    </button>
-                                </div>
-                            </div>
-
-                            @php
-                                $slideOverEligibleHelpers = $this->getEligibleHelpers($selected);
-                            @endphp
-
-                            @if ($selected->assignee?->board_visibility === 'private')
-                                <div class="p-4 rounded-2xl bg-purple-950/20 border border-purple-500/20 text-xs text-purple-300 italic">
-                                    {{ __('🔒 Private columns do not support Co-op assist.') }}
-                                </div>
-                            @else
-                                {{-- Co-op Assist Configuration inside Slide-over --}}
-                                <div class="p-4 rounded-2xl bg-purple-950/30 border border-purple-500/30 space-y-4">
-                                    <div class="flex items-center justify-between">
-                                        <h4 class="text-xs font-bold text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
-                                            <span>🤝</span>
-                                            <span>{{ __('Co-op Assist Configuration') }}</span>
-                                        </h4>
-                                        <span class="text-[10px] text-purple-300 font-medium px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/20">
-                                            {{ __(ucfirst($selected->assignee?->board_visibility ?? 'Public')) }} {{ __('mode') }}
-                                        </span>
-                                    </div>
-
+                                {{-- Department & Assignee Grid --}}
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {{-- Department --}}
                                     <div>
-                                        <label class="block text-xs font-semibold text-slate-300 mb-1.5">{{ __('Select Co-op Helper') }}</label>
+                                        <label class="block text-xs font-semibold text-slate-300 mb-1">{{ __('Department') }}</label>
                                         <select
-                                            wire:model="slideOverHelperId"
-                                            class="w-full rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"
+                                            wire:model.live="editDepartmentId"
+                                            class="w-full rounded-xl bg-slate-900 border border-slate-800 px-2.5 py-1.5 text-xs text-white focus:border-indigo-500 focus:outline-none"
                                         >
-                                            <option value="">{{ __('No Co-op Helper (Solo)') }}</option>
-                                            @foreach ($slideOverEligibleHelpers as $collab)
-                                                <option value="{{ $collab->id }}">
-                                                    {{ $collab->name }} ({{ $collab->current_capacity }}/{{ $collab->max_capacity }} {{ __('cap') }}) [{{ __(ucfirst($collab->board_visibility)) }}]
-                                                </option>
+                                            <option value="">{{ __('Select Department...') }}</option>
+                                            @foreach ($departments as $dept)
+                                                <option value="{{ $dept->id }}">{{ $dept->name }}</option>
                                             @endforeach
                                         </select>
-                                        @if ($slideOverEligibleHelpers->isEmpty())
-                                            <p class="text-[11px] text-amber-400 mt-1">
-                                                {{ __('No other collaborators match this column\'s mode.') }}
-                                            </p>
-                                        @endif
+                                        @error('editDepartmentId') <span class="text-rose-400 text-xs mt-0.5 block">{{ $message }}</span> @enderror
                                     </div>
 
-                                @if ($slideOverHelperId)
+                                    {{-- Assignee --}}
                                     <div>
-                                        <div class="flex items-center justify-between mb-1.5">
-                                            <label class="block text-xs font-semibold text-slate-300">{{ __('Helper Split:') }} <span class="text-purple-400 font-bold">{{ $slideOverHelperSplit }}%</span></label>
-                                            <span class="text-[10px] text-slate-400">{{ __('Tantou:') }} {{ 100 - $slideOverHelperSplit }}%</span>
-                                        </div>
-                                        <input
-                                            wire:model.live="slideOverHelperSplit"
-                                            type="range"
-                                            min="0"
-                                            max="50"
-                                            step="5"
-                                            class="w-full accent-purple-500 cursor-pointer"
+                                        <label class="block text-xs font-semibold text-slate-300 mb-1">{{ __('Assigned To') }}</label>
+                                        <select
+                                            wire:model="editAssigneeId"
+                                            class="w-full rounded-xl bg-slate-900 border border-slate-800 px-2.5 py-1.5 text-xs text-white focus:border-indigo-500 focus:outline-none"
                                         >
+                                            <option value="">{{ __('None — Send to Backlog') }}</option>
+                                            @foreach ($availableCollaborators as $collab)
+                                                @if (! $editDepartmentId || (int) $collab->department_id === (int) $editDepartmentId)
+                                                    <option value="{{ $collab->id }}">
+                                                        {{ $collab->name }} ({{ $collab->current_capacity }}/{{ $collab->max_capacity }})
+                                                    </option>
+                                                @endif
+                                            @endforeach
+                                        </select>
+                                        @error('editAssigneeId') <span class="text-rose-400 text-xs mt-0.5 block">{{ $message }}</span> @enderror
                                     </div>
-                                @endif
+                                </div>
 
-                                <div class="flex justify-end pt-1">
-                                    <button
-                                        type="button"
-                                        wire:click="saveSlideOverCoOp"
-                                        class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-md shadow-purple-600/30 transition-all cursor-pointer flex items-center gap-1.5"
-                                    >
-                                        <span>🤝</span>
-                                        <span>{{ __('Save Co-op Assist') }}</span>
-                                    </button>
+                                {{-- Priority & Weight Grid --}}
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {{-- Priority --}}
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-300 mb-1">{{ __('Priority') }}</label>
+                                        <select
+                                            wire:model="editPriority"
+                                            class="w-full rounded-xl bg-slate-900 border border-slate-800 px-2.5 py-1.5 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                                        >
+                                            <option value="low">{{ __('Low') }}</option>
+                                            <option value="normal">{{ __('Normal') }}</option>
+                                            <option value="high">{{ __('High') }}</option>
+                                            <option value="urgent">{{ __('Urgent') }}</option>
+                                        </select>
+                                        @error('editPriority') <span class="text-rose-400 text-xs mt-0.5 block">{{ $message }}</span> @enderror
+                                    </div>
+
+                                    {{-- Weight --}}
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-300 mb-1">{{ __('Cognitive Load / Weight') }}</label>
+                                        <select
+                                            wire:model="editWeight"
+                                            class="w-full rounded-xl bg-slate-900 border border-slate-800 px-2.5 py-1.5 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                                        >
+                                            <option value="1">W1 - {{ __('Low') }}</option>
+                                            <option value="2">W2 - {{ __('Light') }}</option>
+                                            <option value="3">W3 - {{ __('Medium') }}</option>
+                                            <option value="4">W4 - {{ __('High') }}</option>
+                                            <option value="5">W5 - {{ __('Max') }}</option>
+                                        </select>
+                                        @error('editWeight') <span class="text-rose-400 text-xs mt-0.5 block">{{ $message }}</span> @enderror
+                                    </div>
                                 </div>
                             </div>
+                        @else
+                            {{-- Description Box --}}
+                            <div class="p-4 rounded-2xl bg-slate-950/70 border border-slate-800/80 space-y-2">
+                                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">{{ __('Description') }}</h4>
+                                @if ($selected->description)
+                                    <p class="text-xs sm:text-sm text-slate-200 leading-relaxed whitespace-pre-line">{{ $selected->description }}</p>
+                                @else
+                                    <p class="text-xs text-slate-500 italic">{{ __('No description provided.') }}</p>
+                                @endif
+                            </div>
+
+                            {{-- Quick Action Controls --}}
+                            <div class="flex items-center gap-2 flex-wrap">
+                                @if ($selected->status === 'assigned' && $canStart)
+                                    <button
+                                        wire:click="startPostIt({{ $selected->id }})"
+                                        type="button"
+                                        class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 transition-all flex items-center gap-1.5 cursor-pointer"
+                                    >
+                                        <span>▶</span>
+                                        <span>{{ __('Start Work') }}</span>
+                                    </button>
+                                @endif
+
+                                @if ($selected->status === 'doing' && $canComplete)
+                                    <button
+                                        wire:click="completePostIt({{ $selected->id }})"
+                                        type="button"
+                                        class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/30 transition-all flex items-center gap-1.5 cursor-pointer"
+                                    >
+                                        <span>✓</span>
+                                        <span>{{ __('Mark Completed') }}</span>
+                                    </button>
+                                @endif
+
+                                @if ($canEdit)
+                                    <button
+                                        wire:click="startEditingDetail"
+                                        type="button"
+                                        class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                                    >
+                                        <span>✏️</span>
+                                        <span>{{ __('Edit Details') }}</span>
+                                    </button>
+                                @endif
+                            </div>
+
+                            {{-- 4 Key Metadata Cards (2x2 grid) --}}
+                            <div class="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 grid grid-cols-2 gap-3 text-xs">
+                                {{-- Card 1: Assignee --}}
+                                <div class="flex items-center gap-2.5 min-w-0 p-2 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                                    <div class="w-7 h-7 rounded-lg bg-indigo-600/30 text-indigo-300 font-bold flex items-center justify-center text-xs shrink-0 border border-indigo-500/30">
+                                        {{ $selected->assignee ? strtoupper(substr($selected->assignee->name, 0, 1)) : '?' }}
+                                    </div>
+                                    <div class="min-w-0">
+                                        <span class="text-[9px] text-slate-500 uppercase block font-semibold leading-tight">{{ __('Assignee') }}</span>
+                                        <span class="font-semibold text-white truncate text-xs block">{{ $selected->assignee?->name ?? __('Unassigned') }}</span>
+                                    </div>
+                                </div>
+
+                                {{-- Card 2: Co-op Helper --}}
+                                <div class="flex items-center gap-2.5 min-w-0 p-2 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                                    <div class="w-7 h-7 rounded-lg bg-purple-600/30 text-purple-300 font-bold flex items-center justify-center text-xs shrink-0 border border-purple-500/30">
+                                        🤝
+                                    </div>
+                                    <div class="min-w-0">
+                                        <span class="text-[9px] text-slate-500 uppercase block font-semibold leading-tight">{{ __('Co-op Helper') }}</span>
+                                        <span class="font-semibold text-purple-300 truncate text-xs block">
+                                            {{ $selected->helper ? $selected->helper->name.' ('.$selected->helper_split.'%)' : __('Solo') }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {{-- Card 3: Execution Timeline --}}
+                                <div class="flex items-center gap-2.5 min-w-0 p-2 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                                    <div class="w-7 h-7 rounded-lg bg-slate-800 text-slate-400 flex items-center justify-center text-xs shrink-0 border border-slate-700">
+                                        ⏱️
+                                    </div>
+                                    <div class="min-w-0">
+                                        <span class="text-[9px] text-slate-500 uppercase block font-semibold leading-tight">{{ __('Timeline') }}</span>
+                                        <span class="text-slate-300 text-[11px] truncate block font-mono">
+                                            {{ $selected->started_at ? $selected->started_at->format('d/m H:i') : __('Not started') }} → {{ $selected->completed_at ? $selected->completed_at->format('d/m H:i') : __('In Progress') }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {{-- Card 4: Bounty Breakdown --}}
+                                <div class="flex items-center gap-2.5 min-w-0 p-2 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                                    <div class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs shrink-0 border border-amber-500/30">
+                                        ⚡
+                                    </div>
+                                    <div class="min-w-0">
+                                        <span class="text-[9px] text-slate-500 uppercase block font-semibold leading-tight">{{ __('Bounty') }}</span>
+                                        <span class="font-bold text-amber-400 text-xs truncate block">
+                                            {{ $selected->bounty_points }} pts <span class="text-[10px] font-normal text-slate-400">(W{{ $selected->weight }} · {{ __(ucfirst($selected->priority)) }})</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Scope Calibration (for Assignee or Admin while status != 'done') --}}
+                            @if ($canCalibrate)
+                                <div class="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/30 space-y-4">
+                                    <div class="flex items-center justify-between">
+                                        <h4 class="text-xs font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                                            <span>⚙️</span>
+                                            <span>{{ __('Scope Calibration') }}</span>
+                                        </h4>
+                                        <span class="text-[10px] text-slate-400">{{ __('Recalculate Bounty & Capacity') }}</span>
+                                    </div>
+
+                                    {{-- Weight Selector --}}
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-300 mb-1.5">{{ __('Cognitive Load / Weight (1–5)') }}</label>
+                                        <div class="grid grid-cols-5 gap-1.5">
+                                            @foreach ([1 => 'Low', 2 => 'Light', 3 => 'Med', 4 => 'High', 5 => 'Max'] as $wVal => $wLabel)
+                                                <button
+                                                    type="button"
+                                                    wire:click="$set('slideOverWeight', {{ $wVal }})"
+                                                    class="px-2 py-1.5 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer {{ $slideOverWeight === $wVal ? 'bg-indigo-600 text-white border-indigo-500 shadow-md' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700' }}"
+                                                >
+                                                    W{{ $wVal }} - {{ __($wLabel) }}
+                                                </button>
+                                            @endforeach
+                                        </div>
+                                    </div>
+
+                                    {{-- Priority Selector --}}
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-300 mb-1.5">{{ __('Priority') }}</label>
+                                        <div class="grid grid-cols-4 gap-1.5">
+                                            @foreach (['low' => 'Low', 'normal' => 'Normal', 'high' => 'High', 'urgent' => 'Urgent'] as $pVal => $pLabel)
+                                                <button
+                                                    type="button"
+                                                    wire:click="$set('slideOverPriority', '{{ $pVal }}')"
+                                                    class="px-2 py-1.5 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer capitalize {{ $slideOverPriority === $pVal ? 'bg-amber-600 text-white border-amber-500 shadow-md' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700' }}"
+                                                >
+                                                    {{ __($pLabel) }}
+                                                </button>
+                                            @endforeach
+                                        </div>
+                                    </div>
+
+                                    <div class="flex justify-end pt-1">
+                                        <button
+                                            type="button"
+                                            wire:click="saveScopeCalibration"
+                                            class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition-all cursor-pointer flex items-center gap-1.5"
+                                        >
+                                            <span>💾</span>
+                                            <span>{{ __('Update Scope & Calibration') }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                @php
+                                    $slideOverEligibleHelpers = $this->getEligibleHelpers($selected);
+                                @endphp
+
+                                @if ($selected->assignee?->board_visibility === 'private')
+                                    <div class="p-4 rounded-2xl bg-purple-950/20 border border-purple-500/20 text-xs text-purple-300 italic">
+                                        {{ __('🔒 Private columns do not support Co-op assist.') }}
+                                    </div>
+                                @else
+                                    {{-- Co-op Assist Configuration --}}
+                                    <div class="p-4 rounded-2xl bg-purple-950/30 border border-purple-500/30 space-y-4">
+                                        <div class="flex items-center justify-between">
+                                            <h4 class="text-xs font-bold text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                                                <span>🤝</span>
+                                                <span>{{ __('Co-op Assist Configuration') }}</span>
+                                            </h4>
+                                            <span class="text-[10px] text-purple-300 font-medium px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/20">
+                                                {{ __(ucfirst($selected->assignee?->board_visibility ?? 'Public')) }} {{ __('mode') }}
+                                            </span>
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">{{ __('Select Co-op Helper') }}</label>
+                                            <select
+                                                wire:model="slideOverHelperId"
+                                                class="w-full rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"
+                                            >
+                                                <option value="">{{ __('No Co-op Helper (Solo)') }}</option>
+                                                @foreach ($slideOverEligibleHelpers as $collab)
+                                                    <option value="{{ $collab->id }}">
+                                                        {{ $collab->name }} ({{ $collab->current_capacity }}/{{ $collab->max_capacity }} {{ __('cap') }}) [{{ __(ucfirst($collab->board_visibility)) }}]
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            @if ($slideOverEligibleHelpers->isEmpty())
+                                                <p class="text-[11px] text-amber-400 mt-1">
+                                                    {{ __('No other collaborators match this column\'s mode.') }}
+                                                </p>
+                                            @endif
+                                        </div>
+
+                                        @if ($slideOverHelperId)
+                                            <div>
+                                                <div class="flex items-center justify-between mb-1.5">
+                                                    <label class="block text-xs font-semibold text-slate-300">{{ __('Helper Split:') }} <span class="text-purple-400 font-bold">{{ $slideOverHelperSplit }}%</span></label>
+                                                    <span class="text-[10px] text-slate-400">{{ __('Assignee:') }} {{ 100 - $slideOverHelperSplit }}%</span>
+                                                </div>
+                                                <input
+                                                    wire:model.live="slideOverHelperSplit"
+                                                    type="range"
+                                                    min="0"
+                                                    max="50"
+                                                    step="5"
+                                                    class="w-full accent-purple-500 cursor-pointer"
+                                                >
+                                            </div>
+                                        @endif
+
+                                        <div class="flex justify-end pt-1">
+                                            <button
+                                                type="button"
+                                                wire:click="saveSlideOverCoOp"
+                                                class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-md shadow-purple-600/30 transition-all cursor-pointer flex items-center gap-1.5"
+                                            >
+                                                <span>🤝</span>
+                                                <span>{{ __('Save Co-op Assist') }}</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                @endif
+                            @endif
                         @endif
-                    @endif
 
                         {{-- File Attachments & Documents Panel --}}
                         <div class="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-4">
@@ -1397,46 +1705,118 @@
                                 @enderror
                             </div>
                         </div>
+                    </div>
 
-                        {{-- Real-Time Micro-Comments Thread --}}
-                        <div class="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-4">
+                    {{-- Right Column (lg:col-span-5 space-y-5 flex flex-col justify-between) --}}
+                    <div class="lg:col-span-5 space-y-5 flex flex-col justify-between">
+                        {{-- Assignment & Workflow Chain Timeline --}}
+                        <div class="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-3">
                             <div class="flex items-center justify-between">
                                 <h4 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-                                    <span>💬</span>
-                                    <span>{{ __('Micro-Comments Thread') }} ({{ $selected->comments->count() }})</span>
+                                    <span>🔀</span>
+                                    <span>{{ __('Assignment & Workflow Chain') }}</span>
                                 </h4>
-                                <span class="text-[10px] text-slate-500 font-mono">{{ __('Real-time sync') }}</span>
+                                @php
+                                    $assignmentChain = $selected->getAssignmentChain();
+                                @endphp
+                                @if (count($assignmentChain) >= 2)
+                                    <span class="text-[10px] font-semibold text-indigo-300 bg-indigo-950/60 border border-indigo-500/30 px-2 py-0.5 rounded-full">
+                                        {{ implode(' → ', $assignmentChain) }}{{ $selected->status === 'done' ? ' → ✓' : '' }}
+                                    </span>
+                                @endif
                             </div>
 
-                            {{-- Comments List --}}
-                            <div class="space-y-3 max-h-64 overflow-y-auto pr-1">
-                                @forelse ($selected->comments as $comment)
-                                    <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-xs space-y-1.5">
-                                        <div class="flex items-center justify-between text-[11px]">
-                                            <div class="flex items-center gap-2">
-                                                <div class="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500 to-indigo-700 text-white flex items-center justify-center font-bold text-[10px]">
-                                                    {{ strtoupper(substr($comment->user?->name ?? 'U', 0, 1)) }}
-                                                </div>
-                                                <span class="font-semibold text-slate-200">{{ $comment->user?->name ?? 'User' }}</span>
-                                                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-800 text-slate-400">
-                                                    {{ $comment->user?->role ?? 'user' }}
+                            @if ($selected->transfers->isEmpty())
+                                <div class="py-4 text-center text-xs text-slate-500 italic">
+                                    {{ __('No transfer history recorded for this request.') }}
+                                </div>
+                            @else
+                                <div class="relative pl-6 space-y-4 max-h-52 overflow-y-auto pr-1 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-800">
+                                    @foreach ($selected->transfers as $transfer)
+                                        @php
+                                            $dotClass = match($transfer->action) {
+                                                'completed' => 'bg-emerald-500 ring-emerald-500/30',
+                                                'started' => 'bg-indigo-500 ring-indigo-500/30',
+                                                'transferred' => 'bg-purple-500 ring-purple-500/30',
+                                                'unassigned' => 'bg-slate-500 ring-slate-500/30',
+                                                default => 'bg-sky-500 ring-sky-500/30',
+                                            };
+                                        @endphp
+                                        <div class="relative text-xs">
+                                            <span class="absolute -left-6 top-1 h-2.5 w-2.5 rounded-full ring-4 {{ $dotClass }}"></span>
+                                            <div class="flex items-center justify-between gap-2">
+                                                <span class="font-semibold text-white">
+                                                    @if ($transfer->action === 'assigned')
+                                                        {{ __('Assigned to') }} <span class="text-sky-300">{{ $transfer->toUser?->name ?? 'User #'.$transfer->to_user_id }}</span>
+                                                    @elseif ($transfer->action === 'transferred')
+                                                        {{ __('Transferred from') }} <span class="text-slate-300">{{ $transfer->fromUser?->name ?? 'User #'.$transfer->from_user_id }}</span> {{ __('to') }} <span class="text-purple-300">{{ $transfer->toUser?->name ?? 'User #'.$transfer->to_user_id }}</span>
+                                                    @elseif ($transfer->action === 'started')
+                                                        {{ __('Work started') }}
+                                                    @elseif ($transfer->action === 'completed')
+                                                        {{ __('Task completed') }}
+                                                    @elseif ($transfer->action === 'unassigned')
+                                                        {{ __('Returned to Backlog (Unassigned)') }}
+                                                    @else
+                                                        {{ __(ucfirst($transfer->action)) }}
+                                                    @endif
+                                                </span>
+                                                <span class="text-[10px] text-slate-500 shrink-0">
+                                                    {{ $transfer->created_at?->format('d/m/Y H:i') }}
                                                 </span>
                                             </div>
-                                            <span class="text-slate-500 text-[10px]">{{ $comment->created_at->diffForHumans() }}</span>
+                                            <div class="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5">
+                                                <span class="text-slate-500">{{ __('By:') }}</span>
+                                                <span class="text-indigo-300 font-medium">{{ $transfer->actor?->name ?? 'System' }}</span>
+                                                <span class="text-slate-600">•</span>
+                                                <span class="text-slate-500 text-[10px]">{{ $transfer->created_at?->diffForHumans() }}</span>
+                                            </div>
                                         </div>
-                                        <p class="text-slate-300 pl-8 leading-relaxed whitespace-pre-line text-[11px]">
-                                            {{ $comment->body }}
-                                        </p>
-                                    </div>
-                                @empty
-                                    <div class="py-6 text-center text-xs text-slate-500 italic">
-                                        {{ __('No comments yet. Start the conversation!') }}
-                                    </div>
-                                @endforelse
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
+
+                        {{-- Real-Time Micro-Comments Thread --}}
+                        <div class="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-4 flex-1 flex flex-col justify-between">
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                                        <span>💬</span>
+                                        <span>{{ __('Micro-Comments Thread') }} ({{ $selected->comments->count() }})</span>
+                                    </h4>
+                                    <span class="text-[10px] text-slate-500 font-mono">{{ __('Real-time sync') }}</span>
+                                </div>
+
+                                {{-- Comments List --}}
+                                <div class="space-y-3 max-h-56 overflow-y-auto pr-1">
+                                    @forelse ($selected->comments as $comment)
+                                        <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-xs space-y-1.5">
+                                            <div class="flex items-center justify-between text-[11px]">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-500 to-indigo-700 text-white flex items-center justify-center font-bold text-[10px]">
+                                                        {{ strtoupper(substr($comment->user?->name ?? 'U', 0, 1)) }}
+                                                    </div>
+                                                    <span class="font-semibold text-slate-200">{{ $comment->user?->name ?? 'User' }}</span>
+                                                    <span class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-800 text-slate-400">
+                                                        {{ $comment->user?->role ?? 'user' }}
+                                                    </span>
+                                                </div>
+                                                <span class="text-slate-500 text-[10px]">{{ $comment->created_at->diffForHumans() }}</span>
+                                            </div>
+                                            <p class="text-slate-300 pl-8 leading-relaxed whitespace-pre-line text-[11px]">
+                                                {{ $comment->body }}
+                                            </p>
+                                        </div>
+                                    @empty
+                                        <div class="py-6 text-center text-xs text-slate-500 italic">
+                                            {{ __('No comments yet. Start the conversation!') }}
+                                        </div>
+                                    @endforelse
+                                </div>
                             </div>
 
-                            {{-- Add New Comment Form --}}
-                            <form wire:submit.prevent="addComment" class="space-y-2 pt-2 border-t border-slate-800">
+                            {{-- Add New Comment Form (anchored at bottom) --}}
+                            <form wire:submit.prevent="addComment" class="space-y-2 pt-3 border-t border-slate-800 mt-auto">
                                 <textarea
                                     wire:model="newCommentBody"
                                     rows="2"
@@ -1451,7 +1831,7 @@
                                     <button
                                         type="submit"
                                         wire:loading.attr="disabled"
-                                        class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 transition-all cursor-pointer flex items-center gap-1.5"
+                                        class="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 transition-all cursor-pointer flex items-center gap-1.5"
                                     >
                                         <span wire:loading.remove wire:target="addComment">{{ __('Post Comment') }}</span>
                                         <span wire:loading wire:target="addComment">{{ __('Posting...') }}</span>
@@ -1460,9 +1840,11 @@
                             </form>
                         </div>
                     </div>
+                </div>
 
-                    {{-- Footer: Close and Optional Cancel Request --}}
-                    <div class="px-6 py-4 border-t border-slate-800 bg-slate-900/80 flex items-center justify-between shrink-0">
+                {{-- Modal Footer --}}
+                <div class="px-6 py-3.5 border-t border-slate-800 bg-slate-900/90 backdrop-blur-md flex items-center justify-between shrink-0">
+                    <div>
                         @if ($canCancel)
                             <button
                                 wire:click="cancelPostIt"
@@ -1472,20 +1854,43 @@
                             >
                                 🗑️ {{ __('Cancel Request') }}
                             </button>
-                        @else
-                            <div></div>
                         @endif
+                    </div>
 
-                        <button
-                            wire:click="closeSlideOver"
-                            type="button"
-                            class="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
-                        >
-                            {{ __('Close') }}
-                        </button>
+                    <div class="flex items-center gap-2.5">
+                        @if ($isEditingDetail)
+                            <button
+                                wire:click="cancelEditingDetail"
+                                type="button"
+                                class="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer"
+                            >
+                                {{ __('Cancel') }}
+                            </button>
+                            <button
+                                wire:click="savePostItEdits"
+                                type="button"
+                                class="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/25 transition-all cursor-pointer"
+                            >
+                                {{ __('Save Changes') }}
+                            </button>
+                        @else
+                            <button
+                                wire:click="closeSlideOver"
+                                type="button"
+                                class="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+                            >
+                                {{ __('Close') }}
+                            </button>
+                        @endif
                     </div>
                 </div>
             </div>
         </div>
     @endif
+
+    {{-- Workspace Settings Modal (Admin Only) --}}
+    @include('livewire.partials.workspace-settings-modal')
+
+    {{-- Requests History Modal --}}
+    @include('livewire.partials.requests-history-modal')
 </div>

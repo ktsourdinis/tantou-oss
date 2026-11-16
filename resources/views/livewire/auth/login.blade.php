@@ -14,6 +14,14 @@
             </div>
         </a>
         <h2 class="mt-6 text-2xl font-bold tracking-tight text-white">{{ __('Sign In to Your Workspace') }}</h2>
+
+        @if(app()->bound('currentTenant'))
+            <div class="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 shadow-sm">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                <span>{{ app('currentTenant')->slug }}.{{ \App\Support\Edition::baseDomain() }}</span>
+            </div>
+        @endif
+
         @if(\App\Support\Edition::canRegisterNewTenant())
             <p class="mt-2 text-sm text-slate-400">
                 {{ __('Or') }}

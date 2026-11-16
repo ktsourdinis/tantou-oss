@@ -1,53 +1,89 @@
 <div class="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
     {{-- Top Navigation Bar --}}
-    <header class="border-b border-slate-800/80 bg-slate-900/70 backdrop-blur-xl sticky top-0 z-30 px-6 py-3.5">
-        <div class="max-w-[1920px] mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div class="flex items-center space-x-3.5">
-                <a href="{{ route('landing') }}" class="h-10 w-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-amber-400 flex items-center justify-center font-bold text-lg text-white shadow-lg shadow-indigo-500/20 hover:scale-105 transition-transform">
-                    担
-                </a>
-                <div>
-                    <div class="flex items-center gap-2">
-                        <h1 class="text-xl font-bold tracking-tight text-white">Tantou <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">担当</span></h1>
-                        <span class="text-slate-600 text-sm">/</span>
-                        <span class="text-slate-300 font-semibold text-sm">{{ $tenantName }}</span>
+    <header class="border-b border-slate-800/80 bg-slate-900/70 backdrop-blur-xl sticky top-0 z-30 px-4 sm:px-6 py-3">
+        <div class="max-w-[1920px] mx-auto flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            {{-- Left Section: Brand & Primary Navigation Switcher --}}
+            <div class="flex items-center justify-between md:justify-start gap-4 w-full md:w-auto">
+                <div class="flex items-center space-x-3 min-w-0">
+                    <a href="{{ route('landing') }}" class="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-amber-400 flex items-center justify-center font-bold text-base sm:text-lg text-white shadow-lg shadow-indigo-500/20 hover:scale-105 transition-transform shrink-0">
+                        担
+                    </a>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                            <h1 class="text-lg sm:text-xl font-bold tracking-tight text-white truncate">Tantou <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">担当</span></h1>
+                            <span class="text-slate-600 text-sm">/</span>
+                            <span class="text-slate-300 font-semibold text-xs sm:text-sm truncate">{{ $tenantName }}</span>
+                            @if(\App\Support\Edition::isCloud())
+                                <span class="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                    <span>{{ $tenantSlug }}.{{ \App\Support\Edition::baseDomain() }}</span>
+                                </span>
+                            @else
+                                <span class="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-slate-800/80 text-slate-400 border border-slate-700/60">
+                                    <span>/{{ $tenantSlug }}</span>
+                                </span>
+                            @endif
+
+                            @if (auth()->user()?->isAdmin())
+                                <button
+                                    wire:click="openWorkspaceSettingsModal"
+                                    type="button"
+                                    class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 border border-transparent hover:border-slate-700 transition-all cursor-pointer text-xs"
+                                    title="{{ __('Workspace Settings') }}"
+                                >
+                                    ⚙️
+                                </button>
+                            @endif
+                        </div>
+                        <p class="hidden md:block text-[11px] text-slate-400 truncate">{{ __('Human Capacity OS & Workload Marketplace') }}</p>
                     </div>
-                    <p class="text-[11px] text-slate-400">{{ __('Human Capacity OS & Workload Marketplace') }}</p>
                 </div>
-            </div>
 
-            <div class="flex items-center gap-3">
-                {{-- Language Switcher (EN | ΕΛ) --}}
-                <x-language-switcher />
-
-                {{-- Navigation Switcher (Capacity Board vs Team & Leaderboard) --}}
-                <nav class="flex items-center p-1 rounded-xl bg-slate-950/80 border border-slate-800 text-xs">
+                {{-- Primary Navigation Pill Switcher (Capacity Board vs Team & Leaderboard) --}}
+                <nav class="flex items-center p-1 rounded-xl bg-slate-950/80 border border-slate-800 text-xs shrink-0">
                     <a
                         href="{{ route('board') }}"
-                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium text-slate-400 hover:text-slate-200 transition-all"
+                        class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg font-medium text-slate-400 hover:text-slate-200 transition-all"
                     >
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" /></svg>
                         <span>{{ __('Capacity Board') }}</span>
                     </a>
 
-                    <a
-                        href="{{ route('team') }}"
-                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold bg-indigo-600 text-white shadow-sm transition-all"
-                    >
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-                        <span>{{ __('Team & Leaderboard') }}</span>
-                    </a>
+                    @if (auth()->user()?->role !== 'client')
+                        <a
+                            href="{{ route('team') }}"
+                            class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold bg-indigo-600 text-white shadow-sm transition-all"
+                        >
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                            <span class="hidden sm:inline">{{ __('Team & Leaderboard') }}</span>
+                        </a>
+                    @endif
                 </nav>
+            </div>
+
+            {{-- Right Section: Language Switcher, Controls, User Profile & Actions --}}
+            <div class="flex items-center gap-2.5 flex-wrap w-full md:w-auto justify-between sm:justify-end">
+                {{-- Language Switcher (EN | ΕΛ) --}}
+                <x-language-switcher />
+
+                {{-- Live Reverb Status Indicator --}}
+                <div class="hidden sm:inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-emerald-950/60 border border-emerald-800/40 text-emerald-400 text-xs font-medium">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <span class="hidden md:inline">{{ __('Reverb Sync Live') }}</span>
+                </div>
 
                 @auth
                     {{-- User Profile Indicator --}}
-                    <div class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-800/70 border border-slate-700/60 text-xs">
-                        <div class="h-6 w-6 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold flex items-center justify-center text-xs">
+                    <div class="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-slate-800/70 border border-slate-700/60 text-xs max-w-[140px] sm:max-w-none">
+                        <div class="h-6 w-6 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold flex items-center justify-center text-xs shrink-0">
                             {{ substr(auth()->user()->name, 0, 1) }}
                         </div>
-                        <div class="flex flex-col">
-                            <span class="font-semibold text-slate-200 leading-tight">{{ auth()->user()->name }}</span>
-                            <div class="flex items-center gap-1.5 text-[10px]">
+                        <div class="flex flex-col min-w-0">
+                            <span class="font-semibold text-slate-200 leading-tight truncate text-xs">{{ auth()->user()->name }}</span>
+                            <div class="hidden sm:flex items-center gap-1.5 text-[10px]">
                                 <span class="capitalize px-1.5 py-0.2 rounded font-medium {{ auth()->user()->role === 'admin' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : (auth()->user()->role === 'worker' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-blue-500/20 text-blue-300 border border-blue-500/30') }}">
                                     {{ __(ucfirst(auth()->user()->role)) }}
                                 </span>
@@ -145,7 +181,7 @@
 
                     <div class="p-5 rounded-2xl bg-gradient-to-br from-indigo-500/10 via-slate-900/90 to-slate-900 border border-indigo-500/20 shadow-lg">
                         <div class="flex items-center justify-between">
-                            <span class="text-xs font-bold text-indigo-400 uppercase tracking-wider">{{ __('Tantou Tasks Delivered') }}</span>
+                            <span class="text-xs font-bold text-indigo-400 uppercase tracking-wider">{{ __('TASKS DELIVERED') }}</span>
                             <span class="text-xl">🎯</span>
                         </div>
                         <div class="mt-2 text-2xl md:text-3xl font-extrabold text-white">
@@ -185,7 +221,7 @@
                                     <th class="py-3 px-4">{{ __('Department') }}</th>
                                     <th class="py-3 px-4 text-right">{{ __('Bounty Score') }}</th>
                                     <th class="py-3 px-4 text-center">{{ __('Current Capacity') }}</th>
-                                    <th class="py-3 px-4 text-center">{{ __('Tantou Tasks (Solo)') }}</th>
+                                    <th class="py-3 px-4 text-center">{{ __('SOLO TASKS') }}</th>
                                     <th class="py-3 px-4 text-center">{{ __('Co-op Assists') }}</th>
                                 </tr>
                             </thead>
@@ -486,8 +522,15 @@
                                                 {{ strtoupper(substr($user->name, 0, 1)) }}
                                             </div>
                                             <div>
-                                                <span class="font-bold text-slate-100 block">{{ $user->name }}</span>
-                                                <span class="text-[10px] text-slate-400">{{ $user->email }}</span>
+                                                <div class="flex items-center gap-1.5 flex-wrap">
+                                                    <span class="font-bold text-slate-100">{{ $user->name }}</span>
+                                                    @if ($user->facility_name)
+                                                        <span class="px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[10px] font-medium" title="{{ __('Facility / Unit') }}">
+                                                            🏢 {{ $user->facility_name }}
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                                <span class="text-[10px] text-slate-400 block">{{ $user->email }}</span>
                                             </div>
                                         </div>
                                     </td>
@@ -833,6 +876,21 @@
                         </div>
                     </div>
 
+                    {{-- Facility / Clinical Unit / Client Org --}}
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                            {{ __('Facility / Unit / Client Org') }}
+                        </label>
+                        <input
+                            wire:model="userFacilityName"
+                            type="text"
+                            placeholder="{{ __('e.g. Radiology, Branch B, Acme Corp') }}"
+                            class="w-full rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                        >
+                        <p class="text-[10px] text-slate-500 mt-1">{{ __('Useful for scoping client requests or hospital departments.') }}</p>
+                        @error('userFacilityName') <span class="text-[10px] text-rose-400 mt-1 block">{{ $message }}</span> @enderror
+                    </div>
+
                     <div class="pt-1">
                         <label class="inline-flex items-center gap-2 cursor-pointer text-xs text-slate-300">
                             <input
@@ -863,4 +921,7 @@
             </div>
         </div>
     @endif
+
+    {{-- Workspace Settings Modal (Admin Only) --}}
+    @include('livewire.partials.workspace-settings-modal')
 </div>

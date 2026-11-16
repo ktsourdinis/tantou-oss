@@ -35,6 +35,7 @@ class UserFactory extends Factory
             'tenant_id' => null,
             'department_id' => null,
             'role' => 'worker',
+            'facility_name' => null,
             'board_visibility' => 'public',
             'is_available' => true,
             'current_capacity' => 0,

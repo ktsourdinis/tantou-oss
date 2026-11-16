@@ -23,6 +23,7 @@ class PostItFactory extends Factory
             'tenant_id' => Tenant::factory(),
             'department_id' => null,
             'requester_id' => User::factory(),
+            'facility_name' => null,
             'assignee_id' => null,
             'assigned_by_id' => null,
             'helper_id' => null,

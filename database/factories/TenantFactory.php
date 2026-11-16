@@ -21,6 +21,8 @@ class TenantFactory extends Factory
             'name' => fake()->company(),
             'slug' => fake()->unique()->slug(),
             'settings' => null,
+            'strict_client_isolation' => false,
+            'public_submission_enabled' => false,
         ];
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Livewire\Auth;
 
 use App\Models\User;
+use App\Support\Edition;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
@@ -53,7 +54,25 @@ class Login extends Component
 
         session()->regenerate();
 
-        return redirect()->intended('/board');
+        $user = Auth::user();
+
+        // In Cloud mode on the central domain, redirect to tenant subdomain with signed auto-login
+        if (Edition::isCloud() && $user && $user->tenant) {
+            $host = request()->getHost();
+            $baseDomain = Edition::baseDomain();
+
+            if ($host === $baseDomain) {
+                $signedSubdomainUrl = Edition::signedTenantAutoLoginUrl($user, request());
+
+                $this->redirect($signedSubdomainUrl, navigate: false);
+
+                return null;
+            }
+        }
+
+        $this->redirectIntended('/board', navigate: false);
+
+        return null;
     }
 
     /**
@@ -85,7 +104,22 @@ class Login extends Component
         Auth::login($user, true);
         session()->regenerate();
 
-        return redirect()->intended('/board');
+        if (Edition::isCloud() && $user->tenant) {
+            $host = request()->getHost();
+            $baseDomain = Edition::baseDomain();
+
+            if ($host === $baseDomain) {
+                $signedSubdomainUrl = Edition::signedTenantAutoLoginUrl($user, request());
+
+                $this->redirect($signedSubdomainUrl, navigate: false);
+
+                return null;
+            }
+        }
+
+        $this->redirectIntended('/board', navigate: false);
+
+        return null;
     }
 
     /**

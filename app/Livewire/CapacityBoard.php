@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Events\BoardUpdated;
+use App\Livewire\Concerns\ManagesWorkspaceSettings;
 use App\Models\Department;
 use App\Models\PostIt;
 use App\Models\PostItAttachment;
@@ -23,6 +24,7 @@ use Livewire\WithFileUploads;
 #[Layout('layouts.app')]
 class CapacityBoard extends Component
 {
+    use ManagesWorkspaceSettings;
     use WithFileUploads;
 
     public int $tenantId = 0;
@@ -34,6 +36,16 @@ class CapacityBoard extends Component
 
     // View Density Toggle (compact by default)
     public bool $isCompact = true;
+
+    // Completed tasks filter (quick toggle for staff to view Mine / My Facility)
+    public bool $filterCompletedMineOnly = false;
+
+    // Requests History Modal properties
+    public bool $showRequestsHistoryModal = false;
+
+    public string $historySearch = '';
+
+    public string $historyStatusFilter = 'all'; // 'all', 'active', 'completed'
 
     // Create Post-It Modal form properties
     #[Validate('required|string|min:3|max:255')]
@@ -86,6 +98,27 @@ class CapacityBoard extends Component
     /** @var array<int, TemporaryUploadedFile> */
     public array $slideOverNewAttachments = [];
 
+    // Post-It Detail/Edit Modal inline editing properties
+    public bool $isEditingDetail = false;
+
+    #[Validate('required|string|min:3|max:255')]
+    public string $editTitle = '';
+
+    #[Validate('nullable|string|max:1000')]
+    public string $editDescription = '';
+
+    #[Validate('required|in:low,normal,high,urgent')]
+    public string $editPriority = 'normal';
+
+    #[Validate('required|integer|min:1|max:5')]
+    public int $editWeight = 1;
+
+    #[Validate('nullable|integer|exists:departments,id')]
+    public ?int $editDepartmentId = null;
+
+    #[Validate('nullable|integer|exists:users,id')]
+    public ?int $editAssigneeId = null;
+
     /**
      * Mount the component and initialize the tenant.
      */
@@ -99,6 +132,110 @@ class CapacityBoard extends Component
 
         $this->tenantId = $tenant->id;
         $this->tenantName = $tenant->name;
+        $this->tenantSlug = $tenant->slug;
+
+        $this->resetCreateForm();
+    }
+
+    /**
+     * Check if a user is permitted to assign tasks to a target collaborator based on firewall & column visibility rules.
+     */
+    public function canAssignTo(?User $authUser, User $targetCollaborator): bool
+    {
+        return $authUser?->canAssignTo($targetCollaborator) ?? false;
+    }
+
+    /**
+     * Open the Create Post-it modal and initialize smart defaults or contextual target.
+     */
+    public function openCreateModal(?int $targetUserId = null, bool $forceBacklog = false): void
+    {
+        $this->resetCreateForm();
+        $currentUser = Auth::user();
+
+        if ($forceBacklog) {
+            $this->assigneeId = null;
+            $this->departmentId = $this->selectedDepartmentId ?? $currentUser?->department_id;
+        } elseif ($targetUserId !== null) {
+            $targetCollaborator = User::where('tenant_id', $this->tenantId)->find($targetUserId);
+
+            if ($targetCollaborator && $targetCollaborator->is_available && $this->canAssignTo($currentUser, $targetCollaborator)) {
+                $this->departmentId = $targetCollaborator->department_id;
+                $this->assigneeId = $targetCollaborator->id;
+            } else {
+                $this->assigneeId = null;
+                $this->departmentId = $targetCollaborator?->department_id ?? $this->selectedDepartmentId ?? $currentUser?->department_id;
+            }
+        }
+
+        $this->showCreateModal = true;
+    }
+
+    /**
+     * Contextual quick-create helper for a specific collaborator.
+     */
+    public function openCreateForCollaborator(int $userId): void
+    {
+        $this->openCreateModal(targetUserId: $userId);
+    }
+
+    /**
+     * Contextual quick-create helper for unassigned backlog.
+     */
+    public function openCreateForBacklog(): void
+    {
+        $this->openCreateModal(forceBacklog: true);
+    }
+
+    /**
+     * Reset the Create Post-it modal form and apply smart defaults based on user role.
+     */
+    public function resetCreateForm(): void
+    {
+        $this->reset(['title', 'description', 'newAttachments']);
+        $this->priority = 'normal';
+        $this->weight = 1;
+        $this->departmentId = null;
+        $this->assigneeId = null;
+
+        $currentUser = Auth::user();
+        if ($currentUser) {
+            $isCollaborator = $currentUser->isWorker() || in_array($currentUser->role, ['worker', 'collaborator'], true);
+            $isCoordinator = $currentUser->isCoordinator() || $currentUser->role === 'coordinator';
+
+            if ($isCollaborator) {
+                $this->departmentId = $currentUser->department_id;
+                $this->assigneeId = $currentUser->id;
+            } elseif ($isCoordinator) {
+                $this->departmentId = $currentUser->department_id ?? $this->selectedDepartmentId;
+                $this->assigneeId = null;
+            } elseif ($this->selectedDepartmentId) {
+                $this->departmentId = $this->selectedDepartmentId;
+            }
+        }
+    }
+
+    /**
+     * Triggered when showCreateModal changes state.
+     */
+    public function updatedShowCreateModal(bool $value): void
+    {
+        if ($value) {
+            $this->resetCreateForm();
+        }
+    }
+
+    /**
+     * Triggered when departmentId is changed in the Create Post-it form.
+     */
+    public function updatedDepartmentId(?int $value): void
+    {
+        if ($value && $this->assigneeId) {
+            $assignee = User::where('tenant_id', $this->tenantId)->find($this->assigneeId);
+            if ($assignee && $assignee->department_id && (int) $assignee->department_id !== (int) $value) {
+                $this->assigneeId = null;
+            }
+        }
     }
 
     /**
@@ -580,6 +717,7 @@ class CapacityBoard extends Component
             'tenant_id' => $this->tenantId,
             'department_id' => $this->departmentId,
             'requester_id' => $requester->id,
+            'facility_name' => Auth::user()?->facility_name ?? $requester->facility_name ?? null,
             'assignee_id' => $this->assigneeId,
             'assigned_by_id' => $isAssigned ? $requester->id : null,
             'title' => $this->title,
@@ -624,19 +762,55 @@ class CapacityBoard extends Component
             }
         }
 
-        $this->reset(['title', 'description', 'weight', 'priority', 'departmentId', 'assigneeId', 'showCreateModal', 'newAttachments']);
+        $this->resetCreateForm();
+        $this->showCreateModal = false;
 
         BoardUpdated::dispatch($this->tenantId);
     }
 
     /**
-     * Sanitize a PostIt record based on the privacy & visibility matrix.
+     * Check if a post-it was requested by the user or originated from their facility.
+     */
+    public function isOwnOrSameFacility(PostIt $postIt, ?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if ((int) $postIt->requester_id === (int) $user->id) {
+            return true;
+        }
+
+        return filled($user->facility_name) && $postIt->facility_name === $user->facility_name;
+    }
+
+    /**
+     * Sanitize a PostIt record based on the privacy & visibility matrix and strict client isolation.
      */
     protected function sanitizePostIt(PostIt $postIt, ?User $currentUser): void
     {
         $isOwn = $currentUser && (int) $postIt->requester_id === (int) $currentUser->id;
         $postIt->is_own = $isOwn;
 
+        $tenant = Tenant::find($this->tenantId);
+        $strictIsolation = (bool) ($tenant?->strict_client_isolation ?? false);
+
+        // Strict B2B Client Isolation check: foreign cards become compact anonymized slots
+        if ($strictIsolation && $currentUser && $currentUser->role === 'client') {
+            if (! $this->isOwnOrSameFacility($postIt, $currentUser)) {
+                $postIt->is_foreign_slot = true;
+                $postIt->title = __('Occupied Slot');
+                $postIt->description = null;
+                $postIt->display_requester_name = __('Confidential');
+                $postIt->is_masked = true;
+                $postIt->is_own = false;
+                $postIt->display_assigned_by_name = null;
+
+                return;
+            }
+        }
+
+        $postIt->is_foreign_slot = false;
         $isInternalRequester = $postIt->requester && in_array($postIt->requester->role, ['worker', 'coordinator', 'admin'], true);
 
         // Open collaborator attribution:
@@ -644,8 +818,8 @@ class CapacityBoard extends Component
         if (! $currentUser || $currentUser->role === 'admin' || $isInternalRequester) {
             $postIt->display_requester_name = $postIt->requester?->name ?? 'User #'.$postIt->requester_id;
             $postIt->is_masked = false;
-        } elseif ($isOwn) {
-            $postIt->display_requester_name = $postIt->requester?->name ?? __('Me');
+        } elseif ($isOwn || ($currentUser->role === 'client' && filled($currentUser->facility_name) && $postIt->facility_name === $currentUser->facility_name)) {
+            $postIt->display_requester_name = $postIt->requester?->name ?? ($isOwn ? __('Me') : 'User #'.$postIt->requester_id);
             $postIt->is_masked = false;
         } else {
             $postIt->display_requester_name = __('Anonymous Request');
@@ -676,6 +850,17 @@ class CapacityBoard extends Component
 
         if ($user->role === 'admin') {
             return true;
+        }
+
+        $tenant = Tenant::find($this->tenantId);
+        $strictIsolation = (bool) ($tenant?->strict_client_isolation ?? false);
+
+        if ($user->role === 'client') {
+            if ($strictIsolation) {
+                return $this->isOwnOrSameFacility($postIt, $user);
+            }
+
+            return (int) $postIt->requester_id === (int) $user->id;
         }
 
         if ((int) $postIt->requester_id === (int) $user->id) {
@@ -766,7 +951,7 @@ class CapacityBoard extends Component
     }
 
     /**
-     * Open the Slide-Over detail drawer for a post-it.
+     * Open the Post-it detail modal.
      */
     public function openSlideOver(int $postItId): void
     {
@@ -782,11 +967,19 @@ class CapacityBoard extends Component
         $this->slideOverHelperId = $postIt->helper_id;
         $this->slideOverHelperSplit = $postIt->helper_split > 0 ? $postIt->helper_split : 20;
         $this->newCommentBody = '';
+        $this->slideOverNewAttachments = [];
+        $this->isEditingDetail = false;
+        $this->editTitle = $postIt->title;
+        $this->editDescription = $postIt->description ?? '';
+        $this->editPriority = $postIt->priority;
+        $this->editWeight = $postIt->weight;
+        $this->editDepartmentId = $postIt->department_id;
+        $this->editAssigneeId = $postIt->assignee_id;
         $this->showSlideOver = true;
     }
 
     /**
-     * Close the Slide-Over detail drawer.
+     * Close the Post-it detail modal.
      */
     public function closeSlideOver(): void
     {
@@ -794,6 +987,7 @@ class CapacityBoard extends Component
         $this->selectedPostItId = null;
         $this->newCommentBody = '';
         $this->slideOverNewAttachments = [];
+        $this->isEditingDetail = false;
     }
 
     /**
@@ -1049,6 +1243,198 @@ class CapacityBoard extends Component
     }
 
     /**
+     * Check if a user is authorized to edit a post-it's properties.
+     */
+    public function canEditPostIt(PostIt $postIt, ?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->role === 'admin') {
+            return true;
+        }
+
+        if ((int) $postIt->requester_id === (int) $user->id) {
+            return true;
+        }
+
+        if ((int) $postIt->assignee_id === (int) $user->id) {
+            return true;
+        }
+
+        if ($user->role === 'coordinator') {
+            if ($postIt->status === 'backlog') {
+                return true;
+            }
+            if ((int) $postIt->department_id === (int) $user->department_id || (int) $postIt->assignee?->department_id === (int) $user->department_id) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Enter inline edit mode in the post-it detail modal.
+     */
+    public function startEditingDetail(): void
+    {
+        if (! $this->selectedPostItId) {
+            return;
+        }
+
+        $postIt = PostIt::where('tenant_id', $this->tenantId)->with('assignee')->findOrFail($this->selectedPostItId);
+        if (! $this->canEditPostIt($postIt, Auth::user())) {
+            return;
+        }
+
+        $this->editTitle = $postIt->title;
+        $this->editDescription = $postIt->description ?? '';
+        $this->editPriority = $postIt->priority;
+        $this->editWeight = $postIt->weight;
+        $this->editDepartmentId = $postIt->department_id;
+        $this->editAssigneeId = $postIt->assignee_id;
+        $this->isEditingDetail = true;
+    }
+
+    /**
+     * Cancel inline edit mode in the post-it detail modal.
+     */
+    public function cancelEditingDetail(): void
+    {
+        $this->isEditingDetail = false;
+    }
+
+    /**
+     * Save inline edits to the post-it from the detail modal.
+     */
+    public function savePostItEdits(): void
+    {
+        $this->validate([
+            'editTitle' => 'required|string|min:3|max:255',
+            'editDescription' => 'nullable|string|max:1000',
+            'editPriority' => 'required|in:low,normal,high,urgent',
+            'editWeight' => 'required|integer|min:1|max:5',
+            'editDepartmentId' => 'nullable|integer|exists:departments,id',
+            'editAssigneeId' => 'nullable|integer|exists:users,id',
+        ]);
+
+        if (! $this->selectedPostItId) {
+            return;
+        }
+
+        $postIt = PostIt::where('tenant_id', $this->tenantId)->with(['assignee', 'requester'])->findOrFail($this->selectedPostItId);
+        $currentUser = Auth::user();
+
+        if (! $this->canEditPostIt($postIt, $currentUser)) {
+            return;
+        }
+
+        // Firewall validation: Client-originated post-its can ONLY enter public columns
+        $requester = $postIt->requester ?? User::find($postIt->requester_id);
+        $isClientRequest = $requester && $requester->role === 'client';
+        if ($isClientRequest && $this->editAssigneeId !== null) {
+            $targetCollab = User::where('tenant_id', $this->tenantId)->find($this->editAssigneeId);
+            if (! $targetCollab || $targetCollab->board_visibility !== 'public') {
+                $this->addError('editAssigneeId', __('This collaborator cannot receive client requests.'));
+
+                return;
+            }
+            if ($currentUser->role === 'client' && ! $targetCollab->is_available) {
+                $this->addError('editAssigneeId', __('This collaborator is currently away.'));
+
+                return;
+            }
+        }
+
+        $previousAssigneeId = $postIt->assignee_id;
+        $newAssigneeId = $this->editAssigneeId;
+
+        $calculator = app(BountyCalculator::class);
+        $newBountyPoints = $calculator->calculate(
+            weight: $this->editWeight,
+            priority: $this->editPriority,
+            tenantId: $this->tenantId,
+        );
+
+        $updates = [
+            'title' => $this->editTitle,
+            'description' => $this->editDescription !== '' ? $this->editDescription : null,
+            'priority' => $this->editPriority,
+            'weight' => $this->editWeight,
+            'department_id' => $this->editDepartmentId,
+            'bounty_points' => $newBountyPoints,
+        ];
+
+        // Track transfer and state if assignee changed
+        if ((int) $previousAssigneeId !== (int) $newAssigneeId) {
+            $updates['assignee_id'] = $newAssigneeId;
+            if ($newAssigneeId === null) {
+                $updates['status'] = 'backlog';
+                $updates['helper_id'] = null;
+                $updates['helper_split'] = 0;
+                $updates['started_at'] = null;
+
+                PostItTransfer::create([
+                    'post_it_id' => $postIt->id,
+                    'actor_id' => $currentUser->id,
+                    'from_user_id' => $previousAssigneeId,
+                    'to_user_id' => null,
+                    'action' => 'unassigned',
+                    'created_at' => now(),
+                ]);
+            } else {
+                $updates['assigned_by_id'] = $currentUser->id;
+                if ($postIt->status === 'backlog') {
+                    $updates['status'] = 'assigned';
+                }
+
+                PostItTransfer::create([
+                    'post_it_id' => $postIt->id,
+                    'actor_id' => $currentUser->id,
+                    'from_user_id' => $previousAssigneeId,
+                    'to_user_id' => $newAssigneeId,
+                    'action' => $previousAssigneeId ? 'transferred' : 'assigned',
+                    'created_at' => now(),
+                ]);
+            }
+        }
+
+        $postIt->update($updates);
+
+        // Recalculate capacity for affected workers
+        $affectedUserIds = array_unique(array_filter([$previousAssigneeId, $newAssigneeId]));
+        foreach ($affectedUserIds as $userId) {
+            $user = User::find($userId);
+            if ($user) {
+                $user->update([
+                    'current_capacity' => (int) PostIt::where('assignee_id', $userId)
+                        ->whereIn('status', ['assigned', 'doing'])
+                        ->sum('weight'),
+                ]);
+            }
+        }
+
+        $this->slideOverWeight = $this->editWeight;
+        $this->slideOverPriority = $this->editPriority;
+        $this->isEditingDetail = false;
+        unset($this->selectedPostIt);
+
+        BoardUpdated::dispatch($this->tenantId);
+    }
+
+    /**
+     * Complete a post-it task directly from the modal dialog.
+     */
+    public function completePostIt(int $postItId): void
+    {
+        $postIt = PostIt::where('tenant_id', $this->tenantId)->findOrFail($postItId);
+        $this->movePostIt($postItId, $postIt->assignee_id, 'done');
+        unset($this->selectedPostIt);
+    }
+
+    /**
      * Computed property for the currently selected post-it and its thread.
      */
     #[Computed]
@@ -1077,7 +1463,95 @@ class CapacityBoard extends Component
             return null;
         }
 
+        $this->sanitizePostIt($postIt, Auth::user());
+
         return $postIt;
+    }
+
+    /**
+     * Toggle filtering completed column to only tasks involving the current user / facility.
+     */
+    public function toggleFilterCompletedMineOnly(): void
+    {
+        $this->filterCompletedMineOnly = ! $this->filterCompletedMineOnly;
+    }
+
+    /**
+     * Open the Requests History Modal.
+     */
+    public function openRequestsHistoryModal(): void
+    {
+        $this->historySearch = '';
+        $this->historyStatusFilter = 'all';
+        $this->showRequestsHistoryModal = true;
+    }
+
+    /**
+     * Close the Requests History Modal.
+     */
+    public function closeRequestsHistoryModal(): void
+    {
+        $this->showRequestsHistoryModal = false;
+        $this->historySearch = '';
+        $this->historyStatusFilter = 'all';
+    }
+
+    /**
+     * Open Post-it detail modal from a record in the Requests History Modal.
+     */
+    public function openDetailFromHistory(int $postItId): void
+    {
+        $this->showRequestsHistoryModal = false;
+        $this->openSlideOver($postItId);
+    }
+
+    /**
+     * Query requests for the Requests History Modal.
+     */
+    #[Computed]
+    public function historyRequests()
+    {
+        $currentUser = Auth::user();
+        if (! $currentUser) {
+            return collect();
+        }
+
+        $query = PostIt::where('tenant_id', $this->tenantId)
+            ->with([
+                'requester',
+                'assignee',
+                'department',
+            ]);
+
+        // Scoping for client:
+        if ($currentUser->role === 'client') {
+            $query->where(function ($q) use ($currentUser): void {
+                $q->where('requester_id', $currentUser->id);
+                if (filled($currentUser->facility_name)) {
+                    $q->orWhere('facility_name', $currentUser->facility_name);
+                }
+            });
+        }
+
+        // Status filter
+        if ($this->historyStatusFilter === 'active') {
+            $query->whereIn('status', ['backlog', 'assigned', 'doing']);
+        } elseif ($this->historyStatusFilter === 'completed') {
+            $query->where('status', 'done');
+        }
+
+        // Search query
+        if (filled($this->historySearch)) {
+            $term = '%'.trim($this->historySearch).'%';
+            $query->where(function ($q) use ($term): void {
+                $q->where('title', 'like', $term)
+                    ->orWhere('facility_name', 'like', $term)
+                    ->orWhereHas('requester', fn ($sub) => $sub->where('name', 'like', $term))
+                    ->orWhereHas('assignee', fn ($sub) => $sub->where('name', 'like', $term));
+            });
+        }
+
+        return $query->latest('id')->limit(100)->get();
     }
 
     /**
@@ -1200,9 +1674,21 @@ class CapacityBoard extends Component
             $backlogQuery->where('department_id', $this->selectedDepartmentId);
         }
 
+        $tenant = Tenant::find($this->tenantId);
+        $strictIsolation = (bool) ($tenant?->strict_client_isolation ?? false);
+
+        if ($strictIsolation && $currentUser && $currentUser->role === 'client') {
+            $backlogQuery->where(function ($query) use ($currentUser): void {
+                $query->where('requester_id', $currentUser->id);
+                if (filled($currentUser->facility_name)) {
+                    $query->orWhere('facility_name', $currentUser->facility_name);
+                }
+            });
+        }
+
         $backlogPostIts = $backlogQuery->get();
 
-        // 4. Query Done Post-Its (with strict privacy visibility scoping)
+        // 4. Query Done Post-Its (with strict privacy visibility scoping and facility scoping)
         $doneQuery = PostIt::where('tenant_id', $this->tenantId)
             ->where('status', 'done');
 
@@ -1210,12 +1696,23 @@ class CapacityBoard extends Component
             $doneQuery->where('department_id', $this->selectedDepartmentId);
         }
 
-        // Non-admin users ONLY query done post-its where they are requester, assignee, or helper
-        if ($currentUser && $currentUser->role !== 'admin') {
+        // If client: always scope to requests submitted by themselves OR their facility
+        if ($currentUser && $currentUser->role === 'client') {
+            $doneQuery->where(function ($query) use ($currentUser): void {
+                $query->where('requester_id', $currentUser->id);
+                if (filled($currentUser->facility_name)) {
+                    $query->orWhere('facility_name', $currentUser->facility_name);
+                }
+            });
+        } elseif ($currentUser && $this->filterCompletedMineOnly) {
+            // Staff quick toggle for "Mine / My Facility"
             $doneQuery->where(function ($query) use ($currentUser): void {
                 $query->where('requester_id', $currentUser->id)
                     ->orWhere('assignee_id', $currentUser->id)
                     ->orWhere('helper_id', $currentUser->id);
+                if (filled($currentUser->facility_name)) {
+                    $query->orWhere('facility_name', $currentUser->facility_name);
+                }
             });
         }
 
@@ -1230,6 +1727,28 @@ class CapacityBoard extends Component
             ])
             ->smartOrder()
             ->get();
+
+        // Group completed Post-its into 3 collapsible buckets: Today, This Week, Earlier
+        $todayStart = now()->startOfDay();
+        $weekStart = now()->startOfWeek();
+
+        $doneToday = $donePostIts->filter(function ($item) use ($todayStart) {
+            $time = $item->completed_at ?? $item->updated_at;
+
+            return $time && $time->gte($todayStart);
+        });
+
+        $doneThisWeek = $donePostIts->filter(function ($item) use ($todayStart, $weekStart) {
+            $time = $item->completed_at ?? $item->updated_at;
+
+            return $time && $time->gte($weekStart) && $time->lt($todayStart);
+        });
+
+        $doneEarlier = $donePostIts->filter(function ($item) use ($weekStart) {
+            $time = $item->completed_at ?? $item->updated_at;
+
+            return ! $time || $time->lt($weekStart);
+        });
 
         // 5. Sanitize cards for privacy & visibility rules
         foreach ($backlogPostIts as $postIt) {
@@ -1251,7 +1770,16 @@ class CapacityBoard extends Component
         if ($currentUser && $currentUser->role === 'client') {
             $availableQuery->where('board_visibility', 'public')->where('is_available', true);
         } else {
-            $availableQuery->whereIn('board_visibility', ['public', 'internal']);
+            $currentUserId = $currentUser?->id;
+            $availableQuery->where(function ($query) use ($currentUserId): void {
+                $query->whereIn('board_visibility', ['public', 'internal']);
+                if ($currentUserId) {
+                    $query->orWhere(function ($sub) use ($currentUserId): void {
+                        $sub->where('board_visibility', 'private')
+                            ->where('id', $currentUserId);
+                    });
+                }
+            });
         }
         $availableCollaborators = $availableQuery->with('department')->get();
 
@@ -1261,6 +1789,9 @@ class CapacityBoard extends Component
             'workers' => $workers,
             'backlogPostIts' => $backlogPostIts,
             'donePostIts' => $donePostIts,
+            'doneToday' => $doneToday,
+            'doneThisWeek' => $doneThisWeek,
+            'doneEarlier' => $doneEarlier,
             'availableCollaborators' => $availableCollaborators,
         ])->layout('layouts.app');
     }

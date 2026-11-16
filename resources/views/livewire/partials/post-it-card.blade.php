@@ -71,6 +71,24 @@
     $isClientRequester = $postIt->requester && $postIt->requester->role === 'client';
 @endphp
 
+@if (!empty($postIt->is_foreign_slot))
+    <div
+        class="rounded-xl border border-slate-800/80 bg-slate-950/70 {{ $weightMinHeight }} p-2.5 shadow-sm flex items-center justify-between text-slate-500 cursor-not-allowed select-none transition-all"
+        title="{{ __('Occupied Slot (Confidential request from another organization)') }}"
+    >
+        <div class="flex items-center gap-2 text-xs font-medium text-slate-400">
+            <span>🔒</span>
+            <span class="font-semibold text-slate-300">{{ __('Occupied Slot') }}</span>
+            <span class="text-slate-600">•</span>
+            <span class="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] font-semibold text-slate-400">
+                W{{ $postIt->weight }}
+            </span>
+        </div>
+        <div class="shrink-0 font-bold text-xs text-slate-500 font-mono">
+            ⚡ {{ $postIt->bounty_points }} pts
+        </div>
+    </div>
+@else
 <div
     data-post-it-id="{{ $postIt->id }}"
     draggable="{{ $canDrag ? 'true' : 'false' }}"
@@ -191,11 +209,16 @@
     <div class="mt-2.5 pt-2 border-t border-slate-800/80 space-y-1">
         <div class="flex items-center justify-between text-[10px] text-slate-400">
             {{-- Requester Info (open for internal staff, anonymized for non-admins on other cards) --}}
-            <div class="flex items-center gap-1.5 truncate max-w-[130px]">
+            <div class="flex items-center gap-1.5 truncate max-w-[160px]">
                 <span class="text-slate-500">{{ __('From:') }}</span>
                 <span class="truncate font-medium {{ $postIt->is_own ? 'text-indigo-300 font-semibold' : 'text-slate-300' }}">
                     {{ $postIt->display_requester_name }}
                 </span>
+                @if (!empty($postIt->facility_name) && !$postIt->is_masked)
+                    <span class="px-1 py-0.2 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[9px] font-medium shrink-0" title="{{ __('Facility / Unit') }}">
+                        🏢 {{ $postIt->facility_name }}
+                    </span>
+                @endif
             </div>
 
             {{-- Actions: Start Button / Co-Op / Comments / Timestamp --}}
@@ -254,4 +277,5 @@
         @endif
     </div>
 </div>
+@endif
 

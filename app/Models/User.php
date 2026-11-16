@@ -19,6 +19,7 @@ use Illuminate\Notifications\Notifiable;
     'tenant_id',
     'department_id',
     'role',
+    'facility_name',
     'board_visibility',
     'is_available',
     'current_capacity',
@@ -44,6 +45,7 @@ class User extends Authenticatable
         'tenant_id',
         'department_id',
         'role',
+        'facility_name',
         'board_visibility',
         'is_available',
         'current_capacity',
@@ -198,6 +200,51 @@ class User extends Authenticatable
 
         if ($this->isCoordinator() && $targetUser->department_id !== null && (int) $this->department_id === (int) $targetUser->department_id) {
             return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Determine if this user is permitted to assign tasks to a target collaborator based on firewall & column visibility rules.
+     */
+    public function canAssignTo(self $targetCollaborator): bool
+    {
+        if ((int) $this->tenant_id !== (int) $targetCollaborator->tenant_id) {
+            return false;
+        }
+
+        if ($targetCollaborator->board_visibility === 'none') {
+            return false;
+        }
+
+        if ($targetCollaborator->board_visibility === 'public') {
+            return true;
+        }
+
+        // Clients can ONLY assign to public columns (Firewall)
+        if ($this->isClient()) {
+            return false;
+        }
+
+        if ($targetCollaborator->board_visibility === 'internal') {
+            return true;
+        }
+
+        if ($targetCollaborator->board_visibility === 'private') {
+            if ($this->isAdmin()) {
+                return true;
+            }
+
+            if ((int) $this->id === (int) $targetCollaborator->id) {
+                return true;
+            }
+
+            if ($this->isCoordinator() && $targetCollaborator->department_id !== null && (int) $this->department_id === (int) $targetCollaborator->department_id) {
+                return true;
+            }
+
+            return false;
         }
 
         return false;

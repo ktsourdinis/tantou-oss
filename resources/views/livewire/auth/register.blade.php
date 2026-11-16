@@ -79,6 +79,27 @@
                         @error('slug')
                             <p class="mt-1 text-xs text-rose-400">{{ $message }}</p>
                         @enderror
+
+                        @if(!empty($suggestedSlugs))
+                            <div class="mt-2 p-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs">
+                                <p class="text-amber-300 font-medium text-xs mb-1.5 flex items-center gap-1.5">
+                                    <span>⚠️</span>
+                                    <span>{{ __('This subdomain is already taken. Available suggestions:') }}</span>
+                                </p>
+                                <div class="flex flex-wrap gap-1.5">
+                                    @foreach($suggestedSlugs as $suggested)
+                                        <button
+                                            type="button"
+                                            wire:click="selectSuggestedSlug('{{ $suggested }}')"
+                                            class="px-2.5 py-1 rounded-xl bg-slate-950/80 border border-indigo-500/30 hover:border-indigo-500 text-indigo-300 hover:text-white font-mono text-[11px] transition-all cursor-pointer shadow-sm hover:scale-105"
+                                            title="{{ __('Click to select this subdomain') }}"
+                                        >
+                                            {{ $suggested }}
+                                        </button>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
                     </div>
                 @endif
 

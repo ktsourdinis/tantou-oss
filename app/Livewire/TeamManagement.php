@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Events\BoardUpdated;
+use App\Livewire\Concerns\ManagesWorkspaceSettings;
 use App\Models\Department;
 use App\Models\Tenant;
 use App\Models\User;
@@ -18,6 +19,8 @@ use Livewire\Component;
 #[Layout('layouts.app')]
 class TeamManagement extends Component
 {
+    use ManagesWorkspaceSettings;
+
     public int $tenantId = 0;
 
     public string $tenantName = '';
@@ -61,6 +64,8 @@ class TeamManagement extends Component
 
     public string $userBoardVisibility = 'public';
 
+    public string $userFacilityName = '';
+
     public bool $userIsAvailable = true;
 
     /**
@@ -101,6 +106,7 @@ class TeamManagement extends Component
 
         $this->tenantId = $tenant->id;
         $this->tenantName = $tenant->name;
+        $this->tenantSlug = $tenant->slug;
 
         return null;
     }
@@ -240,10 +246,11 @@ class TeamManagement extends Component
     {
         abort_unless(Auth::user()?->role === 'admin', 403);
 
-        $this->reset(['editingUserId', 'userName', 'userEmail', 'userPassword', 'userDepartmentId']);
+        $this->reset(['editingUserId', 'userName', 'userEmail', 'userPassword', 'userDepartmentId', 'userFacilityName']);
         $this->userRole = 'worker';
         $this->userMaxCapacity = 10;
         $this->userBoardVisibility = 'public';
+        $this->userFacilityName = '';
         $this->userIsAvailable = true;
         $this->showUserModal = true;
     }
@@ -262,6 +269,7 @@ class TeamManagement extends Component
         $this->userEmail = $user->email;
         $this->userPassword = '';
         $this->userRole = $user->role;
+        $this->userFacilityName = $user->facility_name ?? '';
         $this->userDepartmentId = $user->department_id;
         $this->userMaxCapacity = $user->max_capacity;
         $this->userBoardVisibility = $user->board_visibility;
@@ -285,6 +293,7 @@ class TeamManagement extends Component
                 Rule::unique('users', 'email')->ignore($this->editingUserId),
             ],
             'userRole' => 'required|in:worker,coordinator,client,admin',
+            'userFacilityName' => 'nullable|string|max:255',
             'userDepartmentId' => 'nullable|integer|exists:departments,id',
             'userMaxCapacity' => 'required|integer|min:1|max:50',
             'userBoardVisibility' => 'required|in:public,internal,private,none',
@@ -303,6 +312,7 @@ class TeamManagement extends Component
             'name' => $this->userName,
             'email' => $this->userEmail,
             'role' => $this->userRole,
+            'facility_name' => filled($this->userFacilityName) ? trim($this->userFacilityName) : null,
             'department_id' => $this->userDepartmentId,
             'max_capacity' => $this->userMaxCapacity,
             'board_visibility' => $this->userBoardVisibility,
@@ -323,7 +333,7 @@ class TeamManagement extends Component
             $user->update($data);
         }
 
-        $this->reset(['showUserModal', 'editingUserId', 'userName', 'userEmail', 'userPassword']);
+        $this->reset(['showUserModal', 'editingUserId', 'userName', 'userEmail', 'userPassword', 'userFacilityName']);
         BoardUpdated::dispatch($this->tenantId);
     }
 
