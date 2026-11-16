@@ -4,6 +4,8 @@ use App\Http\Controllers\AttachmentController;
 use App\Livewire\Auth\Login;
 use App\Livewire\Auth\Register;
 use App\Livewire\CapacityBoard;
+use App\Livewire\PublicSubmitRequest;
+use App\Livewire\PublicTrackRequest;
 use App\Livewire\TeamManagement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -11,6 +13,10 @@ use Illuminate\Support\Facades\Route;
 
 // Public Landing Page
 Route::view('/', 'welcome')->name('landing');
+
+// Public Guest Drop-Box & Live Request Tracking Routes
+Route::get('/submit/{tenantSlug?}', PublicSubmitRequest::class)->name('public.submit')->middleware('throttle:60,1');
+Route::get('/track/{token}', PublicTrackRequest::class)->name('public.track')->middleware('throttle:120,1');
 
 // Locale Switcher Route
 Route::post('/locale/{locale}', function (Request $request, string $locale) {

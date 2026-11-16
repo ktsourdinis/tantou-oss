@@ -61,7 +61,7 @@
         $isAdmin ||
         ($isCoordinator && ($isBacklog || (int) $postIt->department_id === (int) $currentUser->department_id || (int) $postIt->assignee?->department_id === (int) $currentUser->department_id || $isAssignee || $isHelper)) ||
         ($isWorker && ($isBacklog || $isAssignee || $isHelper)) ||
-        ($isClient && $isRequester && in_array($postIt->status, ['backlog', 'assigned'], true) && $postIt->started_at === null)
+        ($isClient && ($isRequester || ($currentUser && filled($currentUser->facility_name) && $postIt->facility_name === $currentUser->facility_name)) && in_array($postIt->status, ['backlog', 'assigned'], true) && $postIt->started_at === null)
     );
 
     $isLockedForClient = $isClient && $isRequester && $isDoing && $postIt->started_at !== null;
@@ -151,13 +151,31 @@
                     🔒 {{ __('In Progress') }}
                 </span>
             @endif
+
+            {{-- Canceled vs Closed by Requester Badge --}}
+            @if ($isDone && $postIt->is_canceled)
+                <span class="px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 text-[10px] font-bold border border-rose-500/30 tracking-wider" title="{{ __('Canceled') }}">
+                    ✖ {{ __('CANCELED') }}
+                </span>
+            @elseif ($isDone && $postIt->isClosedByRequester())
+                <span class="px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 text-[10px] font-semibold border border-teal-500/40" title="{{ __('Closed by Requester') }}">
+                    ✓ {{ __('Closed by Requester') }}
+                </span>
+            @endif
         </div>
 
         {{-- Calculated Bounty Points Badge --}}
-        <div class="shrink-0 flex items-center gap-1 font-bold text-xs {{ $isDone ? 'text-emerald-400' : 'text-amber-400' }}" title="{{ __('Calculated Bounty Points') }}">
-            <span>⚡</span>
-            <span>{{ $postIt->bounty_points }} pts</span>
-        </div>
+        @if ($isDone && $postIt->is_canceled)
+            <div class="shrink-0 flex items-center gap-1 font-bold text-xs text-slate-500 line-through" title="{{ __('Canceled (0 points awarded)') }}">
+                <span>⚡</span>
+                <span>0 pts</span>
+            </div>
+        @else
+            <div class="shrink-0 flex items-center gap-1 font-bold text-xs {{ $isDone ? 'text-emerald-400' : 'text-amber-400' }}" title="{{ __('Calculated Bounty Points') }}">
+                <span>⚡</span>
+                <span>{{ $postIt->bounty_points }} pts</span>
+            </div>
+        @endif
     </div>
 
     {{-- Task Title --}}
@@ -181,12 +199,16 @@
         $assignmentChain = $postIt->getAssignmentChain();
     @endphp
     @if (count($assignmentChain) >= 2)
-        <div class="mt-2 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-indigo-950/40 border border-indigo-500/20 text-[10px] text-indigo-300 font-medium truncate max-w-full" title="{{ __('Assignment Flow Trail:') }} {{ implode(' → ', $assignmentChain) }}{{ $isDone ? ' → ✓' : '' }}">
+        <div class="mt-2 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-indigo-950/40 border border-indigo-500/20 text-[10px] text-indigo-300 font-medium truncate max-w-full" title="{{ __('Assignment Flow Trail:') }} {{ implode(' → ', $assignmentChain) }}{{ $isDone ? ($postIt->is_canceled ? ' → ✖' : ' → ✓') : '' }}">
             <span class="shrink-0 text-indigo-400">🔀</span>
             <span class="truncate">
                 {{ implode(' → ', $assignmentChain) }}
                 @if ($isDone)
-                    <span class="text-emerald-400 font-bold ml-0.5">✓</span>
+                    @if ($postIt->is_canceled)
+                        <span class="text-rose-400 font-bold ml-0.5">✖</span>
+                    @else
+                        <span class="text-emerald-400 font-bold ml-0.5">✓</span>
+                    @endif
                 @endif
             </span>
         </div>
@@ -217,6 +239,11 @@
                 @if (!empty($postIt->facility_name) && !$postIt->is_masked)
                     <span class="px-1 py-0.2 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[9px] font-medium shrink-0" title="{{ __('Facility / Unit') }}">
                         🏢 {{ $postIt->facility_name }}
+                    </span>
+                @endif
+                @if (!empty($postIt->guest_name) && !$postIt->is_masked)
+                    <span class="px-1 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-medium shrink-0" title="{{ __('Guest Requester') }}{{ !empty($postIt->guest_contact) ? ': ' . $postIt->guest_contact : '' }}">
+                        📥
                     </span>
                 @endif
             </div>
@@ -261,7 +288,11 @@
                 @endif
 
                 @if ($isDone && $postIt->completed_at)
-                    <span class="text-emerald-400 font-medium">✓ {{ $postIt->completed_at->diffForHumans(null, true) }}</span>
+                    @if ($postIt->is_canceled)
+                        <span class="text-rose-400 font-medium">✖ {{ __('Canceled') }} {{ $postIt->completed_at->diffForHumans(null, true) }}</span>
+                    @else
+                        <span class="text-emerald-400 font-medium">✓ {{ $postIt->completed_at->diffForHumans(null, true) }}</span>
+                    @endif
                 @elseif ($isDoing && $postIt->started_at)
                     <span class="text-slate-500">{{ $postIt->started_at->diffForHumans(null, true) }}</span>
                 @endif

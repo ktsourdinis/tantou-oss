@@ -11,11 +11,15 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 #[Fillable([
     'tenant_id',
     'department_id',
     'requester_id',
+    'tracking_token',
+    'guest_name',
+    'guest_contact',
     'facility_name',
     'assignee_id',
     'assigned_by_id',
@@ -44,6 +48,9 @@ class PostIt extends Model
         'tenant_id',
         'department_id',
         'requester_id',
+        'tracking_token',
+        'guest_name',
+        'guest_contact',
         'facility_name',
         'assignee_id',
         'assigned_by_id',
@@ -52,6 +59,7 @@ class PostIt extends Model
         'title',
         'description',
         'status',
+        'is_canceled',
         'priority',
         'weight',
         'bounty_points',
@@ -67,6 +75,7 @@ class PostIt extends Model
     protected function casts(): array
     {
         return [
+            'is_canceled' => 'boolean',
             'department_id' => 'integer',
             'assigned_by_id' => 'integer',
             'helper_id' => 'integer',
@@ -76,6 +85,22 @@ class PostIt extends Model
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
         ];
+    }
+
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (PostIt $postIt): void {
+            if (empty($postIt->tracking_token)) {
+                do {
+                    $token = 'TNT-'.strtoupper(Str::random(8));
+                } while (static::where('tracking_token', $token)->exists());
+
+                $postIt->tracking_token = $token;
+            }
+        });
     }
 
     /**
@@ -106,6 +131,63 @@ class PostIt extends Model
     public function requester(): BelongsTo
     {
         return $this->belongsTo(User::class, 'requester_id');
+    }
+
+    /**
+     * Alias relationship for requester / creator.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function creator(): BelongsTo
+    {
+        return $this->requester();
+    }
+
+    /**
+     * Return the formatted display name for the requester (creator, guest, or fallback).
+     */
+    public function requesterDisplayName(): string
+    {
+        return $this->requester?->name
+            ?? $this->creator?->name
+            ?? $this->guest_name
+            ?? __('Anonymous Guest');
+    }
+
+    /**
+     * Determine if this task was marked as canceled / closed before work started.
+     */
+    public function isCanceled(): bool
+    {
+        return (bool) $this->is_canceled;
+    }
+
+    /**
+     * Determine if this task was marked as completed / resolved by the requester.
+     */
+    public function isClosedByRequester(): bool
+    {
+        if ($this->status !== 'done') {
+            return false;
+        }
+
+        if ($this->relationLoaded('transfers')) {
+            $hasTransfer = $this->transfers->contains(fn ($t) => $t->action === 'closed_by_requester');
+            if ($hasTransfer) {
+                return true;
+            }
+        } elseif ($this->transfers()->where('action', 'closed_by_requester')->exists()) {
+            return true;
+        }
+
+        if ($this->relationLoaded('comments')) {
+            return $this->comments->contains(fn ($c) => str_contains($c->body, 'Closed by requester') || str_contains($c->body, 'Έκλεισε από τον αιτούντα'));
+        }
+
+        return $this->comments()->where(function ($q) {
+            $q->where('body', 'like', '%Closed by requester%')
+                ->orWhere('body', 'like', '%Έκλεισε από τον αιτούντα%');
+        })->exists();
     }
 
     /**

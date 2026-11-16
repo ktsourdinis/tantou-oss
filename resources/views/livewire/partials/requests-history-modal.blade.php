@@ -102,14 +102,15 @@
                             <tbody class="divide-y divide-slate-800/60 text-xs">
                                 @foreach ($requests as $req)
                                     @php
+                                        $isCanceled = $req->status === 'done' && $req->is_canceled;
                                         $statusBadge = match($req->status) {
-                                            'done' => 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+                                            'done' => $isCanceled ? 'bg-rose-500/15 text-rose-300 border-rose-500/30' : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
                                             'doing' => 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
                                             'assigned' => 'bg-sky-500/15 text-sky-300 border-sky-500/30',
                                             default => 'bg-slate-500/15 text-slate-400 border-slate-500/30',
                                         };
                                         $statusLabel = match($req->status) {
-                                            'done' => __('Completed'),
+                                            'done' => $isCanceled ? __('CANCELED') : __('Completed'),
                                             'doing' => __('Doing'),
                                             'assigned' => __('Assigned'),
                                             default => __('Backlog'),
@@ -123,7 +124,7 @@
                                         {{-- Title & Dept --}}
                                         <td class="py-3 px-4 max-w-xs">
                                             <div class="flex items-center gap-2">
-                                                <span class="font-semibold text-white group-hover:text-indigo-300 transition-colors truncate">
+                                                <span class="font-semibold text-white group-hover:text-indigo-300 transition-colors truncate {{ $isCanceled ? 'line-through text-slate-400' : '' }}">
                                                     {{ $req->title }}
                                                 </span>
                                             </div>
@@ -131,9 +132,15 @@
                                                 <span class="px-1.5 py-0.2 rounded text-[10px] bg-slate-800 text-slate-300 font-mono">
                                                     W{{ $req->weight }}
                                                 </span>
-                                                <span class="text-[10px] text-amber-400 font-bold">
-                                                    ⚡ {{ $req->bounty_points }} pts
-                                                </span>
+                                                @if ($isCanceled)
+                                                    <span class="text-[10px] text-slate-500 font-bold line-through">
+                                                        ⚡ 0 pts
+                                                    </span>
+                                                @else
+                                                    <span class="text-[10px] text-amber-400 font-bold">
+                                                        ⚡ {{ $req->bounty_points }} pts
+                                                    </span>
+                                                @endif
                                                 @if ($req->department)
                                                     <span
                                                         class="px-1.5 py-0.2 rounded text-[10px] font-semibold border truncate max-w-[120px]"

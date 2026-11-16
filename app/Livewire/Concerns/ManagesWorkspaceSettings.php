@@ -16,6 +16,8 @@ trait ManagesWorkspaceSettings
 
     public bool $strictClientIsolation = false;
 
+    public bool $publicSubmissionEnabled = false;
+
     /**
      * @var list<string>
      */
@@ -35,6 +37,7 @@ trait ManagesWorkspaceSettings
         $this->tenantName = $tenant->name;
         $this->tenantSlug = $tenant->slug;
         $this->strictClientIsolation = (bool) ($tenant->strict_client_isolation ?? false);
+        $this->publicSubmissionEnabled = (bool) ($tenant->public_submission_enabled ?? false);
         $this->suggestedSlugs = [];
         $this->showWorkspaceSettingsModal = true;
     }
@@ -119,6 +122,7 @@ trait ManagesWorkspaceSettings
                 Rule::unique('tenants', 'slug')->ignore($this->tenantId),
             ],
             'strictClientIsolation' => ['boolean'],
+            'publicSubmissionEnabled' => ['boolean'],
         ]);
 
         $tenant = Tenant::findOrFail($this->tenantId);
@@ -130,6 +134,7 @@ trait ManagesWorkspaceSettings
             'name' => $this->tenantName,
             'slug' => $newSlug,
             'strict_client_isolation' => $this->strictClientIsolation,
+            'public_submission_enabled' => $this->publicSubmissionEnabled,
         ]);
 
         $this->tenantName = $tenant->name;
@@ -146,5 +151,22 @@ trait ManagesWorkspaceSettings
 
             return;
         }
+    }
+
+    /**
+     * Get the shareable public guest request drop-box URL for this workspace.
+     */
+    public function getPublicDropBoxUrlProperty(): string
+    {
+        $tenant = Tenant::find($this->tenantId);
+        if (! $tenant) {
+            return '';
+        }
+
+        if (Edition::isCloud()) {
+            return Edition::tenantUrl($tenant, '/submit', request());
+        }
+
+        return url('/submit/'.$tenant->slug);
     }
 }

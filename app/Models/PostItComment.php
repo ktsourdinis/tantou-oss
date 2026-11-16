@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable([
     'post_it_id',
     'user_id',
+    'guest_name',
     'body',
 ])]
 class PostItComment extends Model
@@ -24,6 +25,7 @@ class PostItComment extends Model
     protected $fillable = [
         'post_it_id',
         'user_id',
+        'guest_name',
         'body',
     ];
 
@@ -45,5 +47,13 @@ class PostItComment extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the display name for the comment author.
+     */
+    public function authorDisplayName(): string
+    {
+        return $this->user?->name ?? $this->guest_name ?? __('Anonymous');
     }
 }

@@ -117,6 +117,7 @@
                 @endif
 
                 {{-- Strict B2B Client Isolation Toggle --}}
+                {{-- Strict B2B Client Isolation Toggle --}}
                 <div class="pt-2 border-t border-slate-800/80">
                     <label class="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800 hover:border-slate-700 cursor-pointer transition-all">
                         <div class="relative inline-flex items-center mt-0.5 shrink-0">
@@ -137,6 +138,71 @@
                             </span>
                         </div>
                     </label>
+                </div>
+
+                {{-- Public Guest Drop-Box Toggle & Link --}}
+                <div class="pt-2 border-t border-slate-800/80 space-y-3">
+                    <label class="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800 hover:border-slate-700 cursor-pointer transition-all">
+                        <div class="relative inline-flex items-center mt-0.5 shrink-0">
+                            <input
+                                wire:model.live="publicSubmissionEnabled"
+                                type="checkbox"
+                                class="sr-only peer"
+                            >
+                            <div class="w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                        </div>
+                        <div>
+                            <span class="block text-xs font-bold text-white flex items-center gap-1.5">
+                                <span>📥</span>
+                                <span>{{ __('Public Guest Drop-Box (No-Login Submission)') }}</span>
+                            </span>
+                            <span class="block text-[11px] text-slate-400 mt-1 leading-relaxed">
+                                {{ __('Allow staff or visitors to submit requests straight to the Backlog via a public link or QR code without needing a user account.') }}
+                            </span>
+                        </div>
+                    </label>
+
+                    @if ($publicSubmissionEnabled)
+                        <div
+                            x-data="{ copied: false }"
+                            class="p-3.5 rounded-2xl bg-emerald-950/30 border border-emerald-500/20 space-y-2.5 animate-fadeIn"
+                        >
+                            <div class="flex items-center justify-between text-xs font-semibold text-emerald-400">
+                                <span class="flex items-center gap-1.5">
+                                    <span>🔗</span>
+                                    <span>{{ __('Shareable Request Link') }}</span>
+                                </span>
+                                <span class="text-[10px] text-slate-400 font-mono">{{ __('Direct Backlog Access') }}</span>
+                            </div>
+
+                            <div class="flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    readonly
+                                    value="{{ $this->publicDropBoxUrl }}"
+                                    class="w-full px-3 py-1.5 text-xs font-mono bg-slate-950/80 border border-slate-800 rounded-xl text-slate-200 select-all focus:outline-none focus:border-emerald-500/50"
+                                >
+                                <button
+                                    type="button"
+                                    @click="navigator.clipboard.writeText('{{ $this->publicDropBoxUrl }}'); copied = true; setTimeout(() => copied = false, 2000)"
+                                    class="shrink-0 px-3 py-1.5 rounded-xl bg-emerald-600/90 hover:bg-emerald-500 text-white text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shadow-emerald-900/30"
+                                >
+                                    <span x-show="!copied">{{ __('Copy Link') }}</span>
+                                    <span x-show="copied" class="flex items-center gap-1">
+                                        <span>✓</span>
+                                        <span>{{ __('Copied!') }}</span>
+                                    </span>
+                                </button>
+                            </div>
+
+                            <p class="text-[11px] text-slate-400 leading-normal flex items-start gap-1.5">
+                                <span class="text-emerald-400 font-bold shrink-0">💡</span>
+                                <span>
+                                    {{ __('Tip: Append') }} <code class="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-emerald-300 font-mono text-[10px]">?facility=Ακτινολογικό</code> {{ __('to pre-fill the facility/unit automatically.') }}
+                                </span>
+                            </p>
+                        </div>
+                    @endif
                 </div>
 
                 {{-- Modal Footer --}}

@@ -19,7 +19,7 @@ class TenantFactory extends Factory
     {
         return [
             'name' => fake()->company(),
-            'slug' => fake()->unique()->slug(),
+            'slug' => fake()->unique()->slug(2),
             'settings' => null,
             'strict_client_isolation' => false,
             'public_submission_enabled' => false,

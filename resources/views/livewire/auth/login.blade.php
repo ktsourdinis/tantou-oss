@@ -129,7 +129,7 @@
                 </div>
             </form>
 
-            @if (app()->environment('local'))
+            @if (app()->environment('local', 'testing'))
                 <div class="mt-8 pt-6 border-t border-slate-800/80">
                     <div class="flex items-center justify-between mb-3">
                         <span class="text-xs font-semibold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
@@ -143,7 +143,7 @@
                     </p>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {{-- Admin --}}
+                        {{-- Alex M. (Admin) --}}
                         <button
                             wire:click="quickLogin('admin@tantou.local')"
                             type="button"
@@ -153,27 +153,27 @@
                                 🛡️
                             </div>
                             <div class="min-w-0">
-                                <div class="text-xs font-semibold text-slate-200 group-hover:text-white truncate">Alexandros</div>
+                                <div class="text-xs font-semibold text-slate-200 group-hover:text-white truncate">Alex M. (Admin)</div>
                                 <div class="text-[10px] text-amber-400/90 font-medium">{{ __('Tenant Admin') }}</div>
                             </div>
                         </button>
 
-                        {{-- Worker Nikos --}}
+                        {{-- Nick Pappas (Coordinator) --}}
                         <button
-                            wire:click="quickLogin('nikos@tantou.local')"
+                            wire:click="quickLogin('coordinator@tantou.local')"
                             type="button"
                             class="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-950/60 hover:bg-indigo-950/40 border border-slate-800 hover:border-indigo-700/50 text-left transition-all cursor-pointer group"
                         >
-                            <div class="h-8 w-8 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center justify-center font-bold text-xs shrink-0">
-                                ⚡
+                            <div class="h-8 w-8 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center font-bold text-xs shrink-0">
+                                🧭
                             </div>
                             <div class="min-w-0">
-                                <div class="text-xs font-semibold text-slate-200 group-hover:text-white truncate">Nikos Pappas</div>
-                                <div class="text-[10px] text-rose-400/90 font-medium">{{ __('Worker') }} (9/10 {{ __('Cap') }})</div>
+                                <div class="text-xs font-semibold text-slate-200 group-hover:text-white truncate">Nick Pappas (Coordinator)</div>
+                                <div class="text-[10px] text-indigo-400/90 font-medium">{{ __('Coordinator') }} (4/10 {{ __('Cap') }})</div>
                             </div>
                         </button>
 
-                        {{-- Worker Elena --}}
+                        {{-- Elena D. (Worker - Public) --}}
                         <button
                             wire:click="quickLogin('elena@tantou.local')"
                             type="button"
@@ -183,23 +183,38 @@
                                 ⚡
                             </div>
                             <div class="min-w-0">
-                                <div class="text-xs font-semibold text-slate-200 group-hover:text-white truncate">Elena Dimitriou</div>
-                                <div class="text-[10px] text-emerald-400/90 font-medium">{{ __('Worker') }} (5/10 {{ __('Cap') }})</div>
+                                <div class="text-xs font-semibold text-slate-200 group-hover:text-white truncate">Elena D. (Worker - Public)</div>
+                                <div class="text-[10px] text-emerald-400/90 font-medium">{{ __('Worker - Public') }} (8/10 {{ __('Cap') }})</div>
                             </div>
                         </button>
 
-                        {{-- Client Sofia --}}
+                        {{-- Kostas K. (Worker - Internal) --}}
+                        <button
+                            wire:click="quickLogin('kostas@tantou.local')"
+                            type="button"
+                            class="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-950/60 hover:bg-indigo-950/40 border border-slate-800 hover:border-indigo-700/50 text-left transition-all cursor-pointer group"
+                        >
+                            <div class="h-8 w-8 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center justify-center font-bold text-xs shrink-0">
+                                🔒
+                            </div>
+                            <div class="min-w-0">
+                                <div class="text-xs font-semibold text-slate-200 group-hover:text-white truncate">Kostas K. (Worker - Internal)</div>
+                                <div class="text-[10px] text-purple-400/90 font-medium">{{ __('Worker - Internal') }} (7/10 {{ __('Cap') }})</div>
+                            </div>
+                        </button>
+
+                        {{-- Sofia C. (Client - Radiology Unit) --}}
                         <button
                             wire:click="quickLogin('client@tantou.local')"
                             type="button"
-                            class="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-950/60 hover:bg-indigo-950/40 border border-slate-800 hover:border-indigo-700/50 text-left transition-all cursor-pointer group"
+                            class="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-950/60 hover:bg-indigo-950/40 border border-slate-800 hover:border-indigo-700/50 text-left transition-all cursor-pointer group sm:col-span-2"
                         >
                             <div class="h-8 w-8 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center font-bold text-xs shrink-0">
                                 💼
                             </div>
                             <div class="min-w-0">
-                                <div class="text-xs font-semibold text-slate-200 group-hover:text-white truncate">Sofia Client</div>
-                                <div class="text-[10px] text-blue-400/90 font-medium">{{ __('Client / Requester') }}</div>
+                                <div class="text-xs font-semibold text-slate-200 group-hover:text-white truncate">Sofia C. (Client - Radiology Unit)</div>
+                                <div class="text-[10px] text-blue-400/90 font-medium">{{ __('Client') }} &bull; {{ __('Radiology Unit') }}</div>
                             </div>
                         </button>
                     </div>

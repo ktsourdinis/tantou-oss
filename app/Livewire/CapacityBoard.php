@@ -119,6 +119,8 @@ class CapacityBoard extends Component
     #[Validate('nullable|integer|exists:users,id')]
     public ?int $editAssigneeId = null;
 
+    public string $requesterResolutionReason = '';
+
     /**
      * Mount the component and initialize the tenant.
      */
@@ -480,8 +482,14 @@ class CapacityBoard extends Component
             return;
         }
 
-        $requester = $postIt->requester ?? User::find($postIt->requester_id);
-        $isClientRequest = $requester && $requester->role === 'client';
+        if ($targetStatus === 'done') {
+            $this->dropIntoCompleted($postItId);
+
+            return;
+        }
+
+        $requester = $postIt->requester ?? ($postIt->requester_id ? User::find($postIt->requester_id) : null);
+        $isClientRequest = ($requester && $requester->role === 'client') || ($requester === null && $postIt->guest_name !== null);
 
         // Strict Firewall: Client requests CANNOT enter 'internal' or 'private' columns,
         // even if an admin, coordinator, or worker attempts the move.
@@ -777,7 +785,7 @@ class CapacityBoard extends Component
             return false;
         }
 
-        if ((int) $postIt->requester_id === (int) $user->id) {
+        if ($postIt->requester_id !== null && (int) $postIt->requester_id === (int) $user->id) {
             return true;
         }
 
@@ -789,7 +797,7 @@ class CapacityBoard extends Component
      */
     protected function sanitizePostIt(PostIt $postIt, ?User $currentUser): void
     {
-        $isOwn = $currentUser && (int) $postIt->requester_id === (int) $currentUser->id;
+        $isOwn = $currentUser && $postIt->requester_id !== null && (int) $postIt->requester_id === (int) $currentUser->id;
         $postIt->is_own = $isOwn;
 
         $tenant = Tenant::find($this->tenantId);
@@ -816,10 +824,10 @@ class CapacityBoard extends Component
         // Open collaborator attribution:
         // Internal staff requesters are NEVER anonymized across the application.
         if (! $currentUser || $currentUser->role === 'admin' || $isInternalRequester) {
-            $postIt->display_requester_name = $postIt->requester?->name ?? 'User #'.$postIt->requester_id;
+            $postIt->display_requester_name = $postIt->requesterDisplayName();
             $postIt->is_masked = false;
         } elseif ($isOwn || ($currentUser->role === 'client' && filled($currentUser->facility_name) && $postIt->facility_name === $currentUser->facility_name)) {
-            $postIt->display_requester_name = $postIt->requester?->name ?? ($isOwn ? __('Me') : 'User #'.$postIt->requester_id);
+            $postIt->display_requester_name = $postIt->requesterDisplayName();
             $postIt->is_masked = false;
         } else {
             $postIt->display_requester_name = __('Anonymous Request');
@@ -921,7 +929,9 @@ class CapacityBoard extends Component
 
         if ($user->role === 'client') {
             // Client can drag own unstarted cards ('backlog' or 'assigned', started_at === null)
-            return (int) $postIt->requester_id === (int) $user->id
+            $isSameFacility = filled($user->facility_name) && $postIt->facility_name === $user->facility_name;
+
+            return ((int) $postIt->requester_id === (int) $user->id || $isSameFacility)
                 && in_array($postIt->status, ['backlog', 'assigned'], true)
                 && $postIt->started_at === null;
         }
@@ -1332,8 +1342,8 @@ class CapacityBoard extends Component
         }
 
         // Firewall validation: Client-originated post-its can ONLY enter public columns
-        $requester = $postIt->requester ?? User::find($postIt->requester_id);
-        $isClientRequest = $requester && $requester->role === 'client';
+        $requester = $postIt->requester ?? ($postIt->requester_id ? User::find($postIt->requester_id) : null);
+        $isClientRequest = ($requester && $requester->role === 'client') || ($requester === null && $postIt->guest_name !== null);
         if ($isClientRequest && $this->editAssigneeId !== null) {
             $targetCollab = User::where('tenant_id', $this->tenantId)->find($this->editAssigneeId);
             if (! $targetCollab || $targetCollab->board_visibility !== 'public') {
@@ -1425,13 +1435,235 @@ class CapacityBoard extends Component
     }
 
     /**
+     * Check if a user is authorized to drop a post-it into the completed column.
+     * Allowed: admin, coordinator (for their dept), assigned collaborator / helper, or requester (and same-facility clients).
+     */
+    public function canDropIntoCompleted(PostIt $postIt, ?User $currentUser): bool
+    {
+        if (! $currentUser || $postIt->status === 'done') {
+            return false;
+        }
+
+        if ($currentUser->role === 'admin') {
+            return true;
+        }
+
+        if ($currentUser->role === 'coordinator') {
+            return (int) $postIt->assignee_id === (int) $currentUser->id
+                || (int) $postIt->helper_id === (int) $currentUser->id
+                || (int) $postIt->department_id === (int) $currentUser->department_id
+                || (int) $postIt->assignee?->department_id === (int) $currentUser->department_id
+                || $postIt->department_id === null;
+        }
+
+        if ((int) $postIt->assignee_id === (int) $currentUser->id || (int) $postIt->helper_id === (int) $currentUser->id) {
+            return true;
+        }
+
+        if ($currentUser->role === 'client') {
+            $isSameFacility = filled($currentUser->facility_name) && $postIt->facility_name === $currentUser->facility_name;
+
+            return ((int) $postIt->requester_id === (int) $currentUser->id || $isSameFacility)
+                && in_array($postIt->status, ['backlog', 'assigned'], true)
+                && $postIt->started_at === null;
+        }
+
+        if ($postIt->requester_id !== null && (int) $postIt->requester_id === (int) $currentUser->id) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Drop a post-it directly into the completed column.
+     * Automatically completes normally if work was in progress ('doing'),
+     * or cancels with 0 bounty points if unstarted ('assigned' or 'backlog').
+     */
+    public function dropIntoCompleted(int $postItId): void
+    {
+        $currentUser = Auth::user();
+        if (! $currentUser) {
+            abort(403);
+        }
+
+        $postIt = PostIt::where('tenant_id', $this->tenantId)->with(['assignee', 'requester'])->findOrFail($postItId);
+
+        if ($postIt->status === 'done') {
+            return;
+        }
+
+        if (! $this->canDropIntoCompleted($postIt, $currentUser)) {
+            abort(403, __('Unauthorized to complete or cancel this request.'));
+        }
+
+        $previousStatus = $postIt->status;
+        $previousAssigneeId = $postIt->assignee_id;
+        $wasInProgress = ($previousStatus === 'doing');
+
+        if ($wasInProgress) {
+            $postIt->update([
+                'status' => 'done',
+                'is_canceled' => false,
+                'completed_at' => now(),
+            ]);
+
+            PostItTransfer::create([
+                'post_it_id' => $postIt->id,
+                'actor_id' => $currentUser->id,
+                'from_user_id' => $previousAssigneeId,
+                'to_user_id' => $previousAssigneeId,
+                'action' => 'completed',
+                'created_at' => now(),
+            ]);
+
+            $calculator = app(BountyCalculator::class);
+            $calculator->awardPayout($postIt->fresh());
+        } else {
+            // Work had NOT started: mark canceled, award 0 points, log cancel action & comment
+            $postIt->update([
+                'status' => 'done',
+                'is_canceled' => true,
+                'completed_at' => now(),
+                'bounty_points' => 0,
+            ]);
+
+            PostItTransfer::create([
+                'post_it_id' => $postIt->id,
+                'actor_id' => $currentUser->id,
+                'from_user_id' => $previousAssigneeId,
+                'to_user_id' => $previousAssigneeId,
+                'action' => 'canceled',
+                'created_at' => now(),
+            ]);
+
+            $cancelComment = '✖ '.__('Canceled (closed before work started) by :name', ['name' => $currentUser->name]);
+            $postIt->comments()->create([
+                'user_id' => $currentUser->id,
+                'body' => $cancelComment,
+            ]);
+        }
+
+        // Recalculate capacity for affected worker
+        if ($previousAssigneeId !== null) {
+            $assignee = User::find($previousAssigneeId);
+            if ($assignee !== null) {
+                $assignee->update([
+                    'current_capacity' => (int) PostIt::where('assignee_id', $previousAssigneeId)
+                        ->whereIn('status', ['assigned', 'doing'])
+                        ->sum('weight'),
+                ]);
+            }
+        }
+
+        unset($this->selectedPostIt);
+        BoardUpdated::dispatch($this->tenantId);
+    }
+
+    /**
      * Complete a post-it task directly from the modal dialog.
      */
     public function completePostIt(int $postItId): void
     {
-        $postIt = PostIt::where('tenant_id', $this->tenantId)->findOrFail($postItId);
-        $this->movePostIt($postItId, $postIt->assignee_id, 'done');
+        $this->dropIntoCompleted($postItId);
         unset($this->selectedPostIt);
+    }
+
+    /**
+     * Determine if the user is authorized to self-close / resolve this post-it.
+     */
+    public function canCloseByRequester(PostIt $postIt, ?User $currentUser): bool
+    {
+        if (! $currentUser || $postIt->status === 'done') {
+            return false;
+        }
+
+        if ($postIt->requester_id !== null && (int) $postIt->requester_id === (int) $currentUser->id) {
+            return true;
+        }
+
+        return $currentUser->role === 'client'
+            && filled($currentUser->facility_name)
+            && $postIt->facility_name === $currentUser->facility_name;
+    }
+
+    /**
+     * Self-close/cancel an open request by its creator or client from same facility.
+     */
+    public function closeByRequester(int $postItId, ?string $reason = null): void
+    {
+        $currentUser = Auth::user();
+        if (! $currentUser) {
+            abort(403);
+        }
+
+        $postIt = PostIt::where('tenant_id', $this->tenantId)->findOrFail($postItId);
+
+        if (! $this->canCloseByRequester($postIt, $currentUser)) {
+            abort(403, __('Unauthorized or request already completed.'));
+        }
+
+        $wasInProgress = ($postIt->status === 'doing');
+        $assigneeId = $postIt->assignee_id;
+        $closureReason = trim((string) ($reason ?: $this->requesterResolutionReason));
+        $effectiveReason = filled($closureReason) ? $closureReason : __('Issue resolved / No longer needed');
+
+        if ($wasInProgress) {
+            $postIt->update([
+                'status' => 'done',
+                'completed_at' => now(),
+            ]);
+
+            $calculator = app(BountyCalculator::class);
+            $calculator->awardPayout($postIt->fresh());
+        } else {
+            // Not started yet (backlog or assigned): complete with 0 bounty points so unearned points are not farmed
+            $postIt->update([
+                'status' => 'done',
+                'completed_at' => now(),
+                'bounty_points' => 0,
+            ]);
+        }
+
+        // Recalculate capacity for affected worker
+        if ($assigneeId !== null) {
+            $assignee = User::find($assigneeId);
+            if ($assignee !== null) {
+                $assignee->update([
+                    'current_capacity' => (int) PostIt::where('assignee_id', $assigneeId)
+                        ->whereIn('status', ['assigned', 'doing'])
+                        ->sum('weight'),
+                ]);
+            }
+        }
+
+        // Audit Trail: transfer history
+        PostItTransfer::create([
+            'post_it_id' => $postIt->id,
+            'actor_id' => $currentUser->id,
+            'from_user_id' => $assigneeId,
+            'to_user_id' => $assigneeId,
+            'action' => 'closed_by_requester',
+            'created_at' => now(),
+        ]);
+
+        // Audit Trail: automated comment
+        $commentBody = '✅ '.__('Closed by requester (:name): :reason', [
+            'name' => $currentUser->name,
+            'reason' => $effectiveReason,
+        ]);
+
+        $postIt->comments()->create([
+            'user_id' => $currentUser->id,
+            'body' => $commentBody,
+        ]);
+
+        $this->requesterResolutionReason = '';
+        unset($this->selectedPostIt);
+
+        session()->flash('status', __('Request closed successfully.'));
+
+        BoardUpdated::dispatch($this->tenantId);
     }
 
     /**

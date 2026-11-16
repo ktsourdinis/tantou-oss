@@ -25,6 +25,9 @@
                 return;
             }
             this.activeDropZone = zone;
+            if (zone === 'done' && !this.openDone) {
+                this.openDone = true;
+            }
         },
         onDragLeave(zone) {
             if (this.activeDropZone === zone) {
@@ -51,7 +54,11 @@
                     dropZoneEl.appendChild(cardEl);
                     cardEl.classList.add('opacity-75', 'ring-1', 'ring-indigo-500/60');
                 }
-                $wire.movePostIt(id, assigneeId, targetStatus);
+                if (targetStatus === 'done') {
+                    $wire.dropIntoCompleted(id);
+                } else {
+                    $wire.movePostIt(id, assigneeId, targetStatus);
+                }
             }
         }
     }"
@@ -560,7 +567,13 @@
                 ]"
                 class="transition-all duration-300 flex-col"
             >
-                <div class="rounded-2xl bg-slate-900/60 border border-slate-800/70 p-3.5 flex flex-col shadow-xl w-full">
+                <div
+                    :class="activeDropZone === 'done' ? 'ring-2 ring-emerald-500/70 border-emerald-500/80 bg-emerald-950/20 shadow-emerald-500/20 shadow-lg' : 'border-slate-800/70 bg-slate-900/60'"
+                    @dragover.prevent="onDragOver('done')"
+                    @dragleave="onDragLeave('done')"
+                    @drop.prevent="onDrop($event, null, 'done')"
+                    class="rounded-2xl border p-3.5 flex flex-col shadow-xl w-full transition-all"
+                >
                     <div class="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-3 gap-2">
                         <div class="flex items-center gap-2">
                             <button
@@ -617,7 +630,7 @@
                     <div
                         :class="[
                             openDone || mobileTab === 'completed' ? 'block' : 'hidden md:hidden',
-                            activeDropZone === 'done' ? 'border-emerald-500 bg-emerald-950/20' : 'border-transparent'
+                            activeDropZone === 'done' ? 'border-emerald-500 bg-emerald-950/30 ring-2 ring-emerald-500/50' : 'border-transparent'
                         ]"
                         @dragover.prevent="onDragOver('done')"
                         @dragleave="onDragLeave('done')"
@@ -629,9 +642,15 @@
                             earlierOpen: false
                         }"
                     >
+                        {{-- Dragover Banner --}}
+                        <div x-show="activeDropZone === 'done'" class="py-2 px-3 text-center rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-semibold animate-pulse">
+                            📥 {{ __('Drop here to complete (or cancel if not started)') }}
+                        </div>
+
                         @if ($donePostIts->isEmpty())
                             <div class="py-12 px-4 text-center border border-dashed border-slate-800 rounded-xl text-slate-500 text-xs">
-                                {{ __('No completed tasks yet.') }}
+                                <div>{{ __('No completed tasks yet.') }}</div>
+                                <div class="text-[11px] text-slate-600 mt-1">{{ __('Drop here to complete (or cancel if not started)') }}</div>
                             </div>
                         @else
                             {{-- Accordion 1: Today --}}
@@ -1122,9 +1141,15 @@
                     <div class="flex items-center justify-between gap-3">
                         <div class="flex items-center gap-1.5 flex-wrap">
                             {{-- Status Pill --}}
-                            <span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider border {{ $statusBadgeClasses }}">
-                                {{ __(ucfirst($selected->status)) }}
-                            </span>
+                            @if ($selected->status === 'done' && $selected->is_canceled)
+                                <span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider border bg-rose-500/20 text-rose-300 border-rose-500/30">
+                                    ✖ {{ __('CANCELED') }}
+                                </span>
+                            @else
+                                <span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider border {{ $statusBadgeClasses }}">
+                                    {{ __(ucfirst($selected->status)) }}
+                                </span>
+                            @endif
 
                             {{-- Priority Pill --}}
                             <span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider border {{ $priorityBadgeClasses }}">
@@ -1135,6 +1160,13 @@
                             <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[11px] font-semibold border border-slate-700">
                                 W{{ $selected->weight }}
                             </span>
+
+                            {{-- Closed by Requester Pill --}}
+                            @if ($selected->isClosedByRequester() && ! $selected->is_canceled)
+                                <span class="px-2 py-0.5 rounded text-[11px] font-bold border bg-teal-500/20 text-teal-300 border-teal-500/30">
+                                    ✓ {{ __('Closed by Requester') }}
+                                </span>
+                            @endif
 
                             {{-- Department Pill --}}
                             @if ($selected->department)
@@ -1147,9 +1179,35 @@
                             @endif
 
                             {{-- Bounty Points --}}
-                            <span class="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[11px] font-bold">
-                                ⚡ {{ $selected->bounty_points }} pts
-                            </span>
+                            @if ($selected->status === 'done' && $selected->is_canceled)
+                                <span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-500 border border-slate-700 text-[11px] font-bold line-through" title="{{ __('Canceled (0 points awarded)') }}">
+                                    ⚡ 0 pts
+                                </span>
+                            @else
+                                <span class="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[11px] font-bold">
+                                    ⚡ {{ $selected->bounty_points }} pts
+                                </span>
+                            @endif
+
+                            {{-- Tracking Token Badge --}}
+                            @if ($selected->tracking_token)
+                                <div
+                                    x-data="{ copied: false }"
+                                    class="flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 text-[11px] font-mono font-semibold"
+                                    title="{{ __('Tracking Token: Click copy icon to copy live tracker link') }}"
+                                >
+                                    <span>#{{ $selected->tracking_token }}</span>
+                                    <button
+                                        type="button"
+                                        @click.stop="navigator.clipboard.writeText('{{ route('public.track', ['token' => $selected->tracking_token]) }}'); copied = true; setTimeout(() => copied = false, 2000)"
+                                        class="p-0.5 hover:text-white transition-colors cursor-pointer text-[10px]"
+                                        title="{{ __('Copy tracking link') }}"
+                                    >
+                                        <span x-show="!copied">📋</span>
+                                        <span x-show="copied" class="text-emerald-400 font-bold">✓</span>
+                                    </button>
+                                </div>
+                            @endif
                         </div>
 
                         <div class="flex items-center gap-2 shrink-0">
@@ -1197,10 +1255,15 @@
                             <div class="mt-1 flex items-center gap-2 text-xs text-slate-400 flex-wrap">
                                 <span class="flex items-center gap-1.5 flex-wrap">
                                     <span class="text-slate-500">{{ __('Requester:') }}</span>
-                                    <span class="text-indigo-300 font-semibold">{{ $selected->display_requester_name ?? $selected->requester?->name ?? 'User #'.$selected->requester_id }}</span>
+                                    <span class="text-indigo-300 font-semibold">{{ $selected->display_requester_name ?? $selected->requesterDisplayName() }}</span>
                                     @if (!empty($selected->facility_name) && !$selected->is_masked)
                                         <span class="px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[10px] font-medium" title="{{ __('Facility / Unit') }}">
                                             🏢 {{ $selected->facility_name }}
+                                        </span>
+                                    @endif
+                                    @if (!empty($selected->guest_contact) && !$selected->is_masked)
+                                        <span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-medium flex items-center gap-1" title="{{ __('Phone / Extension / Email') }}">
+                                            📞 {{ $selected->guest_contact }}
                                         </span>
                                     @endif
                                     @if (! $selected->is_masked && $selected->requester)
@@ -1349,6 +1412,55 @@
                                         <span>✓</span>
                                         <span>{{ __('Mark Completed') }}</span>
                                     </button>
+                                @endif
+
+                                @if ($this->canCloseByRequester($selected, $currentUser))
+                                    <div x-data="{ showClosePrompt: false }" class="relative">
+                                        <button
+                                            type="button"
+                                            x-show="!showClosePrompt"
+                                            @click="showClosePrompt = true"
+                                            class="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold shadow-md shadow-teal-600/30 transition-all flex items-center gap-1.5 cursor-pointer"
+                                            title="{{ __('Mark this request as resolved and close it') }}"
+                                        >
+                                            <span>✓</span>
+                                            <span>{{ __('Resolved / Close My Request') }}</span>
+                                        </button>
+
+                                        <div
+                                            x-show="showClosePrompt"
+                                            x-cloak
+                                            class="p-3 rounded-2xl bg-slate-950 border border-teal-500/30 shadow-xl space-y-2 animate-fadeIn w-full sm:w-80"
+                                        >
+                                            <label class="block text-[11px] font-semibold text-slate-300">
+                                                {{ __('Optional note (e.g. Internet connection restored)...') }}
+                                            </label>
+                                            <input
+                                                wire:model="requesterResolutionReason"
+                                                type="text"
+                                                maxlength="255"
+                                                placeholder="{{ __('Optional note (e.g. Internet connection restored)...') }}"
+                                                class="w-full px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-teal-500"
+                                            >
+                                            <div class="flex items-center justify-end gap-2">
+                                                <button
+                                                    type="button"
+                                                    @click="showClosePrompt = false"
+                                                    class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white text-xs transition-colors cursor-pointer"
+                                                >
+                                                    {{ __('Cancel') }}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    wire:click="closeByRequester({{ $selected->id }})"
+                                                    class="px-3 py-1 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer flex items-center gap-1"
+                                                >
+                                                    <span>✓</span>
+                                                    <span>{{ __('Confirm Close') }}</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 @endif
 
                                 @if ($canEdit)
