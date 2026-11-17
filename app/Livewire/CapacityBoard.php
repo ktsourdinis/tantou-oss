@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Events\BoardUpdated;
+use App\Livewire\Concerns\ManagesTelegramPairing;
 use App\Livewire\Concerns\ManagesWorkspaceSettings;
 use App\Models\Department;
 use App\Models\PostIt;
@@ -11,9 +12,11 @@ use App\Models\PostItTransfer;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\BountyCalculator;
+use App\Services\TelegramBotService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
@@ -24,6 +27,7 @@ use Livewire\WithFileUploads;
 #[Layout('layouts.app')]
 class CapacityBoard extends Component
 {
+    use ManagesTelegramPairing;
     use ManagesWorkspaceSettings;
     use WithFileUploads;
 
@@ -342,9 +346,10 @@ class CapacityBoard extends Component
             }
 
             $helper = User::where('tenant_id', $this->tenantId)->find($this->coOpHelperId);
-            $assigneeVisibility = $postIt->assignee?->board_visibility;
+            $assigneeVisibility = $postIt->assignee?->visibility ?: ($postIt->assignee?->board_visibility ?: 'public');
+            $helperVisibility = $helper?->visibility ?: ($helper?->board_visibility ?: 'public');
 
-            if (! $helper || $assigneeVisibility === 'private' || $helper->board_visibility !== $assigneeVisibility) {
+            if (! $helper || $assigneeVisibility === 'private' || $helperVisibility !== $assigneeVisibility) {
                 return; // Mode mismatch or private column
             }
         }
@@ -358,6 +363,15 @@ class CapacityBoard extends Component
         $this->coOpPostItId = null;
 
         BoardUpdated::dispatch($this->tenantId);
+    }
+
+    /**
+     * Start working on an assigned post-it card (transitions 'assigned' -> 'doing').
+     * Alias for startPostIt.
+     */
+    public function startWorking(int $postItId): void
+    {
+        $this->startPostIt($postItId);
     }
 
     /**
@@ -435,6 +449,14 @@ class CapacityBoard extends Component
     }
 
     /**
+     * Update collaborator visibility mode (public, internal, private, none).
+     */
+    public function updateVisibility(int $userId, string $visibility): void
+    {
+        $this->updateBoardVisibility($userId, $visibility);
+    }
+
+    /**
      * Update collaborator board visibility mode (public, internal, private, none).
      */
     public function updateBoardVisibility(int $userId, string $visibility): void
@@ -455,6 +477,7 @@ class CapacityBoard extends Component
         }
 
         $targetUser->update([
+            'visibility' => $visibility,
             'board_visibility' => $visibility,
         ]);
 
@@ -496,7 +519,8 @@ class CapacityBoard extends Component
         // 'internal' columns can only receive Post-its created by internal staff (worker, coordinator, admin).
         if ($isClientRequest && $assigneeId !== null) {
             $targetCollaborator = User::where('tenant_id', $this->tenantId)->find($assigneeId);
-            if (! $targetCollaborator || $targetCollaborator->board_visibility !== 'public') {
+            $targetVisibility = $targetCollaborator?->visibility ?: ($targetCollaborator?->board_visibility ?: 'public');
+            if (! $targetCollaborator || $targetVisibility !== 'public') {
                 return;
             }
 
@@ -595,7 +619,9 @@ class CapacityBoard extends Component
                 } else {
                     $newAssignee = User::find($assigneeId);
                     $existingHelper = User::find($postIt->helper_id);
-                    if ($newAssignee?->board_visibility === 'private' || $existingHelper?->board_visibility !== $newAssignee?->board_visibility) {
+                    $newAssigneeVis = $newAssignee?->visibility ?: ($newAssignee?->board_visibility ?: 'public');
+                    $existingHelperVis = $existingHelper?->visibility ?: ($existingHelper?->board_visibility ?: 'public');
+                    if ($newAssigneeVis === 'private' || $existingHelperVis !== $newAssigneeVis) {
                         $updates['helper_id'] = null;
                         $updates['helper_split'] = 0;
                     }
@@ -678,6 +704,13 @@ class CapacityBoard extends Component
             $calculator->awardPayout($postIt->fresh());
         }
 
+        // Trigger Telegram notifications for task assignment or move to backlog
+        if ($assigneeId !== null && ($previousAssigneeId !== $assigneeId || $previousStatus === 'backlog')) {
+            app(TelegramBotService::class)->routePostItNotification($postIt->fresh(), $previousAssigneeId === null ? 'assigned' : 'transferred');
+        } elseif ($targetStatus === 'backlog' && $previousStatus !== 'backlog') {
+            app(TelegramBotService::class)->routePostItNotification($postIt->fresh());
+        }
+
         BoardUpdated::dispatch($this->tenantId);
     }
 
@@ -694,7 +727,17 @@ class CapacityBoard extends Component
             'weight' => 'required|integer|min:1|max:5',
             'assigneeId' => 'nullable|integer|exists:users,id',
             'newAttachments' => 'nullable|array|max:5',
-            'newAttachments.*' => 'file|max:10240|mimes:jpg,jpeg,png,webp,gif,pdf,doc,docx,xls,xlsx,csv,txt,zip',
+            'newAttachments.*' => [
+                'file',
+                'max:10240',
+                'mimes:pdf,png,jpg,jpeg,webp,txt,csv,doc,docx,xls,xlsx,zip',
+                function ($attribute, $value, $fail) {
+                    $ext = strtolower($value->getClientOriginalExtension());
+                    if (in_array($ext, ['php', 'phtml', 'sh', 'js', 'html', 'htm', 'svg'], true)) {
+                        $fail(__('Executable and script files are not allowed.'));
+                    }
+                },
+            ],
         ]);
 
         $requester = Auth::user()
@@ -704,7 +747,8 @@ class CapacityBoard extends Component
         // If client assigning, verify collaborator is available and public
         if ($requester->role === 'client' && $this->assigneeId !== null) {
             $collaborator = User::where('tenant_id', $this->tenantId)->find($this->assigneeId);
-            if (! $collaborator || ! $collaborator->is_available || $collaborator->board_visibility !== 'public') {
+            $collabVisibility = $collaborator?->visibility ?: ($collaborator?->board_visibility ?: 'public');
+            if (! $collaborator || ! $collaborator->is_available || $collabVisibility !== 'public') {
                 $this->addError('assigneeId', __('This collaborator is currently away or not available for external requests.'));
 
                 return;
@@ -739,7 +783,9 @@ class CapacityBoard extends Component
 
         if (! empty($this->newAttachments)) {
             foreach ($this->newAttachments as $file) {
-                $storedPath = $file->store("tenants/{$this->tenantId}/post-its/{$postIt->id}", 'local');
+                $ext = strtolower($file->getClientOriginalExtension()) ?: 'bin';
+                $uuidName = Str::uuid().'.'.$ext;
+                $storedPath = $file->storeAs("tenants/{$this->tenantId}/post-its/{$postIt->id}", $uuidName, 'local');
                 $postIt->attachments()->create([
                     'uploader_id' => $requester->id,
                     'original_name' => $file->getClientOriginalName(),
@@ -769,6 +815,8 @@ class CapacityBoard extends Component
                 ]);
             }
         }
+
+        app(TelegramBotService::class)->routePostItNotification($postIt->fresh(), $isAssigned ? 'assigned' : 'created');
 
         $this->resetCreateForm();
         $this->showCreateModal = false;
@@ -949,13 +997,17 @@ class CapacityBoard extends Component
         }
 
         $assignee = $postIt->assignee ?? User::find($postIt->assignee_id);
-        if (! $assignee || $assignee->board_visibility === 'private' || $assignee->board_visibility === 'none') {
+        $assigneeVis = $assignee?->visibility ?: ($assignee?->board_visibility ?: 'public');
+        if (! $assignee || $assigneeVis === 'private' || $assigneeVis === 'none') {
             return collect();
         }
 
         return User::where('tenant_id', $this->tenantId)
             ->where('id', '!=', $assignee->id)
-            ->where('board_visibility', $assignee->board_visibility)
+            ->where(function ($query) use ($assigneeVis): void {
+                $query->where('visibility', $assigneeVis)
+                    ->orWhere('board_visibility', $assigneeVis);
+            })
             ->orderBy('name')
             ->get();
     }
@@ -1086,9 +1138,10 @@ class CapacityBoard extends Component
             }
 
             $helper = User::where('tenant_id', $this->tenantId)->find($this->slideOverHelperId);
-            $assigneeVisibility = $postIt->assignee?->board_visibility;
+            $assigneeVisibility = $postIt->assignee?->visibility ?: ($postIt->assignee?->board_visibility ?: 'public');
+            $helperVisibility = $helper?->visibility ?: ($helper?->board_visibility ?: 'public');
 
-            if (! $helper || $assigneeVisibility === 'private' || $helper->board_visibility !== $assigneeVisibility) {
+            if (! $helper || $assigneeVisibility === 'private' || $helperVisibility !== $assigneeVisibility) {
                 return; // Mode mismatch or private column
             }
         }
@@ -1121,10 +1174,12 @@ class CapacityBoard extends Component
             return;
         }
 
-        $postIt->comments()->create([
+        $comment = $postIt->comments()->create([
             'user_id' => $currentUser->id,
             'body' => trim($this->newCommentBody),
         ]);
+
+        app(TelegramBotService::class)->notifyCommentAdded($postIt, $comment, $currentUser);
 
         $this->newCommentBody = '';
 
@@ -1157,11 +1212,23 @@ class CapacityBoard extends Component
 
         $this->validate([
             'slideOverNewAttachments' => 'required|array|min:1|max:5',
-            'slideOverNewAttachments.*' => 'file|max:10240|mimes:jpg,jpeg,png,webp,gif,pdf,doc,docx,xls,xlsx,csv,txt,zip',
+            'slideOverNewAttachments.*' => [
+                'file',
+                'max:10240',
+                'mimes:pdf,png,jpg,jpeg,webp,txt,csv,doc,docx,xls,xlsx,zip',
+                function ($attribute, $value, $fail) {
+                    $ext = strtolower($value->getClientOriginalExtension());
+                    if (in_array($ext, ['php', 'phtml', 'sh', 'js', 'html', 'htm', 'svg'], true)) {
+                        $fail(__('Executable and script files are not allowed.'));
+                    }
+                },
+            ],
         ]);
 
         foreach ($this->slideOverNewAttachments as $file) {
-            $path = $file->store("tenants/{$this->tenantId}/post-its/{$postIt->id}", 'local');
+            $ext = strtolower($file->getClientOriginalExtension()) ?: 'bin';
+            $uuidName = Str::uuid().'.'.$ext;
+            $path = $file->storeAs("tenants/{$this->tenantId}/post-its/{$postIt->id}", $uuidName, 'local');
             $postIt->attachments()->create([
                 'uploader_id' => $currentUser->id,
                 'original_name' => $file->getClientOriginalName(),
@@ -1346,7 +1413,8 @@ class CapacityBoard extends Component
         $isClientRequest = ($requester && $requester->role === 'client') || ($requester === null && $postIt->guest_name !== null);
         if ($isClientRequest && $this->editAssigneeId !== null) {
             $targetCollab = User::where('tenant_id', $this->tenantId)->find($this->editAssigneeId);
-            if (! $targetCollab || $targetCollab->board_visibility !== 'public') {
+            $targetCollabVis = $targetCollab?->visibility ?: ($targetCollab?->board_visibility ?: 'public');
+            if (! $targetCollab || $targetCollabVis !== 'public') {
                 $this->addError('editAssigneeId', __('This collaborator cannot receive client requests.'));
 
                 return;
@@ -1519,6 +1587,8 @@ class CapacityBoard extends Component
 
             $calculator = app(BountyCalculator::class);
             $calculator->awardPayout($postIt->fresh());
+
+            app(TelegramBotService::class)->notifyRequesterOfResolution($postIt->fresh(), 'done', $currentUser);
         } else {
             // Work had NOT started: mark canceled, award 0 points, log cancel action & comment
             $postIt->update([
@@ -1542,6 +1612,8 @@ class CapacityBoard extends Component
                 'user_id' => $currentUser->id,
                 'body' => $cancelComment,
             ]);
+
+            app(TelegramBotService::class)->notifyRequesterOfResolution($postIt->fresh(), 'canceled', $currentUser);
         }
 
         // Recalculate capacity for affected worker
@@ -1802,9 +1874,15 @@ class CapacityBoard extends Component
             ->where('is_available', true);
 
         if ($currentUser && $currentUser->role === 'client') {
-            $radarUsersQuery->where('board_visibility', 'public');
+            $radarUsersQuery->where(function ($q): void {
+                $q->where('visibility', 'public')
+                    ->orWhere('board_visibility', 'public');
+            });
         } else {
-            $radarUsersQuery->whereIn('board_visibility', ['public', 'internal']);
+            $radarUsersQuery->where(function ($q): void {
+                $q->whereIn('visibility', ['public', 'internal'])
+                    ->orWhereIn('board_visibility', ['public', 'internal']);
+            });
         }
 
         $activeRadarUsers = $radarUsersQuery->get();
@@ -1854,7 +1932,7 @@ class CapacityBoard extends Component
                     ->withCount(['comments', 'attachments'])
                     ->with([
                         'requester:id,name,role',
-                        'assignee:id,name,board_visibility',
+                        'assignee:id,name,visibility,board_visibility',
                         'helper:id,name',
                         'assignedBy:id,name',
                         'department:id,name,color',
@@ -1864,16 +1942,23 @@ class CapacityBoard extends Component
             ->orderBy('name');
 
         if ($currentUser && $currentUser->role === 'client') {
-            $columnsQuery->where('board_visibility', 'public')
-                ->where('is_available', true);
+            $columnsQuery->where(function ($q): void {
+                $q->where('visibility', 'public')
+                    ->orWhere('board_visibility', 'public');
+            })->where('is_available', true);
         } else {
             $currentUserId = $currentUser?->id;
             $columnsQuery->where(function ($query) use ($currentUserId): void {
-                $query->whereIn('board_visibility', ['public', 'internal']);
+                $query->where(function ($q): void {
+                    $q->whereIn('visibility', ['public', 'internal'])
+                        ->orWhereIn('board_visibility', ['public', 'internal']);
+                });
                 if ($currentUserId) {
                     $query->orWhere(function ($sub) use ($currentUserId): void {
-                        $sub->where('board_visibility', 'private')
-                            ->where('id', $currentUserId);
+                        $sub->where(function ($q): void {
+                            $q->where('visibility', 'private')
+                                ->orWhere('board_visibility', 'private');
+                        })->where('id', $currentUserId);
                     });
                 }
             });
@@ -1894,7 +1979,7 @@ class CapacityBoard extends Component
             ->withCount(['comments', 'attachments'])
             ->with([
                 'requester:id,name,role',
-                'assignee:id,name,board_visibility',
+                'assignee:id,name,visibility,board_visibility',
                 'helper:id,name',
                 'assignedBy:id,name',
                 'department:id,name,color',
@@ -1951,7 +2036,7 @@ class CapacityBoard extends Component
         $donePostIts = $doneQuery->withCount(['comments', 'attachments'])
             ->with([
                 'requester:id,name,role',
-                'assignee:id,name,board_visibility',
+                'assignee:id,name,visibility,board_visibility',
                 'helper:id,name',
                 'assignedBy:id,name',
                 'department:id,name,color',
@@ -1960,26 +2045,27 @@ class CapacityBoard extends Component
             ->smartOrder()
             ->get();
 
-        // Group completed Post-its into 3 collapsible buckets: Today, This Week, Earlier
-        $todayStart = now()->startOfDay();
-        $weekStart = now()->startOfWeek();
+        // Group completed Post-its into 3 collapsible buckets: Today, This Week, Earlier (in viewer's effective timezone)
+        $tz = $currentUser?->effectiveTimezone() ?? ($tenant->timezone ?? config('app.timezone', 'Europe/Athens'));
+        $todayStart = now()->timezone($tz)->startOfDay();
+        $weekStart = now()->timezone($tz)->startOfWeek();
 
-        $doneToday = $donePostIts->filter(function ($item) use ($todayStart) {
+        $doneToday = $donePostIts->filter(function ($item) use ($todayStart, $tz) {
             $time = $item->completed_at ?? $item->updated_at;
 
-            return $time && $time->gte($todayStart);
+            return $time && $time->timezone($tz)->gte($todayStart);
         });
 
-        $doneThisWeek = $donePostIts->filter(function ($item) use ($todayStart, $weekStart) {
+        $doneThisWeek = $donePostIts->filter(function ($item) use ($todayStart, $weekStart, $tz) {
             $time = $item->completed_at ?? $item->updated_at;
 
-            return $time && $time->gte($weekStart) && $time->lt($todayStart);
+            return $time && $time->timezone($tz)->gte($weekStart) && $time->timezone($tz)->lt($todayStart);
         });
 
-        $doneEarlier = $donePostIts->filter(function ($item) use ($weekStart) {
+        $doneEarlier = $donePostIts->filter(function ($item) use ($weekStart, $tz) {
             $time = $item->completed_at ?? $item->updated_at;
 
-            return ! $time || $time->lt($weekStart);
+            return ! $time || $time->timezone($tz)->lt($weekStart);
         });
 
         // 5. Sanitize cards for privacy & visibility rules
@@ -2000,15 +2086,23 @@ class CapacityBoard extends Component
         // Available collaborators for direct assignment in the create modal
         $availableQuery = User::where('tenant_id', $this->tenantId)->orderBy('name');
         if ($currentUser && $currentUser->role === 'client') {
-            $availableQuery->where('board_visibility', 'public')->where('is_available', true);
+            $availableQuery->where(function ($q): void {
+                $q->where('visibility', 'public')
+                    ->orWhere('board_visibility', 'public');
+            })->where('is_available', true);
         } else {
             $currentUserId = $currentUser?->id;
             $availableQuery->where(function ($query) use ($currentUserId): void {
-                $query->whereIn('board_visibility', ['public', 'internal']);
+                $query->where(function ($q): void {
+                    $q->whereIn('visibility', ['public', 'internal'])
+                        ->orWhereIn('board_visibility', ['public', 'internal']);
+                });
                 if ($currentUserId) {
                     $query->orWhere(function ($sub) use ($currentUserId): void {
-                        $sub->where('board_visibility', 'private')
-                            ->where('id', $currentUserId);
+                        $sub->where(function ($q): void {
+                            $q->where('visibility', 'private')
+                                ->orWhere('board_visibility', 'private');
+                        })->where('id', $currentUserId);
                     });
                 }
             });

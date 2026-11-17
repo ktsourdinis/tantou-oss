@@ -3,6 +3,7 @@
 namespace App\Livewire\Concerns;
 
 use App\Models\Tenant;
+use App\Services\StripeBillingService;
 use App\Support\Edition;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -17,6 +18,22 @@ trait ManagesWorkspaceSettings
     public bool $strictClientIsolation = false;
 
     public bool $publicSubmissionEnabled = false;
+
+    public string $tenantTimezone = 'Europe/Athens';
+
+    public bool $telegramEnabled = false;
+
+    public bool $telegramPrivacyMode = false;
+
+    public string $telegramBotUsername = '';
+
+    public string $telegramBotToken = '';
+
+    public string $telegramWebhookSecret = '';
+
+    public string $tenantCustomDomain = '';
+
+    public string $selectedBillingInterval = 'monthly';
 
     /**
      * @var list<string>
@@ -36,8 +53,15 @@ trait ManagesWorkspaceSettings
         $tenant = Tenant::findOrFail($this->tenantId);
         $this->tenantName = $tenant->name;
         $this->tenantSlug = $tenant->slug;
+        $this->tenantCustomDomain = (string) ($tenant->custom_domain ?? '');
         $this->strictClientIsolation = (bool) ($tenant->strict_client_isolation ?? false);
         $this->publicSubmissionEnabled = (bool) ($tenant->public_submission_enabled ?? false);
+        $this->tenantTimezone = $tenant->timezone ?: 'Europe/Athens';
+        $this->telegramEnabled = (bool) ($tenant->telegram_enabled ?? false);
+        $this->telegramPrivacyMode = (bool) ($tenant->telegram_privacy_mode ?? false);
+        $this->telegramBotUsername = (string) ($tenant->telegram_bot_username ?? '');
+        $this->telegramBotToken = '';
+        $this->telegramWebhookSecret = (string) ($tenant->telegram_webhook_secret ?? '');
         $this->suggestedSlugs = [];
         $this->showWorkspaceSettingsModal = true;
     }
@@ -123,19 +147,75 @@ trait ManagesWorkspaceSettings
             ],
             'strictClientIsolation' => ['boolean'],
             'publicSubmissionEnabled' => ['boolean'],
+            'tenantTimezone' => ['required', 'string', 'timezone:all'],
+            'telegramEnabled' => ['boolean'],
+            'telegramPrivacyMode' => ['boolean'],
+            'telegramBotUsername' => ['nullable', 'string', 'max:100'],
+            'telegramBotToken' => ['nullable', 'string'],
+            'telegramWebhookSecret' => ['nullable', 'string', 'max:64'],
+            'tenantCustomDomain' => [
+                'nullable',
+                'string',
+                'min:3',
+                'max:255',
+                Rule::unique('tenants', 'custom_domain')->ignore($this->tenantId),
+            ],
         ]);
 
         $tenant = Tenant::findOrFail($this->tenantId);
+
+        if (filled($this->tenantCustomDomain)) {
+            $this->tenantCustomDomain = strtolower(trim($this->tenantCustomDomain));
+            $this->tenantCustomDomain = preg_replace('#^https?://#', '', $this->tenantCustomDomain);
+            $this->tenantCustomDomain = rtrim($this->tenantCustomDomain, '/');
+        }
+
+        if (filled($this->tenantCustomDomain) && ! $tenant->canUseFeature('custom_domain')) {
+            $this->addError('tenantCustomDomain', __('Custom Domain requires the Cloud Business plan.'));
+
+            return;
+        }
+
+        if ($this->strictClientIsolation && ! $tenant->canUseFeature('strict_b2b_isolation')) {
+            $this->addError('strictClientIsolation', __('Strict B2B Client Isolation requires the Cloud Business plan.'));
+
+            return;
+        }
+
+        if ($this->telegramPrivacyMode && ! $tenant->canUseFeature('gdpr_privacy_mode')) {
+            $this->addError('telegramPrivacyMode', __('GDPR / Privacy Mode requires the Cloud Business plan.'));
+
+            return;
+        }
+
+        if (filled($this->telegramBotToken) && ! $tenant->canUseFeature('custom_telegram_bot')) {
+            $this->addError('telegramBotToken', __('Custom Dedicated Telegram Bot requires the Cloud Business plan.'));
+
+            return;
+        }
+
         $oldSlug = $tenant->slug;
         $newSlug = $this->tenantSlug;
         $slugChanged = ($oldSlug !== $newSlug);
 
-        $tenant->update([
+        $updateData = [
             'name' => $this->tenantName,
             'slug' => $newSlug,
+            'custom_domain' => filled($this->tenantCustomDomain) ? $this->tenantCustomDomain : null,
             'strict_client_isolation' => $this->strictClientIsolation,
             'public_submission_enabled' => $this->publicSubmissionEnabled,
-        ]);
+            'timezone' => $this->tenantTimezone,
+            'telegram_enabled' => $this->telegramEnabled,
+            'telegram_privacy_mode' => $this->telegramPrivacyMode,
+            'telegram_bot_username' => filled($this->telegramBotUsername) ? ltrim(trim($this->telegramBotUsername), '@') : null,
+            'telegram_webhook_secret' => filled($this->telegramWebhookSecret) ? trim($this->telegramWebhookSecret) : null,
+        ];
+
+        if (filled($this->telegramBotToken)) {
+            $updateData['telegram_bot_token'] = trim($this->telegramBotToken);
+        }
+
+        $tenant->update($updateData);
 
         $this->tenantName = $tenant->name;
         $this->tenantSlug = $tenant->slug;
@@ -144,10 +224,17 @@ trait ManagesWorkspaceSettings
 
         session()->flash('status', __('Workspace settings updated successfully.'));
 
-        if ($slugChanged && Edition::isCloud()) {
-            $currentUser->load('tenant');
-            $signedUrl = Edition::signedTenantAutoLoginUrl($currentUser, request());
-            $this->redirect($signedUrl, navigate: false);
+        if ($slugChanged) {
+            if (Edition::usesSubdomains(request())) {
+                $currentUser->load('tenant');
+                $signedUrl = Edition::signedTenantAutoLoginUrl($currentUser, request());
+                $this->redirect($signedUrl, navigate: false);
+
+                return;
+            }
+
+            session(['active_tenant_id' => $tenant->id]);
+            $this->redirect(Edition::workspaceUrl($tenant, '/board', request()), navigate: false);
 
             return;
         }
@@ -163,10 +250,58 @@ trait ManagesWorkspaceSettings
             return '';
         }
 
-        if (Edition::isCloud()) {
-            return Edition::tenantUrl($tenant, '/submit', request());
+        if (Edition::usesSubdomains(request())) {
+            return Edition::workspaceUrl($tenant, '/submit', request());
         }
 
-        return url('/submit/'.$tenant->slug);
+        $request = request();
+        $scheme = $request ? $request->getScheme() : 'http';
+        $port = $request ? $request->getPort() : 80;
+        $portString = ($port && ! in_array((int) $port, [80, 443], true)) ? ":{$port}" : '';
+        $host = $request ? $request->getHost() : (parse_url((string) config('app.url'), PHP_URL_HOST) ?? 'localhost');
+
+        return "{$scheme}://{$host}{$portString}/submit/{$tenant->slug}";
+    }
+
+    /**
+     * Start Stripe checkout flow for subscription upgrade or renewal.
+     */
+    public function startStripeCheckout(string $plan, string $interval = 'monthly'): mixed
+    {
+        if (! Edition::isCloud()) {
+            abort(403, 'Stripe billing is only available in Cloud edition.');
+        }
+
+        $currentUser = Auth::user();
+        if (! $currentUser || ! $currentUser->isAdmin()) {
+            abort(403);
+        }
+
+        $tenant = Tenant::findOrFail($this->tenantId);
+        $service = app(StripeBillingService::class);
+        $checkoutUrl = $service->createCheckoutSession($tenant, $plan, $interval);
+
+        return redirect()->to($checkoutUrl);
+    }
+
+    /**
+     * Open Stripe customer billing portal for card/invoice management.
+     */
+    public function openBillingPortal(): mixed
+    {
+        if (! Edition::isCloud()) {
+            abort(403, 'Stripe billing is only available in Cloud edition.');
+        }
+
+        $currentUser = Auth::user();
+        if (! $currentUser || ! $currentUser->isAdmin()) {
+            abort(403);
+        }
+
+        $tenant = Tenant::findOrFail($this->tenantId);
+        $service = app(StripeBillingService::class);
+        $portalUrl = $service->createBillingPortalSession($tenant);
+
+        return redirect()->to($portalUrl);
     }
 }

@@ -6,6 +6,8 @@ use App\Models\User;
 use App\Support\Edition;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
@@ -28,7 +30,21 @@ class Login extends Component
     {
         $this->validate();
 
+        $throttleKey = Str::lower($this->email).'|'.request()->ip();
+
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+            $this->addError('email', __('Too many login attempts. Please try again in :seconds seconds.', [
+                'seconds' => $seconds,
+            ]));
+            $this->password = '';
+
+            return null;
+        }
+
         if (! Auth::attempt(['email' => $this->email, 'password' => $this->password], $this->remember)) {
+            RateLimiter::hit($throttleKey, 60);
+
             $this->addError('email', __('The provided credentials do not match our records.'));
             $this->password = '';
 
@@ -36,11 +52,13 @@ class Login extends Component
         }
 
         // In Cloud mode on a subdomain, restrict login strictly to users of this tenant
-        if (app()->bound('currentTenant')) {
+        if (Edition::usesSubdomains(request()) && app()->bound('currentTenant')) {
             $currentTenant = app('currentTenant');
             $user = Auth::user();
 
             if ($user && (int) $user->tenant_id !== (int) $currentTenant->id) {
+                RateLimiter::hit($throttleKey, 60);
+
                 Auth::logout();
                 session()->invalidate();
                 session()->regenerateToken();
@@ -52,12 +70,14 @@ class Login extends Component
             }
         }
 
+        RateLimiter::clear($throttleKey);
+
         session()->regenerate();
 
         $user = Auth::user();
 
-        // In Cloud mode on the central domain, redirect to tenant subdomain with signed auto-login
-        if (Edition::isCloud() && $user && $user->tenant) {
+        // In Subdomain mode on the central domain, redirect to tenant subdomain with signed auto-login
+        if (Edition::usesSubdomains(request()) && $user && $user->tenant) {
             $host = request()->getHost();
             $baseDomain = Edition::baseDomain();
 
@@ -68,6 +88,13 @@ class Login extends Component
 
                 return null;
             }
+        } elseif (! Edition::usesSubdomains(request()) && $user && $user->tenant) {
+            session(['active_tenant_id' => $user->tenant->id]);
+            $redirectUrl = Edition::workspaceUrl($user->tenant, '/board', request());
+
+            $this->redirect($redirectUrl, navigate: false);
+
+            return null;
         }
 
         $this->redirectIntended('/board', navigate: false);
@@ -92,7 +119,7 @@ class Login extends Component
             return null;
         }
 
-        if (app()->bound('currentTenant')) {
+        if (Edition::usesSubdomains(request()) && app()->bound('currentTenant')) {
             $currentTenant = app('currentTenant');
             if ((int) $user->tenant_id !== (int) $currentTenant->id) {
                 $this->addError('email', __('You do not have access to this workspace.'));
@@ -104,7 +131,7 @@ class Login extends Component
         Auth::login($user, true);
         session()->regenerate();
 
-        if (Edition::isCloud() && $user->tenant) {
+        if (Edition::usesSubdomains(request()) && $user->tenant) {
             $host = request()->getHost();
             $baseDomain = Edition::baseDomain();
 
@@ -115,6 +142,13 @@ class Login extends Component
 
                 return null;
             }
+        } elseif (! Edition::usesSubdomains(request()) && $user->tenant) {
+            session(['active_tenant_id' => $user->tenant->id]);
+            $redirectUrl = Edition::workspaceUrl($user->tenant, '/board', request());
+
+            $this->redirect($redirectUrl, navigate: false);
+
+            return null;
         }
 
         $this->redirectIntended('/board', navigate: false);

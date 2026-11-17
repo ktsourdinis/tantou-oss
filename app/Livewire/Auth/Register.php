@@ -9,7 +9,6 @@ use App\Support\Edition;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
@@ -191,8 +190,10 @@ class Register extends Component
             'total_points' => 0,
         ]);
 
-        // In Cloud mode, redirect to the newly provisioned tenant subdomain via autologin signed URL
-        if (Edition::isCloud()) {
+        Auth::login($user);
+        session()->regenerate();
+
+        if (Edition::usesSubdomains(request())) {
             $signedUrl = Edition::signedTenantAutoLoginUrl($user, request());
 
             $this->redirect($signedUrl, navigate: false);
@@ -200,10 +201,13 @@ class Register extends Component
             return null;
         }
 
-        Auth::login($user);
-        session()->regenerate();
+        session(['active_tenant_id' => $tenant->id]);
 
-        return redirect()->route('board');
+        if (Edition::isSelfHosted() || config('tantou.routing_mode') === 'single') {
+            return redirect()->route('board');
+        }
+
+        return redirect()->to(Edition::workspaceUrl($tenant, '/board', request()));
     }
 
     /**

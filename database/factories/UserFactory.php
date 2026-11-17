@@ -42,6 +42,7 @@ class UserFactory extends Factory
             'max_capacity' => 10,
             'total_points' => 0,
             'locale' => 'en',
+            'timezone' => 'Europe/Athens',
         ];
     }
 

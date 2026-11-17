@@ -184,14 +184,25 @@
                                         </td>
 
                                         {{-- Created --}}
+                                        @php
+                                            $modalViewerTz = auth()->user()?->effectiveTimezone() ?? ($tenant->timezone ?? 'Europe/Athens');
+                                            $modalReqCreated = $req->created_at?->timezone($modalViewerTz);
+                                            $modalReqCompleted = $req->completed_at?->timezone($modalViewerTz);
+                                            $modalTzBadge = now()->timezone($modalViewerTz)->format('T');
+                                            if (str_starts_with($modalTzBadge, '+') || str_starts_with($modalTzBadge, '-')) {
+                                                $modalTzBadge = 'UTC'.$modalTzBadge;
+                                            }
+                                        @endphp
                                         <td class="py-3 px-4 whitespace-nowrap text-slate-400 text-[11px] font-mono">
-                                            {{ $req->created_at->format('d/m/Y H:i') }}
+                                            <span>{{ $modalReqCreated?->format('d/m/Y H:i') }}</span>
+                                            <span class="ml-1 px-1 py-0.2 rounded text-[9px] font-semibold bg-slate-800 text-slate-400 border border-slate-700/60" title="{{ $modalViewerTz }}">{{ $modalTzBadge }}</span>
                                         </td>
 
                                         {{-- Completed --}}
                                         <td class="py-3 px-4 whitespace-nowrap text-[11px] font-mono">
-                                            @if ($req->completed_at)
-                                                <span class="text-emerald-400 font-semibold">✓ {{ $req->completed_at->format('d/m/Y H:i') }}</span>
+                                            @if ($modalReqCompleted)
+                                                <span class="text-emerald-400 font-semibold">✓ {{ $modalReqCompleted->format('d/m/Y H:i') }}</span>
+                                                <span class="ml-1 px-1 py-0.2 rounded text-[9px] font-semibold bg-slate-800 text-slate-400 border border-slate-700/60" title="{{ $modalViewerTz }}">{{ $modalTzBadge }}</span>
                                             @else
                                                 <span class="text-slate-600">—</span>
                                             @endif

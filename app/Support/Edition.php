@@ -44,6 +44,14 @@ class Edition
             return static::$forceCloud;
         }
 
+        $configEdition = config('tantou.edition');
+        if ($configEdition === 'cloud') {
+            return true;
+        }
+        if ($configEdition === 'community') {
+            return false;
+        }
+
         return class_exists(CloudServiceProvider::class);
     }
 
@@ -56,6 +64,36 @@ class Edition
     }
 
     /**
+     * Determine if the application is running in Community (open-source self-hosted) edition.
+     */
+    public static function isCommunity(): bool
+    {
+        return ! static::isCloud();
+    }
+
+    /**
+     * Determine if Cloud commercial marketing & pricing should be hidden.
+     */
+    public static function hideMarketing(): bool
+    {
+        return (bool) config('tantou.hide_marketing', false);
+    }
+
+    /**
+     * Resolve the effective routing mode.
+     * When running community edition, defaults to 'single' (single-tenant operation).
+     */
+    public static function routingMode(): string
+    {
+        $mode = config('tantou.routing_mode', 'auto');
+        if (($mode === 'auto' || empty($mode)) && static::isCommunity()) {
+            return 'single';
+        }
+
+        return $mode ?: 'single';
+    }
+
+    /**
      * Determine if new tenant organizations can be registered.
      */
     public static function canRegisterNewTenant(): bool
@@ -64,11 +102,25 @@ class Edition
     }
 
     /**
+     * Helper checking if multi-tenant workspace registration is enabled.
+     */
+    public static function allowsTenantRegistration(): bool
+    {
+        return static::canRegisterNewTenant();
+    }
+
+    /**
      * Resolve the base domain for the application.
      */
     public static function baseDomain(): string
     {
-        $domain = (string) (config('app.base_domain') ?? env('TANTOU_BASE_DOMAIN', 'localhost'));
+        if (config()->has('tantou.base_domain') && config('tantou.base_domain') !== env('TANTOU_BASE_DOMAIN', 'localhost')) {
+            $domain = (string) config('tantou.base_domain');
+        } elseif (config('app.base_domain') !== null) {
+            $domain = (string) config('app.base_domain');
+        } else {
+            $domain = (string) (config('tantou.base_domain') ?? env('TANTOU_BASE_DOMAIN', 'localhost'));
+        }
 
         if (str_contains($domain, '://')) {
             $parsed = parse_url($domain, PHP_URL_HOST);
@@ -81,18 +133,110 @@ class Edition
     }
 
     /**
+     * Determine if a hostname is an IP address or intranet host that cannot support subdomains.
+     */
+    public static function isIpAddress(?string $host = null): bool
+    {
+        $host = $host ?? (request() ? request()->getHost() : parse_url((string) config('app.url'), PHP_URL_HOST));
+
+        if (! $host) {
+            return false;
+        }
+
+        $cleanHost = strtolower(trim(explode(':', $host)[0]));
+
+        if (filter_var($cleanHost, FILTER_VALIDATE_IP) !== false) {
+            return true;
+        }
+
+        if ($cleanHost === '127.0.0.1') {
+            return true;
+        }
+
+        if ($cleanHost === 'localhost') {
+            // When base_domain is configured as localhost in Cloud mode (with subdomains enabled),
+            // then *.localhost are treated as valid subdomains under the localhost base domain.
+            if (static::baseDomain() === 'localhost' && static::isCloud() && ! in_array(config('tantou.routing_mode', 'auto'), ['path', 'single'], true)) {
+                return false;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Determine if subdomains are active for this request or environment.
+     */
+    public static function usesSubdomains(?Request $request = null): bool
+    {
+        $routingMode = static::routingMode();
+
+        if ($routingMode === 'subdomain') {
+            return true;
+        }
+
+        if ($routingMode === 'path' || $routingMode === 'single') {
+            return false;
+        }
+
+        // 'auto' mode
+        $request = $request ?? (request() ?: null);
+        $host = $request ? $request->getHost() : parse_url((string) config('app.url'), PHP_URL_HOST);
+
+        return static::isCloud() && ! static::isIpAddress($host);
+    }
+
+    /**
+     * Construct the full URL for a tenant's workspace, dynamically switching
+     * between subdomain URL ({slug}.baseDomain) and IP/path URL ({ip}/path?workspace={slug}).
+     */
+    public static function workspaceUrl(Tenant $tenant, string $path = '/board', ?Request $request = null): string
+    {
+        $request = $request ?? request();
+        $scheme = $request ? $request->getScheme() : (str_starts_with((string) config('app.url'), 'https://') ? 'https' : 'http');
+        $port = $request ? $request->getPort() : parse_url((string) config('app.url'), PHP_URL_PORT);
+        $portString = ($port && ! in_array((int) $port, [80, 443], true)) ? ":{$port}" : '';
+        $pathStr = $path !== '' ? ('/'.ltrim($path, '/')) : '';
+
+        if (! empty($tenant->custom_domain) && $tenant->canUseFeature('custom_domain')) {
+            return "{$scheme}://{$tenant->custom_domain}{$portString}{$pathStr}";
+        }
+
+        if (static::usesSubdomains($request)) {
+            $baseDomain = static::baseDomain();
+
+            return "{$scheme}://{$tenant->slug}.{$baseDomain}{$portString}{$pathStr}";
+        }
+
+        $host = $request ? $request->getHost() : (parse_url((string) config('app.url'), PHP_URL_HOST) ?? 'localhost');
+
+        if (static::routingMode() === 'single' || static::isSelfHosted()) {
+            return "{$scheme}://{$host}{$portString}{$pathStr}";
+        }
+
+        $delimiter = str_contains($pathStr, '?') ? '&' : '?';
+
+        return "{$scheme}://{$host}{$portString}{$pathStr}{$delimiter}workspace={$tenant->slug}";
+    }
+
+    /**
      * Construct the full URL for a tenant's subdomain, preserving scheme and port from the request.
      */
     public static function tenantUrl(Tenant $tenant, string $path = '/board', ?Request $request = null): string
     {
         $request = $request ?? request();
-        $baseDomain = static::baseDomain();
-
         $scheme = $request ? $request->getScheme() : 'http';
         $port = $request ? $request->getPort() : 80;
         $portString = ($port && ! in_array($port, [80, 443], true)) ? ":{$port}" : '';
-
         $pathStr = $path !== '' ? ('/'.ltrim($path, '/')) : '';
+
+        if (! empty($tenant->custom_domain) && $tenant->canUseFeature('custom_domain')) {
+            return "{$scheme}://{$tenant->custom_domain}{$portString}{$pathStr}";
+        }
+
+        $baseDomain = static::baseDomain();
 
         return "{$scheme}://{$tenant->slug}.{$baseDomain}{$portString}{$pathStr}";
     }

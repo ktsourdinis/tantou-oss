@@ -18,7 +18,11 @@
         @if(app()->bound('currentTenant'))
             <div class="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 shadow-sm">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                <span>{{ app('currentTenant')->slug }}.{{ \App\Support\Edition::baseDomain() }}</span>
+                @if(\App\Support\Edition::usesSubdomains(request()))
+                    <span>{{ app('currentTenant')->slug }}.{{ \App\Support\Edition::baseDomain() }}</span>
+                @else
+                    <span>{{ app('currentTenant')->name }} ({{ app('currentTenant')->slug }})</span>
+                @endif
             </div>
         @endif
 
@@ -81,15 +85,34 @@
                     @enderror
                 </div>
 
-                <div>
-                    <label for="password" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-                        {{ __('Password') }}
-                    </label>
+                <div x-data="{ showPass: false }">
+                    <div class="flex items-center justify-between mb-2">
+                        <label for="password" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                            {{ __('Password') }}
+                        </label>
+                        <div class="flex items-center gap-3">
+                            <a
+                                href="{{ route('password.request', request()->query()) }}"
+                                class="text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-4 transition-colors"
+                            >
+                                {{ __('Forgot password?') }}
+                            </a>
+                            <button
+                                type="button"
+                                @click="showPass = !showPass"
+                                class="text-xs text-slate-400 hover:text-slate-200 transition-colors focus:outline-none flex items-center gap-1 cursor-pointer"
+                                :title="showPass ? '{{ __('Hide password') }}' : '{{ __('Show password') }}'"
+                            >
+                                <span x-show="!showPass" class="text-xs">👁️ {{ __('Show') }}</span>
+                                <span x-show="showPass" x-cloak class="text-xs">🙈 {{ __('Hide') }}</span>
+                            </button>
+                        </div>
+                    </div>
                     <div class="relative">
                         <input
                             wire:model="password"
                             id="password"
-                            type="password"
+                            :type="showPass ? 'text' : 'password'"
                             autocomplete="current-password"
                             required
                             placeholder="••••••••"

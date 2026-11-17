@@ -1,4 +1,5 @@
 <div
+    wire:poll.4s
     x-data="{
         mobileTab: 'board',
         draggingId: null,
@@ -137,6 +138,17 @@
                             <span class="hidden sm:inline">{{ __('Team & Leaderboard') }}</span>
                         </a>
                     @endif
+
+                    @if (auth()->user()?->is_superadmin)
+                        <a
+                            href="{{ route('superadmin.dashboard') }}"
+                            class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition-all"
+                            title="{{ __('Superadmin Control Plane') }}"
+                        >
+                            <span>🛡️</span>
+                            <span class="hidden sm:inline">{{ __('Superadmin') }}</span>
+                        </a>
+                    @endif
                 </nav>
             </div>
 
@@ -175,6 +187,22 @@
                     <span>📋</span>
                     <span>{{ __('History') }}</span>
                 </button>
+
+                @auth
+                    {{-- Telegram Pairing & Notifications Button --}}
+                    <button
+                        wire:click="openTelegramModal"
+                        type="button"
+                        class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-xs font-medium text-slate-300 hover:text-white transition-colors cursor-pointer"
+                        title="{{ __('Telegram Bot & Notifications') }}"
+                    >
+                        <span>✈️</span>
+                        <span class="hidden sm:inline">{{ __('Telegram') }}</span>
+                        @if (filled(auth()->user()->telegram_chat_id))
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                        @endif
+                    </button>
+                @endauth
 
                 {{-- Create Post-It Button --}}
                 <button
@@ -453,6 +481,17 @@
                                         @if ($worker->department)
                                             <span class="text-[10px] text-slate-400 truncate block">{{ $worker->department->name }}</span>
                                         @endif
+                                        @if (auth()->check() && $worker->effectiveTimezone() !== auth()->user()->effectiveTimezone())
+                                            @php
+                                                $wTz = $worker->effectiveTimezone();
+                                                $wNow = now()->timezone($wTz);
+                                                $shortTz = $wNow->format('T');
+                                            @endphp
+                                            <span class="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-mono font-medium bg-sky-500/10 text-sky-300 border border-sky-500/20" title="{{ __('Collaborator Local Time: :tz', ['tz' => $wTz]) }}">
+                                                <span>🕒</span>
+                                                <span>{{ $wNow->format('H:i') }} ({{ $shortTz }})</span>
+                                            </span>
+                                        @endif
                                     </div>
                                 </div>
                                 <span class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 {{ $isHighLoad ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30 animate-pulse' : ($isBusy ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30') }}">
@@ -483,18 +522,18 @@
                                 {{-- Column Mode (Public / Internal / Private) --}}
                                 @if ($canChangeVisibility)
                                     <select
-                                        wire:change="updateBoardVisibility({{ $worker->id }}, $event.target.value)"
+                                        wire:change="updateVisibility({{ $worker->id }}, $event.target.value)"
                                         class="text-[10px] bg-slate-950 border border-slate-700 rounded-lg px-1.5 py-0.5 text-slate-300 cursor-pointer focus:outline-none"
                                         title="{{ __('Column visibility mode') }}"
                                     >
-                                        <option value="public" @selected($worker->board_visibility === 'public')>{{ __('Public') }}</option>
-                                        <option value="internal" @selected($worker->board_visibility === 'internal')>{{ __('Internal') }}</option>
-                                        <option value="private" @selected($worker->board_visibility === 'private')>{{ __('Private') }}</option>
-                                        <option value="none" @selected($worker->board_visibility === 'none')>{{ __('Hidden (None)') }}</option>
+                                        <option value="public" @selected(($worker->visibility ?? $worker->board_visibility) === 'public')>{{ __('Public') }}</option>
+                                        <option value="internal" @selected(($worker->visibility ?? $worker->board_visibility) === 'internal')>{{ __('Internal') }}</option>
+                                        <option value="private" @selected(($worker->visibility ?? $worker->board_visibility) === 'private')>{{ __('Private') }}</option>
+                                        <option value="none" @selected(($worker->visibility ?? $worker->board_visibility) === 'none')>{{ __('Hidden (None)') }}</option>
                                     </select>
                                 @else
-                                    <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider cursor-default {{ $worker->board_visibility === 'public' ? 'bg-indigo-500/10 text-indigo-300 border border-indigo-500/20' : ($worker->board_visibility === 'internal' ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20' : ($worker->board_visibility === 'private' ? 'bg-purple-500/10 text-purple-300 border border-purple-500/20' : 'bg-slate-500/10 text-slate-300 border border-slate-500/20')) }}">
-                                        {{ __(ucfirst($worker->board_visibility)) }}
+                                    <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider cursor-default {{ ($worker->visibility ?? $worker->board_visibility) === 'public' ? 'bg-indigo-500/10 text-indigo-300 border border-indigo-500/20' : (($worker->visibility ?? $worker->board_visibility) === 'internal' ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20' : (($worker->visibility ?? $worker->board_visibility) === 'private' ? 'bg-purple-500/10 text-purple-300 border border-purple-500/20' : 'bg-slate-500/10 text-slate-300 border border-slate-500/20')) }}">
+                                        {{ __(ucfirst($worker->visibility ?? $worker->board_visibility)) }}
                                     </span>
                                 @endif
                             </div>
@@ -510,7 +549,7 @@
 
                         {{-- Worker Drop Zone (Assigned & Doing Columns) --}}
                         @php
-                            $isNonPublic = $worker->board_visibility !== 'public';
+                            $isNonPublic = ($worker->visibility ?? $worker->board_visibility) !== 'public';
                         @endphp
                         <div
                             @dragover.prevent="onDragOver('worker-{{ $worker->id }}', {{ $isNonPublic ? 'draggingIsClient' : 'false' }})"
@@ -995,7 +1034,7 @@
                             <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">{{ __('Select Co-op Helper') }}</label>
                             @if ($coOpPostIt?->assignee)
                                 <span class="text-[10px] text-purple-300 font-semibold px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/20">
-                                    {{ ucfirst($coOpPostIt->assignee->board_visibility) }} {{ __('mode matching') }}
+                                    {{ ucfirst($coOpPostIt->assignee->visibility ?? $coOpPostIt->assignee->board_visibility) }} {{ __('mode matching') }}
                                 </span>
                             @endif
                         </div>
@@ -1006,7 +1045,7 @@
                             <option value="">{{ __('No Co-op Helper (Solo Execution)') }}</option>
                             @foreach ($eligibleHelpers as $helperOption)
                                 <option value="{{ $helperOption->id }}">
-                                    {{ $helperOption->name }} ({{ $helperOption->current_capacity }}/{{ $helperOption->max_capacity }} cap) [{{ $helperOption->board_visibility }}]
+                                    {{ $helperOption->name }} ({{ $helperOption->current_capacity }}/{{ $helperOption->max_capacity }} cap) [{{ $helperOption->visibility ?? $helperOption->board_visibility }}]
                                 </option>
                             @endforeach
                         </select>
@@ -1081,6 +1120,11 @@
             $calculator = app(\App\Services\BountyCalculator::class);
             $splitData = $calculator->calculateSplit($selected->bounty_points, $selected->helper_split, (bool) $selected->helper_id);
             $currentUser = auth()->user();
+            $viewerTz = $currentUser?->effectiveTimezone() ?? ($tenant->timezone ?? 'Europe/Athens');
+            $viewerTzBadge = now()->timezone($viewerTz)->format('T');
+            if (str_starts_with($viewerTzBadge, '+') || str_starts_with($viewerTzBadge, '-')) {
+                $viewerTzBadge = 'UTC'.$viewerTzBadge;
+            }
             $canEdit = $this->canEditPostIt($selected, $currentUser);
             $canCalibrate = $currentUser && ($currentUser->role === 'admin' || (int) $currentUser->id === (int) $selected->assignee_id) && $selected->status !== 'done';
             $canCancel = $currentUser && ($currentUser->role === 'admin' || ($selected->status === 'backlog' && (int) $currentUser->id === (int) $selected->requester_id));
@@ -1199,7 +1243,7 @@
                                     <span>#{{ $selected->tracking_token }}</span>
                                     <button
                                         type="button"
-                                        @click.stop="navigator.clipboard.writeText('{{ route('public.track', ['token' => $selected->tracking_token]) }}'); copied = true; setTimeout(() => copied = false, 2000)"
+                                        @click.stop="copyToClipboard('{{ route('public.track', ['token' => $selected->tracking_token]) }}'); copied = true; setTimeout(() => copied = false, 2000)"
                                         class="p-0.5 hover:text-white transition-colors cursor-pointer text-[10px]"
                                         title="{{ __('Copy tracking link') }}"
                                     >
@@ -1507,9 +1551,14 @@
                                         ⏱️
                                     </div>
                                     <div class="min-w-0">
-                                        <span class="text-[9px] text-slate-500 uppercase block font-semibold leading-tight">{{ __('Timeline') }}</span>
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="text-[9px] text-slate-500 uppercase block font-semibold leading-tight">{{ __('Timeline') }}</span>
+                                            <span class="px-1 py-0.2 rounded text-[8px] font-mono font-bold bg-slate-800 text-slate-400 border border-slate-700/60" title="{{ $viewerTz }}">
+                                                {{ $viewerTzBadge }}
+                                            </span>
+                                        </div>
                                         <span class="text-slate-300 text-[11px] truncate block font-mono">
-                                            {{ $selected->started_at ? $selected->started_at->format('d/m H:i') : __('Not started') }} → {{ $selected->completed_at ? $selected->completed_at->format('d/m H:i') : __('In Progress') }}
+                                            {{ $selected->started_at ? $selected->started_at->timezone($viewerTz)->format('d/m H:i') : __('Not started') }} → {{ $selected->completed_at ? $selected->completed_at->timezone($viewerTz)->format('d/m H:i') : __('In Progress') }}
                                         </span>
                                     </div>
                                 </div>
@@ -1587,7 +1636,7 @@
                                     $slideOverEligibleHelpers = $this->getEligibleHelpers($selected);
                                 @endphp
 
-                                @if ($selected->assignee?->board_visibility === 'private')
+                                @if (($selected->assignee?->visibility ?? $selected->assignee?->board_visibility) === 'private')
                                     <div class="p-4 rounded-2xl bg-purple-950/20 border border-purple-500/20 text-xs text-purple-300 italic">
                                         {{ __('🔒 Private columns do not support Co-op assist.') }}
                                     </div>
@@ -1600,7 +1649,7 @@
                                                 <span>{{ __('Co-op Assist Configuration') }}</span>
                                             </h4>
                                             <span class="text-[10px] text-purple-300 font-medium px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/20">
-                                                {{ __(ucfirst($selected->assignee?->board_visibility ?? 'Public')) }} {{ __('mode') }}
+                                                {{ __(ucfirst($selected->assignee?->visibility ?? $selected->assignee?->board_visibility ?? 'Public')) }} {{ __('mode') }}
                                             </span>
                                         </div>
 
@@ -1613,7 +1662,7 @@
                                                 <option value="">{{ __('No Co-op Helper (Solo)') }}</option>
                                                 @foreach ($slideOverEligibleHelpers as $collab)
                                                     <option value="{{ $collab->id }}">
-                                                        {{ $collab->name }} ({{ $collab->current_capacity }}/{{ $collab->max_capacity }} {{ __('cap') }}) [{{ __(ucfirst($collab->board_visibility)) }}]
+                                                        {{ $collab->name }} ({{ $collab->current_capacity }}/{{ $collab->max_capacity }} {{ __('cap') }}) [{{ __(ucfirst($collab->visibility ?? $collab->board_visibility)) }}]
                                                     </option>
                                                 @endforeach
                                             </select>
@@ -1872,8 +1921,18 @@
                                                         {{ __(ucfirst($transfer->action)) }}
                                                     @endif
                                                 </span>
-                                                <span class="text-[10px] text-slate-500 shrink-0">
-                                                    {{ $transfer->created_at?->format('d/m/Y H:i') }}
+                                                @php
+                                                    $entryTime = $transfer->created_at?->timezone($viewerTz);
+                                                    $entryTzBadge = $entryTime ? $entryTime->format('T') : $viewerTzBadge;
+                                                    if (str_starts_with($entryTzBadge, '+') || str_starts_with($entryTzBadge, '-')) {
+                                                        $entryTzBadge = 'UTC'.$entryTzBadge;
+                                                    }
+                                                @endphp
+                                                <span class="text-[10px] text-slate-400 shrink-0 inline-flex items-center gap-1 font-mono">
+                                                    <span>{{ $entryTime?->format('d/m/Y H:i') }}</span>
+                                                    <span class="px-1 py-0.2 rounded text-[8px] font-semibold bg-slate-800 text-slate-400 border border-slate-700/60" title="{{ $viewerTz }}">
+                                                        {{ $entryTzBadge }}
+                                                    </span>
                                                 </span>
                                             </div>
                                             <div class="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5">
@@ -2005,4 +2064,7 @@
 
     {{-- Requests History Modal --}}
     @include('livewire.partials.requests-history-modal')
+
+    {{-- Telegram Pairing Modal --}}
+    @include('livewire.partials.telegram-pairing-modal')
 </div>

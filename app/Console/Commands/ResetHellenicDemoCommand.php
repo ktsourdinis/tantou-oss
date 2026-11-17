@@ -50,8 +50,11 @@ class ResetHellenicDemoCommand extends Command
 
             $tenant->update([
                 'name' => 'Hellenic Demo Ops',
+                'plan' => 'business',
+                'subscription_status' => 'active',
                 'public_submission_enabled' => true,
                 'strict_client_isolation' => false,
+                'timezone' => 'Europe/Athens',
                 'settings' => [
                     'timezone' => 'Europe/Athens',
                     'theme' => 'dark',
@@ -61,8 +64,11 @@ class ResetHellenicDemoCommand extends Command
             $tenant = Tenant::create([
                 'name' => 'Hellenic Demo Ops',
                 'slug' => 'hellenic-demo-ops',
+                'plan' => 'business',
+                'subscription_status' => 'active',
                 'public_submission_enabled' => true,
                 'strict_client_isolation' => false,
+                'timezone' => 'Europe/Athens',
                 'settings' => [
                     'timezone' => 'Europe/Athens',
                     'theme' => 'dark',
@@ -102,6 +108,7 @@ class ResetHellenicDemoCommand extends Command
             'email' => 'admin@tantou.local',
             'password' => $hashedPassword,
             'role' => 'admin',
+            'visibility' => 'private',
             'board_visibility' => 'private',
             'is_available' => true,
             'max_capacity' => 10,
@@ -117,6 +124,7 @@ class ResetHellenicDemoCommand extends Command
             'email' => 'coordinator@tantou.local',
             'password' => $hashedPassword,
             'role' => 'coordinator',
+            'visibility' => 'public',
             'board_visibility' => 'public',
             'is_available' => true,
             'max_capacity' => 10,
@@ -132,12 +140,14 @@ class ResetHellenicDemoCommand extends Command
             'email' => 'elena@tantou.local',
             'password' => $hashedPassword,
             'role' => 'worker',
+            'visibility' => 'public',
             'board_visibility' => 'public',
             'is_available' => true,
             'max_capacity' => 10,
             'current_capacity' => 0,
             'total_points' => 380,
             'locale' => 'en',
+            'timezone' => 'Europe/London',
         ]);
 
         $kostas = User::create([
@@ -147,6 +157,7 @@ class ResetHellenicDemoCommand extends Command
             'email' => 'kostas@tantou.local',
             'password' => $hashedPassword,
             'role' => 'worker',
+            'visibility' => 'internal',
             'board_visibility' => 'internal',
             'is_available' => true,
             'max_capacity' => 10,
@@ -162,6 +173,7 @@ class ResetHellenicDemoCommand extends Command
             'email' => 'maria@tantou.local',
             'password' => $hashedPassword,
             'role' => 'worker',
+            'visibility' => 'private',
             'board_visibility' => 'private',
             'is_available' => true,
             'max_capacity' => 10,
@@ -177,6 +189,7 @@ class ResetHellenicDemoCommand extends Command
             'email' => 'giorgos@tantou.local',
             'password' => $hashedPassword,
             'role' => 'worker',
+            'visibility' => 'public',
             'board_visibility' => 'public',
             'is_available' => false,
             'max_capacity' => 10,
@@ -192,6 +205,7 @@ class ResetHellenicDemoCommand extends Command
             'email' => 'client@tantou.local',
             'password' => $hashedPassword,
             'role' => 'client',
+            'visibility' => 'none',
             'board_visibility' => 'none',
             'is_available' => true,
             'facility_name' => 'Radiology Unit',
@@ -208,6 +222,7 @@ class ResetHellenicDemoCommand extends Command
             'email' => 'lab@tantou.local',
             'password' => $hashedPassword,
             'role' => 'client',
+            'visibility' => 'none',
             'board_visibility' => 'none',
             'is_available' => true,
             'facility_name' => 'Central Lab',
@@ -576,7 +591,7 @@ class ResetHellenicDemoCommand extends Command
         ]);
 
         // 6. Seed Completed Column (status = 'done')
-        // 6.1 Today (Completed normally): HIGH, W3 (38 pts, completed_at = now()->subHours(2), is_canceled = false)
+        // 6.1 Today (Completed normally): HIGH, W3 (38 pts, is_canceled = false)
         $doneToday = PostIt::create([
             'tenant_id' => $tenant->id,
             'department_id' => $softwareDept->id,
@@ -592,10 +607,10 @@ class ResetHellenicDemoCommand extends Command
             'priority' => 'high',
             'weight' => 3,
             'bounty_points' => 38,
-            'started_at' => now()->subDays(1),
+            'started_at' => now()->subHours(3)->subMinutes(35),
             'completed_at' => now()->subHours(2),
             'is_canceled' => false,
-            'created_at' => now()->subDays(2),
+            'created_at' => now()->subHours(4),
         ]);
 
         PostItTransfer::create([
@@ -677,10 +692,10 @@ class ResetHellenicDemoCommand extends Command
             'priority' => 'high',
             'weight' => 4,
             'bounty_points' => 50,
-            'started_at' => now()->subDays(4),
+            'started_at' => now()->subDays(3)->subHours(1)->subMinutes(20),
             'completed_at' => now()->subDays(3),
             'is_canceled' => false,
-            'created_at' => now()->subDays(5),
+            'created_at' => now()->subDays(3)->subHours(2),
         ]);
 
         PostItTransfer::create([
@@ -689,7 +704,7 @@ class ResetHellenicDemoCommand extends Command
             'from_user_id' => null,
             'to_user_id' => $kostas->id,
             'action' => 'assigned',
-            'created_at' => now()->subDays(5),
+            'created_at' => now()->subDays(3)->subHours(2),
         ]);
         PostItTransfer::create([
             'post_it_id' => $doneThisWeek->id,
@@ -697,7 +712,7 @@ class ResetHellenicDemoCommand extends Command
             'from_user_id' => $kostas->id,
             'to_user_id' => $kostas->id,
             'action' => 'started',
-            'created_at' => now()->subDays(4),
+            'created_at' => now()->subDays(3)->subHours(1)->subMinutes(20),
         ]);
         PostItTransfer::create([
             'post_it_id' => $doneThisWeek->id,
@@ -708,7 +723,54 @@ class ResetHellenicDemoCommand extends Command
             'created_at' => now()->subDays(3),
         ]);
 
-        // 6.4 Earlier / Archive (completed_at = now()->subDays(12)): NORMAL, W2 (20 pts, is_canceled = false)
+        // 6.4 This Week Co-op (completed_at = now()->subDays(2)): NORMAL, W3 (30 pts, Kostas assignee + Nick helper 40%)
+        $doneCoop = PostIt::create([
+            'tenant_id' => $tenant->id,
+            'department_id' => $infraDept->id,
+            'requester_id' => $lab->id,
+            'facility_name' => 'Central Lab',
+            'assignee_id' => $kostas->id,
+            'assigned_by_id' => $lab->id,
+            'helper_id' => $nikos->id,
+            'helper_split' => 40,
+            'title' => 'Automate backup replication for PACS DICOM archive',
+            'description' => 'Configured encrypted off-site rsync daemon and automated snapshot verification scripts.',
+            'status' => 'done',
+            'priority' => 'normal',
+            'weight' => 3,
+            'bounty_points' => 30,
+            'started_at' => now()->subDays(2)->subHours(1)->subMinutes(45),
+            'completed_at' => now()->subDays(2),
+            'is_canceled' => false,
+            'created_at' => now()->subDays(2)->subHours(2),
+        ]);
+
+        PostItTransfer::create([
+            'post_it_id' => $doneCoop->id,
+            'actor_id' => $lab->id,
+            'from_user_id' => null,
+            'to_user_id' => $kostas->id,
+            'action' => 'assigned',
+            'created_at' => now()->subDays(2)->subHours(2),
+        ]);
+        PostItTransfer::create([
+            'post_it_id' => $doneCoop->id,
+            'actor_id' => $kostas->id,
+            'from_user_id' => $kostas->id,
+            'to_user_id' => $kostas->id,
+            'action' => 'started',
+            'created_at' => now()->subDays(2)->subHours(1)->subMinutes(45),
+        ]);
+        PostItTransfer::create([
+            'post_it_id' => $doneCoop->id,
+            'actor_id' => $kostas->id,
+            'from_user_id' => $kostas->id,
+            'to_user_id' => $kostas->id,
+            'action' => 'completed',
+            'created_at' => now()->subDays(2),
+        ]);
+
+        // 6.5 Earlier / Archive (completed_at = now()->subDays(12)): NORMAL, W2 (20 pts, is_canceled = false)
         $doneEarlier = PostIt::create([
             'tenant_id' => $tenant->id,
             'department_id' => $softwareDept->id,
@@ -724,10 +786,10 @@ class ResetHellenicDemoCommand extends Command
             'priority' => 'normal',
             'weight' => 2,
             'bounty_points' => 20,
-            'started_at' => now()->subDays(13),
-            'completed_at' => now()->subDays(12),
+            'started_at' => now()->subDays(12)->subHours(2)->subMinutes(40),
+            'completed_at' => now()->subDays(12)->subHour(),
             'is_canceled' => false,
-            'created_at' => now()->subDays(14),
+            'created_at' => now()->subDays(12)->subHours(3),
         ]);
 
         PostItTransfer::create([
@@ -774,6 +836,39 @@ class ResetHellenicDemoCommand extends Command
                 'total_points' => $userPointsMap[$user->id] ?? 0,
             ]);
         }
+
+        // 8. Superadmin initialization for demo and platform management
+        $alexSuper = User::where('email', 'alex@hellenic-demo.gr')->first();
+        if (! $alexSuper) {
+            $alexSuper = User::create([
+                'tenant_id' => $tenant->id,
+                'department_id' => $opsDept->id,
+                'name' => 'Alexandros (Superadmin)',
+                'email' => 'alex@hellenic-demo.gr',
+                'password' => $hashedPassword,
+                'role' => 'admin',
+                'visibility' => 'private',
+                'board_visibility' => 'private',
+                'is_available' => true,
+                'max_capacity' => 10,
+                'current_capacity' => 0,
+                'total_points' => 120,
+                'locale' => 'en',
+            ]);
+        }
+        $alexSuper->is_superadmin = true;
+        $alexSuper->save();
+
+        $alex->is_superadmin = true;
+        $alex->save();
+
+        $superadminEmails = array_filter(array_map('trim', explode(',', (string) config('tantou.superadmin_emails', 'alex@hellenic-demo.gr,admin@example.com'))));
+        $superadminEmails[] = 'alex@hellenic-demo.gr';
+        $superadminEmails[] = 'admin@tantou.local';
+
+        User::withoutGlobalScopes()
+            ->whereIn('email', $superadminEmails)
+            ->update(['is_superadmin' => true]);
 
         $this->info('Hellenic Demo Ops tenant successfully reset.');
 

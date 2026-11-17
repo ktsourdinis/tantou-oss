@@ -1,0 +1,48 @@
+# ==============================================================================
+# ⚡ Tantou (担当) — Human Capacity OS
+# Production Caddyfile Blueprint (Automatic SSL + WebSocket Proxy)
+# ==============================================================================
+
+# Replace {$DOMAIN:localhost} with your domain (e.g. ops.yourcompany.com) or leave as :80 for intranet IP
+{$DOMAIN:localhost} {
+    root * /var/www/html/public
+
+    # Enable modern compression
+    encode zstd gzip
+
+    # Maximum file upload limit for post-it attachments (25MB)
+    request_body {
+        max_size 25MB
+    }
+
+    # Security headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    }
+
+    # Route Laravel Reverb WebSockets directly to reverb container
+    @websockets {
+        path /app/*
+        path /apps/*
+    }
+    handle @websockets {
+        reverse_proxy reverb:8080
+    }
+
+    # Proxy all dynamic PHP requests to PHP-FPM
+    php_fastcgi app:9000 {
+        trusted_proxies private_ranges
+    }
+
+    # Serve static assets directly from public/
+    file_server
+
+    # Log requests
+    log {
+        output stdout
+        format console
+    }
+}

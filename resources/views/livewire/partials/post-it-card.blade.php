@@ -288,13 +288,29 @@
                 @endif
 
                 @if ($isDone && $postIt->completed_at)
+                    @php
+                        $cardViewerTz = auth()->user()?->effectiveTimezone() ?? 'Europe/Athens';
+                        $cardCompletedLocal = $postIt->completed_at->timezone($cardViewerTz);
+                        $cardTzBadge = $cardCompletedLocal->format('T');
+                        if (str_starts_with($cardTzBadge, '+') || str_starts_with($cardTzBadge, '-')) {
+                            $cardTzBadge = 'UTC'.$cardTzBadge;
+                        }
+                    @endphp
                     @if ($postIt->is_canceled)
-                        <span class="text-rose-400 font-medium">✖ {{ __('Canceled') }} {{ $postIt->completed_at->diffForHumans(null, true) }}</span>
+                        <span class="text-rose-400 font-medium" title="{{ $cardCompletedLocal->format('d/m/Y H:i') }} ({{ $cardTzBadge }})">✖ {{ __('Canceled') }} {{ $postIt->completed_at->diffForHumans(null, true) }}</span>
                     @else
-                        <span class="text-emerald-400 font-medium">✓ {{ $postIt->completed_at->diffForHumans(null, true) }}</span>
+                        <span class="text-emerald-400 font-medium" title="{{ $cardCompletedLocal->format('d/m/Y H:i') }} ({{ $cardTzBadge }})">✓ {{ $postIt->completed_at->diffForHumans(null, true) }}</span>
                     @endif
                 @elseif ($isDoing && $postIt->started_at)
-                    <span class="text-slate-500">{{ $postIt->started_at->diffForHumans(null, true) }}</span>
+                    @php
+                        $cardViewerTz = auth()->user()?->effectiveTimezone() ?? 'Europe/Athens';
+                        $cardStartedLocal = $postIt->started_at->timezone($cardViewerTz);
+                        $cardTzBadge = $cardStartedLocal->format('T');
+                        if (str_starts_with($cardTzBadge, '+') || str_starts_with($cardTzBadge, '-')) {
+                            $cardTzBadge = 'UTC'.$cardTzBadge;
+                        }
+                    @endphp
+                    <span class="text-slate-500" title="{{ $cardStartedLocal->format('d/m/Y H:i') }} ({{ $cardTzBadge }})">{{ $postIt->started_at->diffForHumans(null, true) }}</span>
                 @endif
             </div>
         </div>

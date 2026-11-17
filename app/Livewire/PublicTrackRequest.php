@@ -7,7 +7,9 @@ use App\Models\PostIt;
 use App\Models\PostItTransfer;
 use App\Models\User;
 use App\Services\BountyCalculator;
+use App\Services\TelegramBotService;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
@@ -18,6 +20,11 @@ class PublicTrackRequest extends Component
     public string $token = '';
 
     public int $postItId;
+
+    /**
+     * Honeypot field (bots fill this, humans leave empty).
+     */
+    public string $website_url = '';
 
     #[Validate('required|string|min:2|max:1000')]
     public string $newCommentBody = '';
@@ -32,8 +39,25 @@ class PublicTrackRequest extends Component
     public function mount(string $token): void
     {
         $this->token = trim($token);
-        $postIt = PostIt::where('tracking_token', $this->token)->firstOrFail();
+        $postIt = PostIt::withoutGlobalScopes()->where('tracking_token', $this->token)->firstOrFail();
         $this->postItId = $postIt->id;
+
+        if ($postIt->tenant) {
+            app()->instance('currentTenant', $postIt->tenant);
+        }
+    }
+
+    /**
+     * Rebind currentTenant during Livewire hydration.
+     */
+    public function hydrate(): void
+    {
+        if (isset($this->postItId)) {
+            $postIt = PostIt::withoutGlobalScopes()->find($this->postItId);
+            if ($postIt && $postIt->tenant) {
+                app()->instance('currentTenant', $postIt->tenant);
+            }
+        }
     }
 
     /**
@@ -41,9 +65,27 @@ class PublicTrackRequest extends Component
      */
     public function addComment(): void
     {
+        // Honeypot check
+        if (! empty($this->website_url)) {
+            $this->addError('newCommentBody', __('Spam submission detected.'));
+
+            return;
+        }
+
+        // Rate Limiter: Max 5 submissions per 10 minutes per IP
+        $throttleKey = 'public-track|'.request()->ip();
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+            $this->addError('newCommentBody', __('Too many requests. Please try again in :seconds seconds.', [
+                'seconds' => $seconds,
+            ]));
+
+            return;
+        }
+
         $this->validate();
 
-        $postIt = PostIt::where('id', $this->postItId)->firstOrFail();
+        $postIt = PostIt::withoutGlobalScopes()->where('id', $this->postItId)->firstOrFail();
 
         if ($postIt->status === 'done') {
             $this->addError('newCommentBody', __('Cannot add comments to a completed request.'));
@@ -51,13 +93,17 @@ class PublicTrackRequest extends Component
             return;
         }
 
+        RateLimiter::hit($throttleKey, 600);
+
         $authorName = ($postIt->guest_name ?: __('Guest')).' ('.__('Guest').')';
 
-        $postIt->comments()->create([
+        $comment = $postIt->comments()->create([
             'user_id' => null,
             'guest_name' => $authorName,
             'body' => trim($this->newCommentBody),
         ]);
+
+        app(TelegramBotService::class)->notifyCommentAdded($postIt, $comment, null);
 
         $this->newCommentBody = '';
         $this->resetValidation('newCommentBody');
@@ -70,11 +116,24 @@ class PublicTrackRequest extends Component
      */
     public function closeByGuest(?string $reason = null): void
     {
-        $postIt = PostIt::where('id', $this->postItId)->firstOrFail();
+        // Honeypot check
+        if (! empty($this->website_url)) {
+            return;
+        }
+
+        // Rate Limiter: Max 5 submissions per 10 minutes per IP
+        $throttleKey = 'public-track|'.request()->ip();
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            return;
+        }
+
+        $postIt = PostIt::withoutGlobalScopes()->where('id', $this->postItId)->firstOrFail();
 
         if ($postIt->status === 'done') {
             return;
         }
+
+        RateLimiter::hit($throttleKey, 600);
 
         $wasInProgress = ($postIt->status === 'doing');
         $assigneeId = $postIt->assignee_id;
@@ -146,7 +205,7 @@ class PublicTrackRequest extends Component
      */
     public function render(): View
     {
-        $postIt = PostIt::with([
+        $postIt = PostIt::withoutGlobalScopes()->with([
             'tenant',
             'department',
             'assignee',
@@ -159,7 +218,7 @@ class PublicTrackRequest extends Component
         $queueTotal = null;
 
         if ($postIt->assignee_id && in_array($postIt->status, ['assigned', 'doing'], true)) {
-            $activeQueue = PostIt::where('assignee_id', $postIt->assignee_id)
+            $activeQueue = PostIt::withoutGlobalScopes()->where('assignee_id', $postIt->assignee_id)
                 ->whereIn('status', ['assigned', 'doing'])
                 ->smartOrder()
                 ->pluck('id')

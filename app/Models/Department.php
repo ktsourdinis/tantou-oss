@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['tenant_id', 'name', 'slug', 'color'])]
+#[Fillable(['tenant_id', 'name', 'slug', 'color', 'telegram_chat_id', 'telegram_link_token'])]
 class Department extends Model
 {
     /** @use HasFactory<DepartmentFactory> */
@@ -26,6 +26,8 @@ class Department extends Model
         'name',
         'slug',
         'color',
+        'telegram_chat_id',
+        'telegram_link_token',
     ];
 
     /**

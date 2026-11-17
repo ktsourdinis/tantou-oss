@@ -66,6 +66,18 @@
 
         {{-- Submission Form --}}
         <form wire:submit.prevent="submit" class="p-6 sm:p-8 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl space-y-6">
+            {{-- Invisible Honeypot Field --}}
+            <div class="hidden" aria-hidden="true">
+                <label for="website_url">Website</label>
+                <input
+                    wire:model="website_url"
+                    id="website_url"
+                    type="text"
+                    tabindex="-1"
+                    autocomplete="off"
+                >
+            </div>
+
             {{-- Name & Contact Row --}}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>

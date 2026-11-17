@@ -8,7 +8,10 @@ use App\Models\PostIt;
 use App\Models\PostItTransfer;
 use App\Models\Tenant;
 use App\Services\BountyCalculator;
+use App\Services\TelegramBotService;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
@@ -47,6 +50,11 @@ class PublicSubmitRequest extends Component
      */
     public array $attachments = [];
 
+    /**
+     * Honeypot field (bots fill this, humans leave empty).
+     */
+    public string $website_url = '';
+
     public bool $isSubmitting = false;
 
     /**
@@ -56,18 +64,22 @@ class PublicSubmitRequest extends Component
     {
         $tenant = null;
 
-        if (app()->bound('currentTenant')) {
+        if (! empty($tenantSlug)) {
+            $tenant = Tenant::where('slug', strtolower(trim($tenantSlug)))->first();
+            if (! $tenant) {
+                abort(404, __('Workspace not found.'));
+            }
+        } elseif (app()->bound('currentTenant')) {
             $tenant = app('currentTenant');
-        } elseif (! empty($tenantSlug)) {
-            $tenant = Tenant::where('slug', $tenantSlug)->first();
         } else {
-            $tenant = Tenant::first();
+            $tenant = Tenant::where('slug', 'hellenic-demo-ops')->first() ?? Tenant::first();
         }
 
         if (! $tenant || ! $tenant->public_submission_enabled) {
             abort(403, __('Public request submission is disabled for this workspace.'));
         }
 
+        app()->instance('currentTenant', $tenant);
         $this->tenant = $tenant;
         $this->tenantId = $tenant->id;
 
@@ -85,10 +97,42 @@ class PublicSubmitRequest extends Component
     }
 
     /**
+     * Ensure currentTenant instance is bound during Livewire hydration.
+     */
+    public function hydrate(): void
+    {
+        if ($this->tenantId && ! $this->tenant) {
+            $this->tenant = Tenant::find($this->tenantId);
+        }
+
+        if ($this->tenant) {
+            app()->instance('currentTenant', $this->tenant);
+        }
+    }
+
+    /**
      * Submit the public request to the backlog.
      */
     public function submit(): mixed
     {
+        // 1. Honeypot check
+        if (! empty($this->website_url)) {
+            $this->addError('title', __('Spam submission detected.'));
+
+            return null;
+        }
+
+        // 2. Strict Rate Limiting: Max 5 submissions per 10 minutes per IP
+        $throttleKey = 'public-submit|'.request()->ip();
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+            $this->addError('title', __('Too many requests submitted. Please try again in :seconds seconds.', [
+                'seconds' => $seconds,
+            ]));
+
+            return null;
+        }
+
         $this->validate([
             'guest_name' => ['required', 'string', 'min:2', 'max:100'],
             'facility_name' => ['required', 'string', 'min:2', 'max:100'],
@@ -101,8 +145,20 @@ class PublicSubmitRequest extends Component
             'title' => ['required', 'string', 'min:3', 'max:160'],
             'description' => ['nullable', 'string', 'max:2000'],
             'attachments' => ['nullable', 'array', 'max:2'],
-            'attachments.*' => ['file', 'max:10240', 'mimes:jpg,jpeg,png,webp,gif,pdf,doc,docx,xls,xlsx,csv,txt,zip'],
+            'attachments.*' => [
+                'file',
+                'max:10240',
+                'mimes:pdf,png,jpg,jpeg,webp,txt,csv,doc,docx,xls,xlsx,zip',
+                function ($attribute, $value, $fail) {
+                    $ext = strtolower($value->getClientOriginalExtension());
+                    if (in_array($ext, ['php', 'phtml', 'sh', 'js', 'html', 'htm', 'svg'], true)) {
+                        $fail(__('Executable and script files are not allowed.'));
+                    }
+                },
+            ],
         ]);
+
+        RateLimiter::hit($throttleKey, 600);
 
         $this->isSubmitting = true;
 
@@ -134,10 +190,12 @@ class PublicSubmitRequest extends Component
             'completed_at' => null,
         ]);
 
-        // Store attachments if uploaded
+        // Store attachments using secure randomized UUID filenames
         if (! empty($this->attachments)) {
             foreach ($this->attachments as $file) {
-                $storedPath = $file->store("tenants/{$this->tenantId}/post-its/{$postIt->id}", 'local');
+                $ext = strtolower($file->getClientOriginalExtension()) ?: 'bin';
+                $uuidName = Str::uuid().'.'.$ext;
+                $storedPath = $file->storeAs("tenants/{$this->tenantId}/post-its/{$postIt->id}", $uuidName, 'local');
                 $postIt->attachments()->create([
                     'uploader_id' => null,
                     'original_name' => $file->getClientOriginalName(),
@@ -169,6 +227,7 @@ class PublicSubmitRequest extends Component
         ]);
 
         // Real-time broadcast so staff board refreshes immediately
+        app(TelegramBotService::class)->routePostItNotification($postIt->fresh());
         BoardUpdated::dispatch($this->tenantId);
 
         return redirect()->route('public.track', ['token' => $postIt->tracking_token]);

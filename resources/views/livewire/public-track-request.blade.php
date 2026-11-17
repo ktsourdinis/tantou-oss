@@ -60,7 +60,7 @@
                         <span>#{{ $postIt->tracking_token }}</span>
                         <button
                             type="button"
-                            @click="navigator.clipboard.writeText('{{ url()->current() }}'); copied = true; setTimeout(() => copied = false, 2000)"
+                            @click="copyToClipboard('{{ url()->current() }}'); copied = true; setTimeout(() => copied = false, 2000)"
                             class="p-0.5 hover:text-white transition-colors cursor-pointer"
                             title="{{ __('Copy link to this tracker') }}"
                         >
@@ -366,6 +366,18 @@
             {{-- Guest Comment Reply Box --}}
             @if ($postIt->status !== 'done')
                 <form wire:submit.prevent="addComment" class="pt-4 border-t border-slate-800 space-y-3">
+                    {{-- Invisible Honeypot Field --}}
+                    <div class="hidden" aria-hidden="true">
+                        <label for="track_website_url">Website</label>
+                        <input
+                            wire:model="website_url"
+                            id="track_website_url"
+                            type="text"
+                            tabindex="-1"
+                            autocomplete="off"
+                        >
+                    </div>
+
                     <label for="newCommentBody" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
                         {{ __('Post a Follow-Up Note / Update') }}
                     </label>

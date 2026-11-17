@@ -15,23 +15,47 @@ use Illuminate\Notifications\Notifiable;
 #[Fillable([
     'name',
     'email',
+    'email_verified_at',
     'password',
     'tenant_id',
     'department_id',
     'role',
     'facility_name',
+    'visibility',
     'board_visibility',
     'is_available',
     'current_capacity',
     'max_capacity',
     'total_points',
     'locale',
+    'timezone',
+    'telegram_chat_id',
+    'telegram_username',
+    'telegram_link_token',
+    'telegram_notifications_enabled',
 ])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    /**
+     * The model's default values for attributes.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'visibility' => 'public',
+        'board_visibility' => 'public',
+        'is_available' => true,
+        'current_capacity' => 0,
+        'max_capacity' => 10,
+        'total_points' => 0,
+        'locale' => 'en',
+        'timezone' => 'Europe/Athens',
+        'is_superadmin' => false,
+    ];
 
     /**
      * The attributes that are mass assignable.
@@ -41,18 +65,75 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'email_verified_at',
         'password',
         'tenant_id',
         'department_id',
         'role',
         'facility_name',
+        'visibility',
         'board_visibility',
         'is_available',
         'current_capacity',
         'max_capacity',
         'total_points',
         'locale',
+        'timezone',
+        'telegram_chat_id',
+        'telegram_username',
+        'telegram_link_token',
+        'telegram_notifications_enabled',
     ];
+
+    /**
+     * Bootstrap the model and its traits.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (User $user): void {
+            if (empty($user->visibility) && ! empty($user->board_visibility)) {
+                $user->visibility = $user->board_visibility;
+            } elseif (empty($user->board_visibility) && ! empty($user->visibility)) {
+                $user->board_visibility = $user->visibility;
+            }
+        });
+    }
+
+    /**
+     * Set the visibility attribute, keeping board_visibility in sync.
+     */
+    public function setVisibilityAttribute(?string $value): void
+    {
+        $val = $value ?: 'public';
+        $this->attributes['visibility'] = $val;
+        $this->attributes['board_visibility'] = $val;
+    }
+
+    /**
+     * Set the board_visibility attribute, keeping visibility in sync.
+     */
+    public function setBoardVisibilityAttribute(?string $value): void
+    {
+        $val = $value ?: 'public';
+        $this->attributes['board_visibility'] = $val;
+        $this->attributes['visibility'] = $val;
+    }
+
+    /**
+     * Get the visibility attribute with fallback to board_visibility.
+     */
+    public function getVisibilityAttribute(?string $value): string
+    {
+        return $value ?: ($this->attributes['board_visibility'] ?? 'public');
+    }
+
+    /**
+     * Get the board_visibility attribute with fallback to visibility.
+     */
+    public function getBoardVisibilityAttribute(?string $value): string
+    {
+        return $this->attributes['visibility'] ?? $value ?? 'public';
+    }
 
     /**
      * Get the attributes that should be cast.
@@ -69,6 +150,8 @@ class User extends Authenticatable
             'current_capacity' => 'integer',
             'max_capacity' => 'integer',
             'total_points' => 'integer',
+            'telegram_notifications_enabled' => 'boolean',
+            'is_superadmin' => 'boolean',
         ];
     }
 
@@ -153,6 +236,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user is a platform superadmin.
+     */
+    public function isSuperadmin(): bool
+    {
+        return (bool) $this->is_superadmin;
+    }
+
+    /**
      * Check if user is an admin.
      */
     public function isAdmin(): bool
@@ -214,11 +305,13 @@ class User extends Authenticatable
             return false;
         }
 
-        if ($targetCollaborator->board_visibility === 'none') {
+        $targetVisibility = $targetCollaborator->visibility ?: ($targetCollaborator->board_visibility ?: 'public');
+
+        if ($targetVisibility === 'none') {
             return false;
         }
 
-        if ($targetCollaborator->board_visibility === 'public') {
+        if ($targetVisibility === 'public') {
             return true;
         }
 
@@ -227,11 +320,11 @@ class User extends Authenticatable
             return false;
         }
 
-        if ($targetCollaborator->board_visibility === 'internal') {
+        if ($targetVisibility === 'internal') {
             return true;
         }
 
-        if ($targetCollaborator->board_visibility === 'private') {
+        if ($targetVisibility === 'private') {
             if ($this->isAdmin()) {
                 return true;
             }
@@ -248,5 +341,13 @@ class User extends Authenticatable
         }
 
         return false;
+    }
+
+    /**
+     * Get the effective timezone for this user (inheriting from tenant or system default).
+     */
+    public function effectiveTimezone(): string
+    {
+        return $this->timezone ?: ($this->tenant?->timezone ?: config('app.timezone', 'Europe/Athens'));
     }
 }

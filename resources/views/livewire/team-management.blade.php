@@ -58,6 +58,17 @@
                             <span class="hidden sm:inline">{{ __('Team & Leaderboard') }}</span>
                         </a>
                     @endif
+
+                    @if (auth()->user()?->is_superadmin)
+                        <a
+                            href="{{ route('superadmin.dashboard') }}"
+                            class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition-all"
+                            title="{{ __('Superadmin Control Plane') }}"
+                        >
+                            <span>🛡️</span>
+                            <span class="hidden sm:inline">{{ __('Superadmin') }}</span>
+                        </a>
+                    @endif
                 </nav>
             </div>
 
@@ -76,6 +87,20 @@
                 </div>
 
                 @auth
+                    {{-- Telegram Pairing & Notifications Button --}}
+                    <button
+                        wire:click="openTelegramModal"
+                        type="button"
+                        class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-xs font-medium text-slate-300 hover:text-white transition-colors cursor-pointer"
+                        title="{{ __('Telegram Bot & Notifications') }}"
+                    >
+                        <span>✈️</span>
+                        <span class="hidden sm:inline">{{ __('Telegram') }}</span>
+                        @if (filled(auth()->user()->telegram_chat_id))
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                        @endif
+                    </button>
+
                     {{-- User Profile Indicator --}}
                     <div class="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-slate-800/70 border border-slate-700/60 text-xs max-w-[140px] sm:max-w-none">
                         <div class="h-6 w-6 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold flex items-center justify-center text-xs shrink-0">
@@ -157,6 +182,17 @@
                         {{ $rosterUsers->count() }}
                     </span>
                 </button>
+
+                @if (in_array(auth()->user()?->role, ['admin', 'coordinator'], true))
+                    <button
+                        wire:click="setActiveTab('analytics')"
+                        type="button"
+                        class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer {{ $activeTab === 'analytics' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200' }}"
+                    >
+                        <span>📊</span>
+                        <span>{{ __('Analytics & SLA') }}</span>
+                    </button>
+                @endif
             </div>
         </div>
     </div>
@@ -232,7 +268,7 @@
                                         $ratio = $worker->max_capacity > 0 ? min(100, round(($worker->current_capacity / $worker->max_capacity) * 100)) : 0;
                                         $barColor = $ratio >= 100 ? 'bg-rose-500' : ($ratio >= 70 ? 'bg-amber-500' : 'bg-emerald-500');
                                     @endphp
-                                    <tr class="hover:bg-slate-800/40 transition-colors {{ $rank === 1 ? 'bg-amber-500/5' : '' }}">
+                                    <tr wire:key="leaderboard-worker-{{ $worker->id }}-{{ $worker->updated_at?->timestamp }}" class="hover:bg-slate-800/40 transition-colors {{ $rank === 1 ? 'bg-amber-500/5' : '' }}">
                                         {{-- Rank Column --}}
                                         <td class="py-3.5 px-4 text-center font-bold text-sm">
                                             @if ($rank === 1)
@@ -374,7 +410,7 @@
                                 default => 'bg-emerald-500',
                             };
                         @endphp
-                        <div class="p-5 rounded-2xl border border-slate-800 bg-slate-900/80 backdrop-blur-xl shadow-lg border-l-4 transition-all hover:border-slate-700" style="border-left-color: {{ $dept->color }}">
+                        <div wire:key="department-card-{{ $dept->id }}-{{ $dept->updated_at?->timestamp }}" class="p-5 rounded-2xl border border-slate-800 bg-slate-900/80 backdrop-blur-xl shadow-lg border-l-4 transition-all hover:border-slate-700" style="border-left-color: {{ $dept->color }}">
                             <div class="flex items-start justify-between gap-2">
                                 <div class="flex items-center gap-2.5">
                                     <div class="w-4 h-4 rounded-full shadow-sm" style="background-color: {{ $dept->color }}"></div>
@@ -400,6 +436,76 @@
                                     <div class="{{ $progressBar }} h-2 rounded-full transition-all duration-300" style="width: {{ min(100, $dept->ratio) }}%"></div>
                                 </div>
                             </div>
+
+                            {{-- Telegram Group Integration (Admin Only) --}}
+                            @if (auth()->user()?->role === 'admin')
+                                <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="text-xs">✈️</span>
+                                        <span class="text-slate-400 text-[11px] font-medium">{{ __('Telegram Group:') }}</span>
+                                        @if (filled($dept->telegram_chat_id))
+                                            <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                                {{ __('Linked') }}
+                                            </span>
+                                        @else
+                                            <span class="text-[10px] text-slate-500 italic">{{ __('Not Linked') }}</span>
+                                        @endif
+                                    </div>
+
+                                    @if (filled($dept->telegram_chat_id))
+                                        <button
+                                            wire:click="unlinkDepartmentTelegram({{ $dept->id }})"
+                                            wire:confirm="{{ __('Unlink Telegram group from this department?') }}"
+                                            type="button"
+                                            class="text-[10px] text-rose-400 hover:text-rose-300 font-medium cursor-pointer"
+                                        >
+                                            {{ __('Unlink') }}
+                                        </button>
+                                    @else
+                                        <button
+                                            wire:click="generateDepartmentTelegramToken({{ $dept->id }})"
+                                            type="button"
+                                            class="text-[10px] text-sky-400 hover:text-sky-300 font-medium cursor-pointer"
+                                        >
+                                            {{ __('Get Link Command') }}
+                                        </button>
+                                    @endif
+                                </div>
+
+                                @if ($selectedDepartmentTelegramId === $dept->id && $departmentTelegramToken)
+                                    <div
+                                        x-data="{ copied: false }"
+                                        class="mt-2 p-2 rounded-xl bg-slate-950 border border-sky-500/30 space-y-1.5 text-xs animate-fadeIn"
+                                    >
+                                        <div class="flex items-center justify-between text-[10px] text-sky-400 font-semibold">
+                                            <span>{{ __('Add bot to Group & send:') }}</span>
+                                            <button
+                                                type="button"
+                                                wire:click="generateDepartmentTelegramToken({{ $dept->id }})"
+                                                class="text-slate-400 hover:text-white"
+                                            >
+                                                🔄
+                                            </button>
+                                        </div>
+                                        <div class="flex items-center gap-1.5">
+                                            <input
+                                                type="text"
+                                                readonly
+                                                value="/link dept_{{ $departmentTelegramToken }}"
+                                                class="w-full px-2 py-1 text-[11px] font-mono bg-slate-900 border border-slate-800 rounded-lg text-white select-all focus:outline-none"
+                                            >
+                                            <button
+                                                type="button"
+                                                @click="copyToClipboard('/link dept_{{ $departmentTelegramToken }}'); copied = true; setTimeout(() => copied = false, 2000)"
+                                                class="shrink-0 px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-semibold transition-all cursor-pointer"
+                                            >
+                                                <span x-show="!copied">{{ __('Copy') }}</span>
+                                                <span x-show="copied" class="text-white">✓</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                @endif
+                            @endif
 
                             {{-- Admin Actions --}}
                             @if (auth()->user()?->role === 'admin')
@@ -514,7 +620,7 @@
                                     };
                                     $isWorkerOrCoord = in_array($user->role, ['worker', 'coordinator'], true);
                                 @endphp
-                                <tr class="hover:bg-slate-800/40 transition-colors">
+                                <tr wire:key="roster-member-{{ $user->id }}-{{ $user->updated_at?->timestamp }}" class="hover:bg-slate-800/40 transition-colors">
                                     {{-- Member Name & Email --}}
                                     <td class="py-3.5 px-4">
                                         <div class="flex items-center gap-3">
@@ -563,14 +669,14 @@
                                                 wire:change="quickUpdateVisibility({{ $user->id }}, $event.target.value)"
                                                 class="text-[10px] bg-slate-950 border border-slate-700 rounded-lg px-2 py-0.5 text-slate-300 cursor-pointer focus:outline-none"
                                             >
-                                                <option value="public" @selected($user->board_visibility === 'public')>{{ __('Public') }}</option>
-                                                <option value="internal" @selected($user->board_visibility === 'internal')>{{ __('Internal') }}</option>
-                                                <option value="private" @selected($user->board_visibility === 'private')>{{ __('Private') }}</option>
-                                                <option value="none" @selected($user->board_visibility === 'none')>{{ __('None (Hide)') }}</option>
+                                                <option value="public" @selected(($user->visibility ?? $user->board_visibility) === 'public')>{{ __('Public') }}</option>
+                                                <option value="internal" @selected(($user->visibility ?? $user->board_visibility) === 'internal')>{{ __('Internal') }}</option>
+                                                <option value="private" @selected(($user->visibility ?? $user->board_visibility) === 'private')>{{ __('Private') }}</option>
+                                                <option value="none" @selected(($user->visibility ?? $user->board_visibility) === 'none')>{{ __('None (Hide)') }}</option>
                                             </select>
                                         @else
-                                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider cursor-default {{ $user->board_visibility === 'public' ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30' : ($user->board_visibility === 'internal' ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' : 'bg-purple-500/15 text-purple-300 border border-purple-500/30') }}">
-                                                {{ $user->board_visibility }}
+                                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider cursor-default {{ ($user->visibility ?? $user->board_visibility) === 'public' ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30' : (($user->visibility ?? $user->board_visibility) === 'internal' ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' : 'bg-purple-500/15 text-purple-300 border border-purple-500/30') }}">
+                                                {{ $user->visibility ?? $user->board_visibility }}
                                             </span>
                                         @endif
                                     </td>
@@ -668,7 +774,7 @@
                                     @endif
                                 </tr>
                             @empty
-                                <tr>
+                                <tr wire:key="roster-empty-row">
                                     <td colspan="8" class="py-12 text-center text-slate-500 italic">
                                         {{ __('No members found matching the selected filters.') }}
                                     </td>
@@ -676,6 +782,368 @@
                             @endforelse
                         </tbody>
                     </table>
+                </div>
+            </div>
+        @endif
+
+        {{-- TAB 4: ANALYTICS & SLA PERFORMANCE --}}
+        @if ($activeTab === 'analytics' && ! empty($analytics))
+            <div class="space-y-6">
+                {{-- Analytics Header: Period Filter & CSV Export --}}
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl shadow-xl">
+                    <div>
+                        <h3 class="text-base font-bold text-white flex items-center gap-2">
+                            <span>📊</span>
+                            <span>{{ __('Analytics & SLA Performance') }}</span>
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-1">
+                            {{ __('Mean response times, resolution velocity, facility workload consumption, and team throughput evaluated in :tz.', ['tz' => $tenant->timezone ?: 'Europe/Athens']) }}
+                        </p>
+                        <div class="mt-2">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/30" title="{{ __('All SLA KPIs & reports are normalized to Organization Timezone') }}">
+                                <span>🌐</span>
+                                <span>{{ __('Org Baseline:') }} {{ $tenant->timezone ?: 'Europe/Athens' }} ({{ now()->timezone($tenant->timezone ?: 'Europe/Athens')->format('T') }})</span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-3">
+                        {{-- Period Filter Selector --}}
+                        <div class="flex items-center gap-1 p-1 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+                            <button
+                                wire:click="setAnalyticsPeriod('7d')"
+                                type="button"
+                                class="px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer {{ $analyticsPeriod === '7d' ? 'bg-indigo-600 text-white font-semibold shadow-sm' : 'text-slate-400 hover:text-slate-200' }}"
+                            >
+                                {{ __('Last 7 Days') }}
+                            </button>
+                            <button
+                                wire:click="setAnalyticsPeriod('30d')"
+                                type="button"
+                                class="px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer {{ $analyticsPeriod === '30d' ? 'bg-indigo-600 text-white font-semibold shadow-sm' : 'text-slate-400 hover:text-slate-200' }}"
+                            >
+                                {{ __('Last 30 Days') }}
+                            </button>
+                            <button
+                                wire:click="setAnalyticsPeriod('month')"
+                                type="button"
+                                class="px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer {{ $analyticsPeriod === 'month' ? 'bg-indigo-600 text-white font-semibold shadow-sm' : 'text-slate-400 hover:text-slate-200' }}"
+                            >
+                                {{ __('This Month') }}
+                            </button>
+                            <button
+                                wire:click="setAnalyticsPeriod('all')"
+                                type="button"
+                                class="px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer {{ $analyticsPeriod === 'all' ? 'bg-indigo-600 text-white font-semibold shadow-sm' : 'text-slate-400 hover:text-slate-200' }}"
+                            >
+                                {{ __('All Time') }}
+                            </button>
+                        </div>
+
+                        {{-- CSV Export Button --}}
+                        <button
+                            wire:click="exportAnalyticsCsv"
+                            type="button"
+                            class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 text-xs font-semibold shadow-lg shadow-emerald-950/40 transition-all cursor-pointer"
+                        >
+                            <span>⬇️</span>
+                            <span>{{ __('Export CSV Report') }}</span>
+                        </button>
+                    </div>
+                </div>
+
+                {{-- SECTION A: Executive SLA KPI Cards (Top Row — 4 Cards) --}}
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {{-- Card 1: MTTA --}}
+                    <div class="p-5 rounded-2xl bg-gradient-to-br from-cyan-500/10 via-slate-900/90 to-slate-900 border border-cyan-500/20 shadow-lg">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider">{{ __('Mean Time to Start (MTTA)') }}</span>
+                            <span class="text-xl">⏱️</span>
+                        </div>
+                        <div class="mt-2 text-2xl md:text-3xl font-extrabold text-white">
+                            {{ $analytics['kpis']['mttaFormatted'] }}
+                        </div>
+                        <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-800/80 text-[11px] text-slate-400">
+                            <span>{{ __('Queue Wait Velocity') }}</span>
+                            <span class="text-cyan-300 font-semibold">{{ __(':count started', ['count' => $analytics['kpis']['startedCount']]) }}</span>
+                        </div>
+                    </div>
+
+                    {{-- Card 2: MTTR --}}
+                    <div class="p-5 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-slate-900/90 to-slate-900 border border-emerald-500/20 shadow-lg">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">{{ __('Mean Time to Resolution (MTTR)') }}</span>
+                            <span class="text-xl">⚡</span>
+                        </div>
+                        <div class="mt-2 text-2xl md:text-3xl font-extrabold text-white">
+                            {{ $analytics['kpis']['mttrFormatted'] }}
+                        </div>
+                        <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-800/80 text-[11px] text-slate-400">
+                            <span>{{ __('Active Execution Speed') }}</span>
+                            <span class="text-emerald-300 font-semibold">{{ __(':count resolved', ['count' => $analytics['kpis']['resolvedCount']]) }}</span>
+                        </div>
+                    </div>
+
+                    {{-- Card 3: Completion vs Cancellation Rate --}}
+                    <div class="p-5 rounded-2xl bg-gradient-to-br from-indigo-500/10 via-slate-900/90 to-slate-900 border border-indigo-500/20 shadow-lg">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-indigo-400 uppercase tracking-wider">{{ __('Completion Rate') }}</span>
+                            <span class="text-xl">🎯</span>
+                        </div>
+                        <div class="mt-2 text-2xl md:text-3xl font-extrabold text-white">
+                            {{ $analytics['kpis']['completionRate'] }}<span class="text-sm font-semibold text-indigo-400">%</span>
+                        </div>
+                        <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-800/80 text-[11px] text-slate-400">
+                            <span>{{ __(':completed done / :canceled canceled', ['completed' => $analytics['kpis']['completedCount'], 'canceled' => $analytics['kpis']['canceledCount']]) }}</span>
+                            <span class="text-indigo-300 font-semibold">{{ $analytics['kpis']['totalDone'] }} {{ __('closed') }}</span>
+                        </div>
+                    </div>
+
+                    {{-- Card 4: Urgent Request Ratio --}}
+                    <div class="p-5 rounded-2xl bg-gradient-to-br from-rose-500/10 via-slate-900/90 to-slate-900 border border-rose-500/20 shadow-lg">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-rose-400 uppercase tracking-wider">{{ __('Urgent Request Ratio') }}</span>
+                            <span class="text-xl">🚨</span>
+                        </div>
+                        <div class="mt-2 text-2xl md:text-3xl font-extrabold text-white">
+                            {{ $analytics['kpis']['urgentRatio'] }}<span class="text-sm font-semibold text-rose-400">%</span>
+                        </div>
+                        <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-800/80 text-[11px] text-slate-400">
+                            <span>{{ __(':count urgent/high', ['count' => $analytics['kpis']['urgentHighCount']]) }}</span>
+                            <span class="text-rose-300 font-semibold">{{ $analytics['kpis']['totalRequests'] }} {{ __('total') }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- SECTION B: Department Throughput & Bottlenecks --}}
+                <div class="rounded-2xl border border-slate-800 bg-slate-900/80 backdrop-blur-xl shadow-xl overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-800/80 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                                <span>🏢</span>
+                                <span>{{ __('Department Throughput & Bottlenecks') }}</span>
+                            </h3>
+                            <p class="text-xs text-slate-400 mt-0.5">
+                                {{ __('Request volumes, active workload in queue, completed bounty, and average resolution speed per department.') }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="border-b border-slate-800 text-slate-400 uppercase tracking-wider bg-slate-950/40">
+                                    <th class="py-3 px-4 font-semibold">{{ __('Department') }}</th>
+                                    <th class="py-3 px-4 font-semibold text-center">{{ __('Total Requests') }}</th>
+                                    <th class="py-3 px-4 font-semibold text-center">{{ __('Active Queue') }}</th>
+                                    <th class="py-3 px-4 font-semibold text-center">{{ __('Completed Tasks') }}</th>
+                                    <th class="py-3 px-4 font-semibold text-center">{{ __('Bounty Delivered') }}</th>
+                                    <th class="py-3 px-4 font-semibold text-center">{{ __('Resolution MTTR') }}</th>
+                                    <th class="py-3 px-4 font-semibold">{{ __('Completion Velocity') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800/60 text-slate-300">
+                                @forelse ($analytics['departments'] as $dept)
+                                    <tr class="hover:bg-slate-800/30 transition-colors">
+                                        <td class="py-3.5 px-4 font-medium text-white flex items-center gap-2.5">
+                                            <span class="w-2.5 h-2.5 rounded-full ring-2 ring-white/10" style="background-color: {{ $dept['color'] }}"></span>
+                                            <span>{{ $dept['name'] }}</span>
+                                        </td>
+                                        <td class="py-3.5 px-4 text-center font-mono font-semibold text-slate-200">
+                                            {{ $dept['totalRequests'] }}
+                                        </td>
+                                        <td class="py-3.5 px-4 text-center font-mono">
+                                            @if ($dept['activeQueue'] > 0)
+                                                <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                                    {{ $dept['activeQueue'] }}
+                                                </span>
+                                            @else
+                                                <span class="text-slate-500 font-mono">0</span>
+                                            @endif
+                                        </td>
+                                        <td class="py-3.5 px-4 text-center font-mono font-semibold text-emerald-400">
+                                            {{ $dept['completedTasks'] }}
+                                        </td>
+                                        <td class="py-3.5 px-4 text-center font-mono font-semibold text-amber-400">
+                                            ⚡ {{ number_format($dept['totalBounty']) }}
+                                        </td>
+                                        <td class="py-3.5 px-4 text-center font-mono font-semibold text-cyan-300">
+                                            {{ $dept['mttrFormatted'] }}
+                                        </td>
+                                        <td class="py-3.5 px-4 min-w-[160px]">
+                                            <div class="flex items-center gap-2">
+                                                <div class="flex-1 h-2 rounded-full bg-slate-950 overflow-hidden border border-slate-800">
+                                                    <div
+                                                        class="h-full rounded-full transition-all duration-500 {{ $dept['completionRate'] >= 80 ? 'bg-emerald-500' : ($dept['completionRate'] >= 50 ? 'bg-indigo-500' : 'bg-amber-500') }}"
+                                                        style="width: {{ $dept['completionRate'] }}%"
+                                                    ></div>
+                                                </div>
+                                                <span class="text-[11px] font-mono text-slate-400 font-semibold w-9 text-right">{{ $dept['completionRate'] }}%</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="7" class="py-8 text-center text-slate-500 italic">
+                                            {{ __('No departments configured in this organization.') }}
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {{-- SECTION C: Top Requesting Facilities / Client Units --}}
+                <div class="rounded-2xl border border-slate-800 bg-slate-900/80 backdrop-blur-xl shadow-xl overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-800/80 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                                <span>🏥</span>
+                                <span>{{ __('Top Requesting Facilities & Client Demand') }}</span>
+                            </h3>
+                            <p class="text-xs text-slate-400 mt-0.5">
+                                {{ __('Capacity consumption breakdown by Facility, Hospital Unit, Branch, or B2B Client Organization.') }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="border-b border-slate-800 text-slate-400 uppercase tracking-wider bg-slate-950/40">
+                                    <th class="py-3 px-4 font-semibold">{{ __('Facility / Unit Name') }}</th>
+                                    <th class="py-3 px-4 font-semibold text-center">{{ __('Total Requests') }}</th>
+                                    <th class="py-3 px-4 font-semibold text-center">{{ __('Urgent / High') }}</th>
+                                    <th class="py-3 px-4 font-semibold text-center">{{ __('Canceled / Self-Resolved') }}</th>
+                                    <th class="py-3 px-4 font-semibold text-center">{{ __('Total Capacity Consumed') }}</th>
+                                    <th class="py-3 px-4 font-semibold">{{ __('Share of Organization Capacity') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800/60 text-slate-300">
+                                @forelse ($analytics['facilities'] as $fac)
+                                    <tr class="hover:bg-slate-800/30 transition-colors">
+                                        <td class="py-3.5 px-4 font-medium text-white flex items-center gap-2">
+                                            <span>🏢</span>
+                                            <span class="font-semibold">{{ $fac['name'] }}</span>
+                                        </td>
+                                        <td class="py-3.5 px-4 text-center font-mono font-semibold text-slate-200">
+                                            {{ $fac['totalRequests'] }}
+                                        </td>
+                                        <td class="py-3.5 px-4 text-center font-mono">
+                                            @if ($fac['urgentCount'] > 0)
+                                                <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                                                    {{ $fac['urgentCount'] }}
+                                                </span>
+                                            @else
+                                                <span class="text-slate-500 font-mono">0</span>
+                                            @endif
+                                        </td>
+                                        <td class="py-3.5 px-4 text-center font-mono text-slate-400">
+                                            {{ $fac['canceledCount'] }}
+                                        </td>
+                                        <td class="py-3.5 px-4 text-center font-mono font-bold text-amber-400">
+                                            {{ $fac['totalWeight'] }} <span class="text-[10px] text-slate-400">pts</span>
+                                        </td>
+                                        <td class="py-3.5 px-4 min-w-[180px]">
+                                            <div class="flex items-center gap-2">
+                                                <div class="flex-1 h-2 rounded-full bg-slate-950 overflow-hidden border border-slate-800">
+                                                    <div
+                                                        class="h-full rounded-full bg-gradient-to-r from-amber-500 to-indigo-500 transition-all duration-500"
+                                                        style="width: {{ $fac['weightPercentage'] }}%"
+                                                    ></div>
+                                                </div>
+                                                <span class="text-[11px] font-mono text-slate-400 font-semibold w-12 text-right">{{ $fac['weightPercentage'] }}%</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="6" class="py-8 text-center text-slate-500 italic">
+                                            {{ __('No requests recorded during the selected period.') }}
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {{-- SECTION D: Worker SLA & Co-op Efficiency Breakdown --}}
+                <div class="rounded-2xl border border-slate-800 bg-slate-900/80 backdrop-blur-xl shadow-xl overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-800/80 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                                <span>⚡</span>
+                                <span>{{ __('Worker SLA & Co-op Efficiency Breakdown') }}</span>
+                            </h3>
+                            <p class="text-xs text-slate-400 mt-0.5">
+                                {{ __('Solo resolutions, peer Co-op assists, period bounty earnings, and average resolution speed per collaborator.') }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="border-b border-slate-800 text-slate-400 uppercase tracking-wider bg-slate-950/40">
+                                    <th class="py-3 px-4 font-semibold">{{ __('Collaborator') }}</th>
+                                    <th class="py-3 px-4 font-semibold">{{ __('Department') }}</th>
+                                    <th class="py-3 px-4 font-semibold text-center">{{ __('Solo Completed') }}</th>
+                                    <th class="py-3 px-4 font-semibold text-center">{{ __('Co-op Assists') }}</th>
+                                    <th class="py-3 px-4 font-semibold text-center">{{ __('Bounty Earned in Period') }}</th>
+                                    <th class="py-3 px-4 font-semibold text-center">{{ __('Execution Speed (MTTR)') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800/60 text-slate-300">
+                                @forelse ($analytics['workers'] as $w)
+                                    <tr class="hover:bg-slate-800/30 transition-colors">
+                                        <td class="py-3.5 px-4 font-medium text-white flex items-center gap-2.5">
+                                            <div class="w-7 h-7 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-indigo-300">
+                                                {{ strtoupper(substr($w['name'], 0, 2)) }}
+                                            </div>
+                                            <div>
+                                                <div class="font-semibold text-white">{{ $w['name'] }}</div>
+                                                <div class="text-[10px] text-slate-400 capitalize">{{ $w['role'] }}</div>
+                                            </div>
+                                        </td>
+                                        <td class="py-3.5 px-4">
+                                            @if ($w['department'])
+                                                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-800 border border-slate-700 text-slate-200">
+                                                    <span class="w-2 h-2 rounded-full" style="background-color: {{ $w['departmentColor'] ?? '#6366f1' }}"></span>
+                                                    <span>{{ $w['department'] }}</span>
+                                                </span>
+                                            @else
+                                                <span class="text-slate-500 italic text-[11px]">{{ __('General Pool') }}</span>
+                                            @endif
+                                        </td>
+                                        <td class="py-3.5 px-4 text-center font-mono font-semibold text-emerald-400">
+                                            {{ $w['soloCompleted'] }}
+                                        </td>
+                                        <td class="py-3.5 px-4 text-center font-mono font-semibold text-purple-400">
+                                            @if ($w['coopAssists'] > 0)
+                                                <span>🤝 {{ $w['coopAssists'] }}</span>
+                                            @else
+                                                <span class="text-slate-500 font-mono">0</span>
+                                            @endif
+                                        </td>
+                                        <td class="py-3.5 px-4 text-center font-mono font-bold text-amber-400">
+                                            ⚡ {{ number_format($w['bountyEarned']) }} <span class="text-[10px] text-slate-400">pts</span>
+                                        </td>
+                                        <td class="py-3.5 px-4 text-center font-mono font-semibold text-cyan-300">
+                                            {{ $w['mttrFormatted'] }}
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="6" class="py-8 text-center text-slate-500 italic">
+                                            {{ __('No active workers or coordinators in this organization.') }}
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         @endif
@@ -805,16 +1273,33 @@
                         @error('userEmail') <span class="text-[10px] text-rose-400 mt-1 block">{{ $message }}</span> @enderror
                     </div>
 
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                            {{ __('Password') }} {{ $editingUserId ? __('(leave blank to keep current)') : '' }}
-                        </label>
-                        <input
-                            wire:model="userPassword"
-                            type="password"
-                            placeholder="••••••••"
-                            class="w-full rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
-                        >
+                    <div x-data="{ showPass: false }">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                                {{ __('Password') }} {{ $editingUserId ? __('(leave blank to keep current)') : '' }}
+                            </label>
+                            <button
+                                type="button"
+                                @click="showPass = !showPass"
+                                class="text-xs text-slate-400 hover:text-slate-200 transition-colors focus:outline-none flex items-center gap-1 cursor-pointer"
+                                :title="showPass ? '{{ __('Hide password') }}' : '{{ __('Show password') }}'"
+                            >
+                                <span x-show="!showPass" class="text-xs">👁️ {{ __('Show') }}</span>
+                                <span x-show="showPass" x-cloak class="text-xs">🙈 {{ __('Hide') }}</span>
+                            </button>
+                        </div>
+                        <div class="relative">
+                            <input
+                                wire:model="userPassword"
+                                :type="showPass ? 'text' : 'password'"
+                                placeholder="••••••••"
+                                class="w-full rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                            >
+                        </div>
+                        <p class="mt-1 text-[11px] text-slate-400 flex items-center gap-1">
+                            <span>🔒</span>
+                            <span>{{ __('Min 10 chars • Upper & Lowercase • Number • Symbol') }}</span>
+                        </p>
                         @error('userPassword') <span class="text-[10px] text-rose-400 mt-1 block">{{ $message }}</span> @enderror
                     </div>
 
@@ -862,9 +1347,9 @@
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">{{ __('Board Visibility') }}</label>
+                            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">{{ __('Visibility') }}</label>
                             <select
-                                wire:model="userBoardVisibility"
+                                wire:model="userVisibility"
                                 class="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
                             >
                                 <option value="public">{{ __('Public (Clients & Team)') }}</option>
@@ -872,6 +1357,7 @@
                                 <option value="private">{{ __('Private (Owner Only)') }}</option>
                                 <option value="none">{{ __('None (Hidden)') }}</option>
                             </select>
+                            @error('userVisibility') <span class="text-[10px] text-rose-400 mt-1 block">{{ $message }}</span> @enderror
                             @error('userBoardVisibility') <span class="text-[10px] text-rose-400 mt-1 block">{{ $message }}</span> @enderror
                         </div>
                     </div>
@@ -889,6 +1375,24 @@
                         >
                         <p class="text-[10px] text-slate-500 mt-1">{{ __('Useful for scoping client requests or hospital departments.') }}</p>
                         @error('userFacilityName') <span class="text-[10px] text-rose-400 mt-1 block">{{ $message }}</span> @enderror
+                    </div>
+
+                    {{-- Worker Personal Timezone --}}
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                            {{ __('Preferred Personal Timezone') }}
+                        </label>
+                        <select
+                            wire:model="userTimezone"
+                            class="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                        >
+                            <option value="">{{ __('Inherit Workspace Default') }} ({{ $tenant->timezone ?: 'Europe/Athens' }})</option>
+                            @foreach (\App\Support\Timezone::all() as $tzValue => $tzLabel)
+                                <option value="{{ $tzValue }}">{{ $tzLabel }}</option>
+                            @endforeach
+                        </select>
+                        <p class="text-[10px] text-slate-500 mt-1">{{ __('Optional override for remote workers in other timezones.') }}</p>
+                        @error('userTimezone') <span class="text-[10px] text-rose-400 mt-1 block">{{ $message }}</span> @enderror
                     </div>
 
                     <div class="pt-1">
@@ -924,4 +1428,7 @@
 
     {{-- Workspace Settings Modal (Admin Only) --}}
     @include('livewire.partials.workspace-settings-modal')
+
+    {{-- Telegram Pairing Modal --}}
+    @include('livewire.partials.telegram-pairing-modal')
 </div>

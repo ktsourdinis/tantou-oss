@@ -1,0 +1,172 @@
+# ==============================================================================
+# ⚡ Tantou (担当) — Human Capacity OS
+# Production Docker Compose Stack Blueprint
+# ==============================================================================
+# Services:
+# - caddy: Reverse proxy with automatic Let's Encrypt SSL & native WebSocket routing
+# - app: PHP 8.4-FPM application worker running under UID/GID 1000:1000
+# - db: MariaDB 11 transactional database
+# - redis: Redis 7 for cache, queues, and real-time state
+# - queue: Background queue worker for emails, transfers, and notifications
+# - reverb: Laravel Reverb WebSocket server for live board updates
+# - telegram_poll: Background poller for 2-way Telegram actions on intranet/firewalled IPs
+# ==============================================================================
+
+services:
+  # Caddy Reverse Proxy & Web Server
+  caddy:
+    image: caddy:2-alpine
+    container_name: tantou_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - ./Caddyfile.example:/etc/caddy/Caddyfile:ro
+      - .:/var/www/html:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+      - reverb
+    networks:
+      - tantou_network
+
+  # PHP 8.4-FPM Application Worker
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tantou_app
+    restart: unless-stopped
+    user: "1000:1000"
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+    environment:
+      - APP_ENV=production
+      - DB_CONNECTION=mariadb
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_DATABASE=tantou
+      - DB_USERNAME=tantou
+      - DB_PASSWORD=secret
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - QUEUE_CONNECTION=redis
+      - CACHE_STORE=redis
+      - SESSION_DRIVER=redis
+      - BROADCAST_CONNECTION=reverb
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - tantou_network
+
+  # MariaDB 11 Database
+  db:
+    image: mariadb:11
+    container_name: tantou_db
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: tantou
+      MARIADB_USER: tantou
+      MARIADB_PASSWORD: secret
+      MARIADB_ROOT_PASSWORD: root_secret
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - tantou_network
+
+  # Redis 7 Cache & Queue Store
+  redis:
+    image: redis:7-alpine
+    container_name: tantou_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - tantou_network
+
+  # Background Queue Worker
+  queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tantou_queue
+    restart: unless-stopped
+    user: "1000:1000"
+    working_dir: /var/www/html
+    command: php artisan queue:work --tries=3 --timeout=90
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      - app
+      - redis
+    networks:
+      - tantou_network
+
+  # Laravel Reverb WebSocket Server
+  reverb:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tantou_reverb
+    restart: unless-stopped
+    user: "1000:1000"
+    working_dir: /var/www/html
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      - app
+      - redis
+    networks:
+      - tantou_network
+
+  # Telegram Bot Polling Worker (Required for Intranet / Local IPs without public Webhook)
+  telegram_poll:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tantou_telegram_poll
+    restart: unless-stopped
+    user: "1000:1000"
+    working_dir: /var/www/html
+    command: php artisan tantou:telegram-poll
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      - app
+      - db
+      - redis
+    networks:
+      - tantou_network
+
+volumes:
+  mariadb_data:
+    driver: local
+  redis_data:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+
+networks:
+  tantou_network:
+    driver: bridge

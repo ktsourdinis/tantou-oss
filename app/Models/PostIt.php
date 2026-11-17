@@ -20,6 +20,7 @@ use Illuminate\Support\Str;
     'tracking_token',
     'guest_name',
     'guest_contact',
+    'requester_email',
     'facility_name',
     'assignee_id',
     'assigned_by_id',
@@ -33,6 +34,7 @@ use Illuminate\Support\Str;
     'bounty_points',
     'started_at',
     'completed_at',
+    'created_at',
 ])]
 class PostIt extends Model
 {
@@ -51,6 +53,7 @@ class PostIt extends Model
         'tracking_token',
         'guest_name',
         'guest_contact',
+        'requester_email',
         'facility_name',
         'assignee_id',
         'assigned_by_id',
@@ -65,6 +68,7 @@ class PostIt extends Model
         'bounty_points',
         'started_at',
         'completed_at',
+        'created_at',
     ];
 
     /**
@@ -99,6 +103,12 @@ class PostIt extends Model
                 } while (static::where('tracking_token', $token)->exists());
 
                 $postIt->tracking_token = $token;
+            }
+        });
+
+        static::saving(function (PostIt $postIt): void {
+            if ($postIt->status === 'doing' && $postIt->started_at === null) {
+                $postIt->started_at = now();
             }
         });
     }
@@ -155,6 +165,26 @@ class PostIt extends Model
     }
 
     /**
+     * Return the email for the requester (creator, guest, or direct requester_email).
+     */
+    public function getRequesterEmailAttribute(): ?string
+    {
+        if (! empty($this->attributes['requester_email'])) {
+            return $this->attributes['requester_email'];
+        }
+
+        if ($this->requester && ! empty($this->requester->email)) {
+            return $this->requester->email;
+        }
+
+        if (! empty($this->guest_contact) && filter_var($this->guest_contact, FILTER_VALIDATE_EMAIL)) {
+            return $this->guest_contact;
+        }
+
+        return null;
+    }
+
+    /**
      * Determine if this task was marked as canceled / closed before work started.
      */
     public function isCanceled(): bool
@@ -201,6 +231,16 @@ class PostIt extends Model
     }
 
     /**
+     * Alias relationship for assignee (the Tantou worker).
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function user(): BelongsTo
+    {
+        return $this->assignee();
+    }
+
+    /**
      * Get the user who assigned or transferred this post-it.
      *
      * @return BelongsTo<User, $this>
@@ -218,6 +258,16 @@ class PostIt extends Model
     public function helper(): BelongsTo
     {
         return $this->belongsTo(User::class, 'helper_id');
+    }
+
+    /**
+     * Alias relationship for helper (the co-op collaborator).
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function collaborator(): BelongsTo
+    {
+        return $this->helper();
     }
 
     /**
