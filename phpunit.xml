@@ -32,5 +32,8 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="TANTOU_EDITION" value="community"/>
+        <env name="TANTOU_ROUTING_MODE" value="auto"/>
+        <env name="TANTOU_BASE_DOMAIN" value="localhost"/>
     </php>
 </phpunit>

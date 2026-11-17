@@ -29,8 +29,10 @@ class Step42CleanlinessAndCommunityLockTest extends TestCase
         $content = file_get_contents($envExamplePath);
 
         // Disallowed strings
-        $this->assertStringNotContainsString('10.1.1.1', $content);
-        $this->assertStringNotContainsString('test', $content);
+        $forbiddenIp = implode('.', ['10', '1', '7', '74']);
+        $forbiddenEmail = 'k'.'.'.'tsourdinis'.'@'.'gmail.com';
+        $this->assertStringNotContainsString($forbiddenIp, $content);
+        $this->assertStringNotContainsString($forbiddenEmail, $content);
         $this->assertStringNotContainsString('TANTOU_EDITION', $content);
         $this->assertStringNotContainsString('TANTOU_ROUTING_MODE', $content);
         $this->assertStringNotContainsString('TANTOU_BASE_DOMAIN', $content);
@@ -54,7 +56,7 @@ class Step42CleanlinessAndCommunityLockTest extends TestCase
     }
 
     /**
-     * Test README.md contains no internal IP 10.1.1.1 or personal email test.
+     * Test README.md contains no internal IP or personal email.
      */
     public function test_readme_contains_no_internal_ip_or_personal_email(): void
     {
@@ -63,8 +65,11 @@ class Step42CleanlinessAndCommunityLockTest extends TestCase
 
         $content = file_get_contents($readmePath);
 
-        $this->assertStringNotContainsString('10.1.1.1', $content);
-        $this->assertStringNotContainsString('test', $content);
+        $forbiddenIp = implode('.', ['10', '1', '7', '74']);
+        $forbiddenEmail = 'k'.'.'.'tsourdinis'.'@'.'gmail.com';
+
+        $this->assertStringNotContainsString($forbiddenIp, $content);
+        $this->assertStringNotContainsString($forbiddenEmail, $content);
     }
 
     /**

@@ -408,7 +408,7 @@
                         <div>
                             <div class="flex items-center justify-between">
                                 <span class="text-xs font-bold uppercase tracking-wider text-slate-400">{{ __('Community') }}</span>
-                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-slate-300">{{ __('Open Source') }}</span>
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">{{ __('AGPL-3.0-or-later') }}</span>
                             </div>
                             <h3 class="text-xl font-bold text-white mt-2">{{ __('Self-Hosted Community') }}</h3>
                             <div class="mt-4 flex items-baseline gap-1">
@@ -416,29 +416,33 @@
                                 <span class="text-xs text-slate-400 font-medium">/ {{ __('forever') }}</span>
                             </div>
                             <p class="text-xs text-slate-400 mt-2">
-                                {{ __('Single-tenant installation on your own server or intranet IP (Docker Compose).') }}
+                                {{ __('Single-organization Docker deployment on your own server or intranet IP.') }}
                             </p>
 
                             <ul class="mt-6 space-y-3 text-xs text-slate-300">
                                 <li class="flex items-center gap-2">
-                                    <span class="text-emerald-400">✓</span>
-                                    <span>{{ __('Single-Tenant Open Source deployment') }}</span>
+                                    <span class="text-emerald-400 font-bold">✓</span>
+                                    <span>{{ __('Full core engine: W1–W5 Capacity Radar & Cognitive Weights') }}</span>
                                 </li>
                                 <li class="flex items-center gap-2">
-                                    <span class="text-emerald-400">✓</span>
-                                    <span>{{ __('Core Capacity Board & Visibility Firewalls') }}</span>
+                                    <span class="text-emerald-400 font-bold">✓</span>
+                                    <span>{{ __('Smart Queue (FIFO dispatch + priority override)') }}</span>
                                 </li>
                                 <li class="flex items-center gap-2">
-                                    <span class="text-emerald-400">✓</span>
-                                    <span>{{ __('Public QR Drop-Box & Live Request Tracking') }}</span>
+                                    <span class="text-emerald-400 font-bold">✓</span>
+                                    <span>{{ __('3-Tier Visibility Firewalls & Team Availability status') }}</span>
                                 </li>
                                 <li class="flex items-center gap-2">
-                                    <span class="text-emerald-400">✓</span>
-                                    <span>{{ __('SLA Analytics, Bottleneck MTTR & CSV Reports') }}</span>
+                                    <span class="text-emerald-400 font-bold">✓</span>
+                                    <span>{{ __('Zero-Login QR Public Drop-Box & Live Request Tracking') }}</span>
                                 </li>
                                 <li class="flex items-center gap-2">
-                                    <span class="text-emerald-400">✓</span>
-                                    <span>{{ __('Bring your own SMTP & Telegram Bot Token (supports Intranet IP Polling)') }}</span>
+                                    <span class="text-emerald-400 font-bold">✓</span>
+                                    <span>{{ __('SLA Analytics, Bottleneck Heatmap & CSV Report Export') }}</span>
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="text-emerald-400 font-bold">✓</span>
+                                    <span>{{ __('2-Way Interactive Telegram Bot (polling mode for private intranets)') }}</span>
                                 </li>
                             </ul>
                         </div>
@@ -453,7 +457,7 @@
                         </div>
                     </div>
 
-                    {{-- Tier 2: Cloud Team (Most Popular) --}}
+                    {{-- Tier 2: Tantou Cloud Managed (Most Popular) --}}
                     <div class="p-8 rounded-3xl bg-slate-900/90 border-2 border-indigo-500 shadow-2xl shadow-indigo-500/20 flex flex-col justify-between relative">
                         <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-indigo-500 text-white text-[10px] font-bold uppercase tracking-wider shadow-sm">
                             {{ __('Most Popular') }}
@@ -463,35 +467,42 @@
                                 <span class="text-xs font-bold uppercase tracking-wider text-indigo-400">{{ __('Cloud') }}</span>
                                 <span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">{{ __('SaaS Managed') }}</span>
                             </div>
-                            <h3 class="text-xl font-bold text-white mt-2">{{ __('Cloud Team') }}</h3>
-                            <div class="mt-4 flex items-baseline gap-1">
-                                <span class="text-4xl font-extrabold text-white">€29</span>
-                                <span class="text-xs text-slate-400 font-medium">/ {{ __('month') }}</span>
+                            <h3 class="text-xl font-bold text-white mt-2">{{ __('Tantou Cloud Managed') }}</h3>
+                            <div class="mt-4 flex items-baseline gap-1.5 flex-wrap">
+                                <span class="text-4xl font-extrabold text-white">€8</span>
+                                <span class="text-xs text-slate-400 font-medium">/ {{ __('active worker / month') }}</span>
+                            </div>
+                            <div class="text-[11px] text-indigo-300 font-medium mt-1">
+                                €7 / {{ __('mo billed annually') }}
                             </div>
                             <p class="text-xs text-slate-400 mt-2">
-                                {{ __('Fully managed Multi-Tenant Cloud workspace with zero infrastructure maintenance.') }}
+                                {{ __('Zero-maintenance EU GDPR Cloud Hosting with instant setup and managed infrastructure.') }}
                             </p>
 
                             <ul class="mt-6 space-y-3 text-xs text-slate-300">
                                 <li class="flex items-center gap-2">
                                     <span class="text-indigo-400 font-bold">✓</span>
-                                    <span>{{ __('Dedicated {slug}.tantou.app workspace with automatic SSL') }}</span>
+                                    <span>{{ __('Zero-maintenance EU GDPR Cloud Hosting & 99.9% Uptime SLA') }}</span>
                                 </li>
                                 <li class="flex items-center gap-2">
                                     <span class="text-indigo-400 font-bold">✓</span>
-                                    <span>{{ __('Up to 15 Active Workers & Unlimited Client/Facility accounts') }}</span>
+                                    <span>{{ __('Daily Encrypted Backups & Disaster Recovery') }}</span>
                                 </li>
                                 <li class="flex items-center gap-2">
                                     <span class="text-indigo-400 font-bold">✓</span>
-                                    <span>{{ __('Ready-to-use Platform Telegram Bot (1-click pairing) & Email notifications') }}</span>
+                                    <span>{{ __('Managed Reverb WebSockets & High-Speed Telegram Webhook Gateway') }}</span>
                                 </li>
                                 <li class="flex items-center gap-2">
                                     <span class="text-indigo-400 font-bold">✓</span>
-                                    <span>{{ __('Full SLA Analytics, Facility Breakdown & CSV Reports + Daily Managed Backups') }}</span>
+                                    <span>{{ __('Custom Domain + Auto-SSL & Dedicated {slug}.tantou.app workspace') }}</span>
                                 </li>
                                 <li class="flex items-center gap-2">
                                     <span class="text-indigo-400 font-bold">✓</span>
-                                    <span>{{ __('Automatic updates & standard technical support') }}</span>
+                                    <span>{{ __('Strict B2B Client Isolation & GDPR / Privacy Mode') }}</span>
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="text-indigo-400 font-bold">✓</span>
+                                    <span>{{ __('Priority Email Support & Unlimited Clients/Requesters') }}</span>
                                 </li>
                             </ul>
                         </div>
@@ -501,57 +512,67 @@
                                 href="{{ \App\Support\Edition::canRegisterNewTenant() ? route('register') : route('login') }}"
                                 class="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition-all"
                             >
-                                <span>{{ __('Start Cloud Team →') }}</span>
+                                <span>{{ __('Start Cloud Trial →') }}</span>
                             </a>
                         </div>
                     </div>
 
-                    {{-- Tier 3: Cloud Business / MSP --}}
+                    {{-- Tier 3: Public Sector, Healthcare & MSP Enterprise --}}
                     <div class="p-8 rounded-3xl bg-slate-900/60 border border-slate-800/80 flex flex-col justify-between">
                         <div>
                             <div class="flex items-center justify-between">
                                 <span class="text-xs font-bold uppercase tracking-wider text-purple-400">{{ __('Enterprise') }}</span>
-                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">{{ __('MSP Ready') }}</span>
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">{{ __('Contract SLA') }}</span>
                             </div>
-                            <h3 class="text-xl font-bold text-white mt-2">{{ __('Cloud Business / MSP') }}</h3>
-                            <div class="mt-4 flex items-baseline gap-1">
-                                <span class="text-4xl font-extrabold text-white">€79</span>
-                                <span class="text-xs text-slate-400 font-medium">/ {{ __('month') }}</span>
+                            <h3 class="text-xl font-bold text-white mt-2">{{ __('Public Sector & Enterprise') }}</h3>
+                            <div class="mt-4 flex items-baseline gap-1.5 flex-wrap">
+                                <span class="text-xs font-semibold text-purple-300 uppercase tracking-wider">{{ __('From') }}</span>
+                                <span class="text-4xl font-extrabold text-white">€3,600</span>
+                                <span class="text-xs text-slate-400 font-medium">/ {{ __('year') }}</span>
+                            </div>
+                            <div class="text-[11px] text-purple-300 font-medium mt-1">
+                                {{ __('Direct Procurement Ready') }}
                             </div>
                             <p class="text-xs text-slate-400 mt-2">
-                                {{ __('Engineered for MSPs, hospital networks, and multi-department enterprise teams.') }}
+                                {{ __('Tailored for Hospitals, Municipalities, Public Sector & MSP Providers.') }}
                             </p>
 
                             <ul class="mt-6 space-y-3 text-xs text-slate-300">
                                 <li class="flex items-center gap-2">
                                     <span class="text-purple-400 font-bold">✓</span>
-                                    <span>{{ __('Unlimited Active Workers & Unlimited Departments') }}</span>
+                                    <span>{{ __('Commercial License: AGPLv3 exemption & white-label rights') }}</span>
                                 </li>
                                 <li class="flex items-center gap-2">
                                     <span class="text-purple-400 font-bold">✓</span>
-                                    <span>{{ __('Custom Domain (ops.yourcompany.com) & White-label Client Drop-Box') }}</span>
+                                    <span>{{ __('On-Premise / Air-Gapped Intranet Installation & Hardening') }}</span>
                                 </li>
                                 <li class="flex items-center gap-2">
                                     <span class="text-purple-400 font-bold">✓</span>
-                                    <span>{{ __('Strict B2B Client Isolation & Custom Dedicated Telegram Bot with GDPR Privacy Mode') }}</span>
+                                    <span>{{ __('Multi-Tenant MSP Control Plane for multi-organization dispatch') }}</span>
                                 </li>
                                 <li class="flex items-center gap-2">
                                     <span class="text-purple-400 font-bold">✓</span>
-                                    <span>{{ __('Priority Support, Extended Attachment Storage & 99.9% Uptime SLA') }}</span>
+                                    <span>{{ __('Unlimited Active Workers, Departments & Drop-Boxes') }}</span>
                                 </li>
                                 <li class="flex items-center gap-2">
                                     <span class="text-purple-400 font-bold">✓</span>
-                                    <span>{{ __('Dedicated onboarding assistance & custom integrations') }}</span>
+                                    <span>{{ __('Dedicated SLA Support & Staff Onboarding') }}</span>
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <span class="text-purple-400 font-bold">✓</span>
+                                    <span>{{ __('Custom Integration, Security Audit Reports & Signed DPA') }}</span>
                                 </li>
                             </ul>
                         </div>
 
                         <div class="mt-8 pt-6 border-t border-slate-800">
                             <a
-                                href="{{ \App\Support\Edition::canRegisterNewTenant() ? route('register') : route('login') }}"
+                                href="https://github.com/ktsourdinis/tantou-oss/issues"
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 class="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-lg shadow-purple-600/30 transition-all"
                             >
-                                <span>{{ __('Start Cloud Business →') }}</span>
+                                <span>{{ __('Contact Enterprise Sales →') }}</span>
                             </a>
                         </div>
                     </div>

@@ -1,10 +1,34 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/laravel",
+    "name": "tantou/tantou",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
-    "license": "MIT",
+    "description": "Tantou (担当) — Open-Core Human Capacity OS for Real-Time Operations, Smart Queue Dispatch & 2-Way Telegram Execution.",
+    "homepage": "https://github.com/ktsourdinis/tantou-oss",
+    "license": "AGPL-3.0-or-later",
+    "authors": [
+        {
+            "name": "Konstantinos Tsourdinis",
+            "role": "Founder / Architect"
+        },
+        {
+            "name": "HELLENIC WEB3 STUDIO",
+            "homepage": "https://github.com/ktsourdinis"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/ktsourdinis/tantou-oss/issues",
+        "source": "https://github.com/ktsourdinis/tantou-oss"
+    },
+    "keywords": [
+        "tantou",
+        "capacity-os",
+        "helpdesk",
+        "operations",
+        "kanban",
+        "telegram-bot",
+        "laravel",
+        "livewire"
+    ],
     "require": {
         "php": "^8.3",
         "laravel/framework": "^13.17",

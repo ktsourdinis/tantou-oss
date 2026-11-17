@@ -2,7 +2,7 @@
 
 > **Stop burning out your team with infinite Kanban lists. Manage real human workload (`W1–W5`), enforce visibility firewalls, and execute requests in real time via Web & Telegram.**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: AGPLv3 / Commercial](https://img.shields.io/badge/License-AGPLv3%20%2F%20Commercial-blue.svg)](LICENSE)
 [![Laravel 11](https://img.shields.io/badge/Laravel-11-FF2D20.svg?logo=laravel)](https://laravel.com)
 [![Livewire 3](https://img.shields.io/badge/Livewire-3-FB70A9.svg?logo=livewire)](https://livewire.laravel.com)
 [![Reverb WebSockets](https://img.shields.io/badge/Reverb-WebSockets-6366F1.svg)](https://laravel.com/docs/reverb)
@@ -12,7 +12,7 @@
 ---
 
 ### Quick Navigation
-[⚡ Live Demo](#-live-interactive-demo) • [📖 User & Admin Guide](docs/USER_AND_ADMIN_GUIDE.md) • [🧠 Why Tantou?](#-why-tantou-the-philosophy) • [🚀 Key Features](#-key-features) • [🐳 60-Second Docker Quickstart](#-60-second-docker-quickstart) • [🌐 Intranet IP vs Domain Routing](#-intranet-ip-vs-domain-routing) • [✈️ 2-Way Telegram Bot](#️-2-way-telegram-bot-webhook--intranet-polling) • [⚖️ Open-Core vs Cloud](#-open-core-community-vs-managed-cloud) • [🛠️ Tech Stack & Tests](#️-tech-stack-testing--contributing)
+[⚡ Live Demo](#-live-interactive-demo) • [📖 User & Admin Guide](docs/USER_AND_ADMIN_GUIDE.md) • [🧠 Why Tantou?](#-why-tantou-the-philosophy) • [🚀 Key Features](#-key-features) • [🐳 60-Second Docker Quickstart](#-60-second-docker-quickstart) • [🌐 Single-Tenant Deployment](#-single-tenant-intranet--server-deployment) • [✈️ 2-Way Telegram Bot](#️-2-way-telegram-bot-webhook--intranet-polling) • [⚖️ Open-Core vs Cloud & Enterprise](#-open-core-community-vs-managed-cloud--enterprise) • [🛠️ Tech Stack & Tests](#️-tech-stack-testing--contributing)
 
 > [!TIP]
 > **Complete Operational & Deployment Manual Available:**
@@ -146,23 +146,21 @@ Open your browser at **[http://localhost:8085](http://localhost:8085)** (or your
 
 ---
 
-## 🌐 Intranet IP vs Domain Routing
+## 🌐 Single-Tenant Intranet & Server Deployment
 
-Tantou was built from the ground up to support **air-gapped intranet deployments** (local hospital IPs, factory subnets, homelabs) as well as **multi-tenant cloud SaaS domains**:
+Tantou Community is engineered specifically for reliable single-tenant self-hosted deployments on your own infrastructure — including air-gapped hospital subnets, municipal internal networks, company servers, or private VPS instances.
 
-### Routing Modes (`.env` Reference)
-
-| Mode (`TANTOU_ROUTING_MODE`) | Example URL | Use Case |
-| :--- | :--- | :--- |
-| `single` *(Default in Community)* | `http://192.168.1.100:8085/board` | Single-tenant private installations on local IP or intranet. |
-| `path` | `http://192.168.1.100:8085/board?workspace=ops` | Multi-tenant testing on raw IP addresses without DNS. |
-| `subdomain` | `https://ops.tantou.app/board` | Multi-tenant Cloud SaaS environments with wildcard DNS. |
-| `auto` | Dynamic | Automatically detects IP address vs Domain name. |
+Configure your primary access URL in `.env`:
 
 ```ini
-# .env Configuration Example for Single-Tenant Intranet Server
+# Example A: Internal Private Subnet / Intranet IP
 APP_URL=http://192.168.1.100:8085
+
+# Example B: Dedicated Server with Domain & Caddy/Nginx Reverse Proxy
+APP_URL=https://ops.yourcompany.com
 ```
+
+All team members, coordinators, and clients access the workspace directly through your configured `APP_URL`.
 
 ---
 
@@ -205,22 +203,24 @@ docker exec -d tantou_app php artisan tantou:telegram-poll
 
 ---
 
-## ⚖️ Open-Core Community vs Managed Cloud
+## ⚖️ Open-Core Community vs Managed Cloud & Enterprise
 
-| Feature | Community (Self-Hosted) | Cloud Team (€29/mo) | Cloud Business / MSP (€79/mo) |
+| Feature | Community Self-Hosted | Tantou Cloud Managed | Public Sector & Enterprise |
 | :--- | :---: | :---: | :---: |
-| **License & Price** | **Free Forever (MIT)** | €29 / month | €79 / month |
-| **Hosting Model** | Self-Hosted (Your Server/IP) | Managed Cloud SaaS | Managed Cloud SaaS |
-| **Active Workers** | Unlimited (Single-Tenant) | Up to 15 Active Workers | **Unlimited Workers** |
-| **Organizations & Departments** | Single Tenant • Unlimited Depts | 1 Workspace • Multi-Dept | **Multi-Tenant MSP Ready** |
-| **Custom Domain** | Your own DNS / IP | `{slug}.tantou.app` | **Custom Domain (`ops.client.com`)** |
-| **Capacity Radar & Smart Queue** | ✅ | ✅ | ✅ |
-| **3-Tier Visibility Firewalls** | ✅ | ✅ | ✅ |
-| **Public QR Drop-Box (`/submit`)** | ✅ | ✅ | ✅ (White-labeled) |
-| **2-Way Telegram Bot** | Custom Bot Token (Poll/Hook) | Platform Bot (1-Click) | **Custom Bot + GDPR Privacy** |
+| **Pricing & License** | **€0 forever (AGPL-3.0-or-later)** | **€8 / active worker / mo** *(€7/mo billed annually)* | **From €3,600 / year** *(Custom SLA Contract)* |
+| **Target Audience** | Self-hosters, Homelabs, Small IT | Fast-moving Teams, SaaS Operations | Hospitals, Municipalities, MSPs, Public Sector |
+| **License Type** | GNU AGPL v3.0 (AGPL-3.0-or-later) | Hosted EU SaaS | **Commercial License (AGPLv3 Exemption)** |
+| **Deployment Model** | Self-Hosted (Your Server/Intranet IP) | Zero-Maintenance Managed Cloud | On-Premise / Air-Gapped or Dedicated Cloud |
+| **Active Workers** | Unlimited (Single-Tenant) | Per Active Worker (Clients Unlimited) | **Unlimited Workers & Departments** |
+| **MSP Multi-Tenant Plane**| Single Organization | Single Organization | **Multi-Tenant MSP Ready** |
+| **Custom Domain & SSL** | Your own DNS / Reverse Proxy | Included (`{slug}.tantou.app` + Custom) | **White-Labeled Custom Domain + Fleet SSL** |
+| **W1–W5 Capacity Radar** | ✅ | ✅ | ✅ |
+| **Smart Queue & Firewalls**| ✅ | ✅ | ✅ |
+| **Public QR Drop-Box** | ✅ | ✅ | ✅ (Fully White-Labeled) |
+| **2-Way Telegram Bot** | Custom Bot Token (Poll/Hook) | Managed Webhook Gateway (1-Click) | **Custom Bot + GDPR Privacy Mode** |
 | **SLA Analytics & CSV Export** | ✅ | ✅ | ✅ |
-| **Backups & Maintenance** | Self-Managed | Automatic Daily Backups | Automated Backups + 99.9% SLA |
-| **Support** | GitHub Community | Standard Email Support | **Priority SLA & Onboarding** |
+| **Backups & Maintenance** | Self-Managed | Automatic Daily Encrypted Backups | Automated Offsite Backups + Hardened DR |
+| **Procurement & Support** | GitHub Community | Priority Email Support | **Direct Procurement Ready • Dedicated SLA** |
 
 ---
 
@@ -241,7 +241,7 @@ All backend isolation, concurrency, security, and Livewire component tests can b
 ```bash
 docker exec -u 1000:1000 tantou_app php artisan test --compact
 ```
-*(All 181 tests, 1142 assertions passing)*
+*(All 230+ tests, 1400+ assertions passing)*
 
 ### Code Style (Laravel Pint)
 ```bash
@@ -252,5 +252,9 @@ docker exec -u 1000:1000 tantou_app vendor/bin/pint --format agent
 
 ## 📄 License & Credits
 
-- Tantou Community Edition is open-source software licensed under the **[MIT License](LICENSE)**.
-- Designed & Developed by **[Kostas Tsourdinis](https://github.com/ktsourdinis)** ([ktsourdinis/tantou-oss](https://github.com/ktsourdinis/tantou-oss)).
+Tantou is dual-licensed under:
+- **GNU AGPL v3.0 (AGPL-3.0-or-later):** For open-source self-hosted use. You are free to run, study, and modify the software under the terms of the GNU Affero General Public License v3.0 or later. Under AGPLv3, if you run a modified version on a network server, you must provide its source code to users. See the [LICENSE](LICENSE) file for complete terms.
+- **Commercial License:** For proprietary closed-source distributions, multi-tenant SaaS hosting, enterprise integrations, or white-labeling without AGPLv3 copyleft obligations.
+
+Copyright (c) 2026 Konstantinos Tsourdinis / HELLENIC WEB3 STUDIO. All rights reserved.  
+For commercial inquiries and licensing, visit [https://github.com/ktsourdinis/tantou-oss](https://github.com/ktsourdinis/tantou-oss).

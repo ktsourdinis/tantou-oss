@@ -17,10 +17,10 @@ Unlike traditional ticket queues that encourage infinite backlogs and worker bur
    - [Background Services & Telegram Polling](#background-services--telegram-polling)
 3. [Administrator & Coordinator Operations](#3-administrator--coordinator-operations)
    - [The 4 Operational Blueprints](#the-4-operational-blueprints)
-   - [Organization Branding & Subdomain / Custom Domain](#organization-branding--subdomain--custom-domain)
+   - [Organization Branding & Workspace Settings](#organization-branding--workspace-settings)
    - [Strict B2B Client Isolation](#strict-b2b-client-isolation)
    - [SLA Analytics, Timezones & CSV Reports](#sla-analytics-timezones--csv-reports)
-   - [Subscription Billing & Tier Quotas](#subscription-billing--tier-quotas)
+   - [Features & Unrestricted Capacity](#features--unrestricted-capacity)
 4. [Worker & Collaborator Workflows](#4-worker--collaborator-workflows)
    - [Cognitive Load Weights ($W1–W5$)](#cognitive-load-weights-w1w5)
    - [Two-Stage Active Workflow: Assigned vs Doing](#two-stage-active-workflow-assigned-vs-doing)
@@ -159,15 +159,15 @@ graph TD
 
 ---
 
-### Organization Branding & Subdomain / Custom Domain
+### Organization Branding & Workspace Settings
 
 In **Workspace Settings** (Admin Only):
 - **Organization Name:** Displayed on headers, emails, and drop-box pages.
-- **Workspace Subdomain (Slug):** Unique identifier used for routing (e.g., `acme.tantou.app` or `?workspace=acme`).
-- **Branded Custom Domain (`Cloud Business` / Self-Hosted):**
-  - Configure a custom domain like `ops.acmecorp.com`.
-  - Point your DNS CNAME record to your Tantou cluster.
-  - Tantou automatically resolves tenant context from the incoming hostname.
+- **Workspace Identifier (Slug):** Organization slug identifying your workspace.
+- **Custom Domain & Reverse Proxy:**
+  - Configure your organizational domain (e.g., `ops.yourcompany.com`).
+  - Point your DNS record to your Tantou server or Caddy reverse proxy.
+  - Tantou automatically serves your workspace securely under your domain.
 
 ### Strict B2B Client Isolation
 
@@ -313,4 +313,4 @@ Tantou provides total transparency of team workload while strictly safeguarding 
 
 - **Source Code & Issue Tracker:** [GitHub Repository](https://github.com/ktsourdinis/tantou-oss)
 - **Live Interactive Demo:** [https://tantou.app/demo](https://tantou.app/demo)
-- **License:** Open-Core AGPLv3 / Commercial Enterprise
+- **License:** GNU AGPL v3.0 (AGPL-3.0-or-later) / Commercial Enterprise

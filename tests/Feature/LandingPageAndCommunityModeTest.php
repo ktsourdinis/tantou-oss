@@ -48,11 +48,11 @@ class LandingPageAndCommunityModeTest extends TestCase
 
         // Section 4: 3 Pricing Tiers
         $response->assertSee('Self-Hosted Community');
-        $response->assertSee('Cloud Team');
-        $response->assertSee('Cloud Business / MSP');
+        $response->assertSee('Tantou Cloud Managed');
+        $response->assertSee('Public Sector &amp; Enterprise', false);
         $response->assertSee('€0');
-        $response->assertSee('€29');
-        $response->assertSee('€79');
+        $response->assertSee('€8');
+        $response->assertSee('€3,600');
 
         // Section 5: Self-Host Quickstart
         $response->assertSee('Self-Host Tantou on Your Own Server in 60 Seconds');
