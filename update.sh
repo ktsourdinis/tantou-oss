@@ -8,6 +8,7 @@ APP_USER="${TANTOU_DOCKER_USER:-1000:1000}"
 echo "⚡ Updating Tantou (Human Capacity OS)..."
 
 echo "1/6 Pulling latest changes from Git..."
+git checkout -- public/build/ 2>/dev/null || true
 git pull --ff-only
 
 echo "2/6 Installing PHP Composer dependencies..."
