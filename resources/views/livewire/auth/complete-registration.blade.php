@@ -194,9 +194,10 @@
                                 type="button"
                                 @click="showPassConf = !showPassConf"
                                 class="text-xs text-slate-400 hover:text-slate-200 transition-colors focus:outline-none flex items-center gap-1 cursor-pointer"
+                                :title="showPassConf ? '{{ __('Hide password') }}' : '{{ __('Show password') }}'"
                             >
-                                <span x-show="!showPassConf" class="text-xs">👁️</span>
-                                <span x-show="showPassConf" x-cloak class="text-xs">🙈</span>
+                                <span x-show="!showPassConf" class="text-xs">👁️ {{ __('Show') }}</span>
+                                <span x-show="showPassConf" x-cloak class="text-xs">🙈 {{ __('Hide') }}</span>
                             </button>
                         </div>
                         <div class="relative">
@@ -211,43 +212,62 @@
                         </div>
                     </div>
 
-                    {{-- Plan Selection (Cloud Mode Only) --}}
+                    {{-- Plan Selection (Single Self-Service Tantou Cloud Managed Plan + Enterprise Callout) --}}
                     @if(\App\Support\Edition::isCloud())
-                        <div class="pt-1">
-                            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-                                {{ __('Select Your Cloud Plan') }}
-                            </label>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <button
-                                    type="button"
-                                    wire:click="$set('plan', 'team')"
-                                    class="p-3 rounded-2xl border text-left transition-all cursor-pointer relative {{ $plan === 'team' ? 'bg-indigo-600/15 border-indigo-500 ring-2 ring-indigo-500/30' : 'bg-slate-950/60 border-slate-800 hover:border-slate-700' }}"
-                                >
-                                    <div class="flex items-center justify-between mb-1">
-                                        <span class="text-xs font-bold text-white">{{ __('Cloud Team') }}</span>
-                                        <span class="text-xs font-bold text-indigo-400">€29<span class="text-[10px] text-slate-400 font-normal">/mo</span></span>
-                                    </div>
-                                    <p class="text-[11px] text-slate-400 leading-tight">{{ __('Up to 15 team workers, 5 departments & drop-box.') }}</p>
-                                    <div class="mt-2 text-[10px] font-semibold text-emerald-400 flex items-center gap-1">
-                                        <span>✨</span><span>{{ __('14-day free trial') }}</span>
-                                    </div>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    wire:click="$set('plan', 'business')"
-                                    class="p-3 rounded-2xl border text-left transition-all cursor-pointer relative {{ $plan === 'business' ? 'bg-indigo-600/15 border-indigo-500 ring-2 ring-indigo-500/30' : 'bg-slate-950/60 border-slate-800 hover:border-slate-700' }}"
-                                >
-                                    <div class="flex items-center justify-between mb-1">
-                                        <span class="text-xs font-bold text-white">{{ __('Cloud Business') }}</span>
-                                        <span class="text-xs font-bold text-indigo-400">€79<span class="text-[10px] text-slate-400 font-normal">/mo</span></span>
-                                    </div>
-                                    <p class="text-[11px] text-slate-400 leading-tight">{{ __('Unlimited workers, B2B isolation & custom bot.') }}</p>
-                                    <div class="mt-2 text-[10px] font-semibold text-emerald-400 flex items-center gap-1">
-                                        <span>⚡</span><span>{{ __('14-day free trial') }}</span>
-                                    </div>
-                                </button>
+                        <div class="pt-1 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                                    {{ __('Select Your Cloud Plan') }}
+                                </label>
+                                <div class="inline-flex rounded-xl bg-slate-950 border border-slate-800 p-0.5 text-[11px]">
+                                    <button
+                                        type="button"
+                                        wire:click="$set('billing_interval', 'monthly')"
+                                        class="px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer {{ $billing_interval === 'monthly' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white' }}"
+                                    >
+                                        {{ __('Monthly') }} (€8)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        wire:click="$set('billing_interval', 'yearly')"
+                                        class="px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer {{ $billing_interval === 'yearly' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white' }}"
+                                    >
+                                        {{ __('Yearly') }} (€7)
+                                    </button>
+                                </div>
                             </div>
+
+                            {{-- Sole Self-Service Plan: Tantou Cloud Managed --}}
+                            <div class="w-full p-4 rounded-2xl border bg-indigo-600/15 border-indigo-500 ring-2 ring-indigo-500/30 text-left relative">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-xs font-bold text-white">{{ __('Tantou Cloud Managed') }}</span>
+                                    <span class="text-xs font-bold text-indigo-400">
+                                        {{ $billing_interval === 'yearly' ? '€7' : '€8' }}<span class="text-[10px] text-slate-400 font-normal"> / {{ __('active worker / month') }}</span>
+                                    </span>
+                                </div>
+                                <p class="text-[11px] text-slate-300 leading-tight">
+                                    {{ __('Zero-maintenance EU GDPR Cloud Hosting with managed Reverb WebSockets, daily backups & strict B2B isolation.') }}
+                                </p>
+                                <div class="mt-2.5 flex items-center justify-between text-[10px] font-semibold">
+                                    <span class="text-indigo-300">€7 / {{ __('mo billed annually') }}</span>
+                                    <span class="text-emerald-400 flex items-center gap-1"><span>✨</span><span>{{ __('14-day free trial') }}</span></span>
+                                </div>
+                            </div>
+
+                            {{-- Compact Secondary Callout for Public Sector & Enterprise --}}
+                            <div class="p-3 rounded-2xl bg-purple-950/20 border border-purple-500/30 text-xs flex flex-col gap-1.5">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-bold text-purple-300">{{ __('Public Sector & Enterprise (White-Label / On-Premise / SLA Contract)') }}</span>
+                                    <span class="text-[10px] font-semibold text-purple-400">{{ __('From') }} €3,600 / {{ __('year') }}</span>
+                                </div>
+                                <a
+                                    href="mailto:tantou@tsourdinis.info?subject=Tantou%20Enterprise%20White-Label%20Inquiry"
+                                    class="inline-flex items-center gap-1 text-[11px] font-semibold text-purple-300 hover:text-white underline underline-offset-4 transition-colors"
+                                >
+                                    <span>{{ __('Need White-Label or Public Sector Procurement? Contact tantou@tsourdinis.info →') }}</span>
+                                </a>
+                            </div>
+
                             @error('plan')
                                 <p class="mt-1 text-xs text-rose-400">{{ $message }}</p>
                             @enderror

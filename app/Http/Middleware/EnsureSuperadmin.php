@@ -32,7 +32,7 @@ class EnsureSuperadmin
             abort(404, 'Platform Superadmin is only available in Cloud edition.');
         }
 
-        abort_unless(auth()->check() && auth()->user()->is_superadmin, 403, 'Unauthorized. Superadmin platform privileges required.');
+        abort_unless(auth()->check() && auth()->user()->isSuperAdmin(), 403, 'Unauthorized. Superadmin platform privileges required.');
 
         return $next($request);
     }

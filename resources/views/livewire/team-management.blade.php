@@ -59,7 +59,7 @@
                         </a>
                     @endif
 
-                    @if (auth()->user()?->is_superadmin)
+                    @if (auth()->user()?->isSuperAdmin())
                         <a
                             href="{{ route('superadmin.dashboard') }}"
                             class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition-all"

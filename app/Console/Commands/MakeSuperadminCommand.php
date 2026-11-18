@@ -42,6 +42,12 @@ class MakeSuperadminCommand extends Command
         $email = Str::lower(trim((string) $this->argument('email')));
         $revoke = (bool) $this->option('revoke');
 
+        if (! $revoke && (str_ends_with($email, '@tantou.local') || str_ends_with($email, '@hellenic-demo.gr'))) {
+            $this->error("Demo accounts ([{$email}]) can never be granted platform superadmin privileges.");
+
+            return self::FAILURE;
+        }
+
         $users = User::withoutGlobalScopes()->whereRaw('LOWER(email) = ?', [$email])->get();
 
         if ($users->isEmpty()) {

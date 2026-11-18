@@ -128,6 +128,7 @@ class SecurityAndRegistrationTest extends TestCase
             ->set('name', 'Acme Founder')
             ->set('password', 'Tantou#2026!Secure')
             ->set('password_confirmation', 'Tantou#2026!Secure')
+            ->set('plan', 'cloud')
             ->call('complete')
             ->assertHasNoErrors()
             ->assertRedirect('/board');
@@ -152,6 +153,89 @@ class SecurityAndRegistrationTest extends TestCase
         ]);
 
         $this->assertAuthenticatedAs($admin);
+
+        // 3c. Cloud Mode CompleteRegistration offers Tantou Cloud Managed as sole self-service plan,
+        // displays Enterprise mailto CTA to tantou@tsourdinis.info, and redirects cleanly to route('board', ['workspace' => slug])
+        auth()->logout();
+        Edition::fake(true);
+
+        $cloudToken = Str::random(64);
+        PendingRegistration::create([
+            'email' => 'director@hospital.eu',
+            'token_hash' => hash('sha256', $cloudToken),
+            'expires_at' => now()->addMinutes(25),
+        ]);
+
+        // Enterprise self-service plan is rejected in validation
+        Livewire::test(CompleteRegistration::class, ['token' => $cloudToken])
+            ->assertSee('Tantou Cloud Managed')
+            ->assertSee('mailto:tantou@tsourdinis.info?subject=Tantou%20Enterprise%20White-Label%20Inquiry', false)
+            ->assertSee('Need White-Label or Public Sector Procurement? Contact tantou@tsourdinis.info →')
+            ->set('organization_name', 'General Hospital IT')
+            ->set('slug', 'general-hospital-it')
+            ->set('name', 'Dr. Helena')
+            ->set('password', 'Hospital#2026!Secure')
+            ->set('password_confirmation', 'Hospital#2026!Secure')
+            ->set('plan', 'enterprise')
+            ->call('complete')
+            ->assertHasErrors(['plan']);
+
+        // Completing under cloud_managed provisions 14-day trial and redirects to route('board', ['workspace' => slug])
+        Livewire::test(CompleteRegistration::class, ['token' => $cloudToken])
+            ->set('organization_name', 'General Hospital IT')
+            ->set('slug', 'general-hospital-it')
+            ->set('name', 'Dr. Helena')
+            ->set('password', 'Hospital#2026!Secure')
+            ->set('password_confirmation', 'Hospital#2026!Secure')
+            ->set('plan', 'cloud_managed')
+            ->set('billing_interval', 'yearly')
+            ->call('complete')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('board', ['workspace' => 'general-hospital-it']));
+
+        $hospitalTenant = Tenant::where('slug', 'general-hospital-it')->first();
+        $this->assertNotNull($hospitalTenant);
+        $this->assertSame('cloud_managed', $hospitalTenant->plan);
+        $this->assertSame('yearly', $hospitalTenant->billing_interval);
+        $this->assertSame('trialing', $hospitalTenant->subscription_status);
+        $this->assertNotNull($hospitalTenant->trial_ends_at);
+        $this->assertTrue($hospitalTenant->trial_ends_at->isFuture());
+        $this->assertTrue($hospitalTenant->hasActiveSubscription());
+        $this->assertFalse($hospitalTenant->isTrialExpired());
+        $this->assertSame(1, $hospitalTenant->activeWorkersCount());
+        $this->assertTrue($hospitalTenant->canUseFeature('strict_b2b_isolation'));
+        $this->assertTrue($hospitalTenant->canUseFeature('gdpr_privacy_mode'));
+        $this->assertTrue($hospitalTenant->canUseFeature('custom_telegram_bot'));
+
+        // When trial_ends_at passes without a Stripe subscription, cloud_managed tenant is locked
+        $hospitalTenant->update(['trial_ends_at' => now()->subDay()]);
+        $this->assertTrue($hospitalTenant->fresh()->isTrialExpired());
+        $this->assertFalse($hospitalTenant->fresh()->hasActiveSubscription());
+        $this->assertFalse($hospitalTenant->fresh()->canAddWorker());
+        $this->assertFalse($hospitalTenant->fresh()->canUseFeature('strict_b2b_isolation'));
+
+        // Master Superadmin workspace (tantou-team) and demo workspace (hellenic-demo-ops) bypass trial expiration locks
+        $masterTenant = Tenant::factory()->create([
+            'slug' => 'tantou-team',
+            'name' => 'Tantou Team',
+            'plan' => 'cloud_managed',
+            'subscription_status' => 'trialing',
+            'trial_ends_at' => now()->subDays(30),
+        ]);
+        $demoTenant = Tenant::factory()->create([
+            'slug' => 'hellenic-demo-ops',
+            'name' => 'Hellenic Demo Ops',
+            'plan' => 'cloud_managed',
+            'subscription_status' => 'trialing',
+            'trial_ends_at' => now()->subDays(30),
+        ]);
+
+        $this->assertFalse($masterTenant->isTrialExpired());
+        $this->assertTrue($masterTenant->hasActiveSubscription());
+        $this->assertTrue($masterTenant->canAddWorker());
+        $this->assertFalse($demoTenant->isTrialExpired());
+        $this->assertTrue($demoTenant->hasActiveSubscription());
+        $this->assertTrue($demoTenant->canAddWorker());
 
         Edition::fake(null);
     }

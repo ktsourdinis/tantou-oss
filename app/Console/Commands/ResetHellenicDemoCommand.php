@@ -58,6 +58,7 @@ class ResetHellenicDemoCommand extends Command
             PostItAttachment::whereIn('post_it_id', $postItIds)->delete();
             PostIt::where('tenant_id', $tenant->id)->delete();
             User::where('tenant_id', $tenant->id)->delete();
+            User::withoutGlobalScopes()->where('email', 'alex@hellenic-demo.gr')->delete();
             Department::where('tenant_id', $tenant->id)->delete();
 
             $tenant->update([
@@ -120,6 +121,7 @@ class ResetHellenicDemoCommand extends Command
             'email' => 'admin@tantou.local',
             'password' => $hashedPassword,
             'role' => 'admin',
+            'is_superadmin' => false,
             'visibility' => 'private',
             'board_visibility' => 'private',
             'is_available' => true,
@@ -846,44 +848,127 @@ class ResetHellenicDemoCommand extends Command
             $user->update([
                 'current_capacity' => (int) $user->assignedPostIts()->whereIn('status', ['assigned', 'doing'])->sum('weight'),
                 'total_points' => $userPointsMap[$user->id] ?? 0,
+                'is_superadmin' => false,
             ]);
         }
 
-        // 8. Superadmin initialization for demo and platform management
-        $alexSuper = User::where('email', 'alex@hellenic-demo.gr')->first();
-        if (! $alexSuper) {
-            $alexSuper = User::create([
-                'tenant_id' => $tenant->id,
-                'department_id' => $opsDept->id,
-                'name' => 'Alexandros (Superadmin)',
-                'email' => 'alex@hellenic-demo.gr',
-                'password' => $hashedPassword,
-                'role' => 'admin',
-                'visibility' => 'private',
-                'board_visibility' => 'private',
-                'is_available' => true,
-                'max_capacity' => 10,
-                'current_capacity' => 0,
-                'total_points' => 120,
-                'locale' => 'en',
-            ]);
-        }
-        $alexSuper->is_superadmin = true;
-        $alexSuper->save();
-
-        $alex->is_superadmin = true;
-        $alex->save();
-
-        $superadminEmails = array_filter(array_map('trim', explode(',', (string) config('tantou.superadmin_emails', 'alex@hellenic-demo.gr,admin@example.com'))));
-        $superadminEmails[] = 'alex@hellenic-demo.gr';
-        $superadminEmails[] = 'admin@tantou.local';
-
-        User::withoutGlobalScopes()
-            ->whereIn('email', $superadminEmails)
-            ->update(['is_superadmin' => true]);
+        self::provisionMasterSuperadmin();
 
         $this->info('Hellenic Demo Ops tenant successfully reset.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Auto-provision or update the Master Superadmin user and "Tantou Team" workspace when configured.
+     */
+    public static function provisionMasterSuperadmin(): void
+    {
+        $superadminEmail = strtolower(trim((string) (
+            config('tantou-cloud.superadmin_email')
+            ?: config('tantou.superadmin_email')
+            ?: env('TANTOU_SUPERADMIN_EMAIL', '')
+        )));
+
+        if (
+            $superadminEmail === ''
+            || str_ends_with($superadminEmail, '@tantou.local')
+            || str_ends_with($superadminEmail, '@hellenic-demo.gr')
+        ) {
+            User::withoutGlobalScopes()
+                ->where(function ($q): void {
+                    $q->where('email', 'like', '%@tantou.local')
+                        ->orWhere('email', 'like', '%@hellenic-demo.gr');
+                })
+                ->update(['is_superadmin' => false]);
+
+            return;
+        }
+
+        $superadminPassword = (string) (
+            config('tantou-cloud.superadmin_password')
+            ?: config('tantou.superadmin_password')
+            ?: env('TANTOU_SUPERADMIN_PASSWORD', '')
+        );
+
+        $superadminName = trim((string) (
+            config('tantou-cloud.superadmin_name')
+            ?: config('tantou.superadmin_name')
+            ?: env('TANTOU_SUPERADMIN_NAME', 'Konstantinos Tsourdinis')
+        )) ?: 'Konstantinos Tsourdinis';
+
+        $workspaceName = trim((string) (
+            config('tantou-cloud.superadmin_workspace')
+            ?: config('tantou.superadmin_workspace')
+            ?: env('TANTOU_SUPERADMIN_WORKSPACE', 'Tantou Team')
+        )) ?: 'Tantou Team';
+
+        $workspaceSlug = trim((string) (
+            config('tantou-cloud.superadmin_slug')
+            ?: config('tantou.superadmin_slug')
+            ?: env('TANTOU_SUPERADMIN_SLUG', 'tantou-team')
+        )) ?: 'tantou-team';
+
+        $masterTenant = Tenant::updateOrCreate(
+            ['slug' => $workspaceSlug],
+            [
+                'name' => $workspaceName,
+                'plan' => 'business',
+                'subscription_status' => 'active',
+                'public_submission_enabled' => true,
+                'strict_client_isolation' => false,
+                'timezone' => 'Europe/Athens',
+                'settings' => [
+                    'timezone' => 'Europe/Athens',
+                    'theme' => 'dark',
+                ],
+            ]
+        );
+
+        $masterDept = Department::firstOrCreate(
+            [
+                'tenant_id' => $masterTenant->id,
+                'slug' => 'operations',
+            ],
+            [
+                'name' => 'Operations',
+                'color' => '#6366f1',
+            ]
+        );
+
+        $existingUser = User::withoutGlobalScopes()->whereRaw('LOWER(email) = ?', [$superadminEmail])->first();
+
+        $userAttributes = [
+            'tenant_id' => $masterTenant->id,
+            'department_id' => $existingUser?->department_id ?: $masterDept->id,
+            'name' => $superadminName,
+            'email' => $superadminEmail,
+            'role' => 'admin',
+            'is_superadmin' => true,
+            'email_verified_at' => $existingUser?->email_verified_at ?: now(),
+            'visibility' => $existingUser?->visibility ?: 'public',
+            'board_visibility' => $existingUser?->board_visibility ?: 'public',
+            'is_available' => $existingUser !== null ? (bool) $existingUser->is_available : true,
+            'max_capacity' => $existingUser?->max_capacity ?: 15,
+            'locale' => $existingUser?->locale ?: 'en',
+        ];
+
+        if ($superadminPassword !== '') {
+            $userAttributes['password'] = Hash::make($superadminPassword);
+        } elseif (! $existingUser) {
+            $userAttributes['password'] = Hash::make(bin2hex(random_bytes(16)));
+        }
+
+        if ($existingUser) {
+            $existingUser->forceFill($userAttributes)->save();
+            $masterUser = $existingUser;
+        } else {
+            $masterUser = new User;
+            $masterUser->forceFill($userAttributes)->save();
+        }
+
+        User::withoutGlobalScopes()
+            ->where('id', '!=', $masterUser->id)
+            ->update(['is_superadmin' => false]);
     }
 }

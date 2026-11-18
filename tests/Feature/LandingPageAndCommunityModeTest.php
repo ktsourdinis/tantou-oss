@@ -56,6 +56,7 @@ class LandingPageAndCommunityModeTest extends TestCase
         $response->assertSee('€0');
         $response->assertSee('€8');
         $response->assertSee('€3,600');
+        $response->assertSee('mailto:tantou@tsourdinis.info?subject=Tantou%20Enterprise%20%26%20Public%20Sector%20White-Label%20Inquiry', false);
 
         // Section 5: Self-Host Quickstart
         $response->assertSee('Self-Host Tantou on Your Own Server in 60 Seconds');

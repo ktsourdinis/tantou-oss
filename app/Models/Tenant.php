@@ -97,15 +97,17 @@ class Tenant extends Model
     }
 
     /**
-     * Determine if this is the public demo workspace.
+     * Determine if this is the public demo workspace or master Tantou Team workspace.
      */
     public function isDemo(): bool
     {
-        return $this->slug === 'hellenic-demo-ops';
+        $masterSlug = (string) (config('tantou-cloud.superadmin_slug') ?: config('tantou.superadmin_slug') ?: 'tantou-team');
+
+        return in_array($this->slug, ['hellenic-demo-ops', $masterSlug], true);
     }
 
     /**
-     * Resolve effective plan ('team', 'business').
+     * Resolve effective plan ('cloud_managed', 'team', 'business').
      */
     public function effectivePlan(): string
     {
@@ -117,12 +119,32 @@ class Tenant extends Model
     }
 
     /**
+     * Determine if the workspace's trial period has expired without an active Stripe subscription.
+     */
+    public function isTrialExpired(): bool
+    {
+        if (Edition::isCommunity() || $this->isDemo() || ! (bool) config('tantou.cloud_billing_enabled', true)) {
+            return false;
+        }
+
+        if ($this->subscription_status === 'active' || filled($this->stripe_subscription_id)) {
+            return false;
+        }
+
+        return $this->trial_ends_at !== null && $this->trial_ends_at->isPast();
+    }
+
+    /**
      * Determine if the workspace currently has an active subscription or valid trial.
      */
     public function hasActiveSubscription(): bool
     {
-        if (Edition::isCommunity() || $this->isDemo()) {
+        if (Edition::isCommunity() || $this->isDemo() || ! (bool) config('tantou.cloud_billing_enabled', true)) {
             return true;
+        }
+
+        if ($this->isTrialExpired()) {
+            return false;
         }
 
         return in_array($this->subscription_status, ['active', 'trialing'], true);
@@ -179,6 +201,10 @@ class Tenant extends Model
      */
     public function canAddWorker(): bool
     {
+        if ($this->isTrialExpired()) {
+            return false;
+        }
+
         $limit = $this->maxWorkersLimit();
         if ($limit === null) {
             return true;
@@ -194,6 +220,10 @@ class Tenant extends Model
     {
         if (Edition::isCommunity() || $this->isDemo()) {
             return true;
+        }
+
+        if ($this->isTrialExpired()) {
+            return false;
         }
 
         $features = $this->planConfig()['features'] ?? [];

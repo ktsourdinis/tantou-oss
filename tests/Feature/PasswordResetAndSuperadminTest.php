@@ -60,8 +60,8 @@ class PasswordResetAndSuperadminTest extends TestCase
         $this->superAdmin = User::factory()->admin()->create([
             'tenant_id' => $this->tenant->id,
             'department_id' => $this->department->id,
-            'name' => 'Alex Superadmin',
-            'email' => 'alex@hellenic-demo.gr',
+            'name' => 'Platform Superadmin',
+            'email' => 'platform-admin@tantou-cloud.test',
             'is_superadmin' => true,
         ]);
     }
@@ -284,5 +284,95 @@ class PasswordResetAndSuperadminTest extends TestCase
         $this->actingAs($this->superAdmin)
             ->get('/superadmin')
             ->assertNotFound();
+    }
+
+    /**
+     * 7. Demo admin (admin@tantou.local) can manage /team as Tenant Admin, gets 403 on /superadmin,
+     * does not see Superadmin nav button, and superadmin_emails allowlist is strictly enforced.
+     */
+    public function test_demo_admin_can_manage_team_but_cannot_access_superadmin_and_allowlist_is_enforced(): void
+    {
+        $this->artisan('tantou:reset-demo')->assertSuccessful();
+
+        // Duplicate alex@hellenic-demo.gr is never seeded
+        $this->assertDatabaseMissing('users', ['email' => 'alex@hellenic-demo.gr']);
+
+        $alex = User::withoutGlobalScopes()->where('email', 'admin@tantou.local')->firstOrFail();
+        $this->assertSame('admin', $alex->role);
+        $this->assertFalse($alex->isSuperAdmin());
+        $this->assertFalse($alex->is_superadmin);
+
+        // Even if someone forces the raw DB column to 1 on a @tantou.local or @hellenic-demo.gr user, isSuperAdmin() is false
+        DB::table('users')->where('id', $alex->id)->update(['is_superadmin' => 1]);
+        $alex->refresh();
+        $this->assertFalse($alex->isSuperAdmin());
+        $this->assertFalse($alex->is_superadmin);
+
+        // Alex M. can access /team as Tenant Admin and does NOT see Superadmin navigation link
+        $this->actingAs($alex)
+            ->get('/team')
+            ->assertOk()
+            ->assertDontSee(route('superadmin.dashboard'));
+
+        // Alex M. receives 403 Forbidden on /superadmin
+        $this->actingAs($alex)
+            ->get('/superadmin')
+            ->assertForbidden();
+
+        // Allowlist enforcement when config('tantou-cloud.superadmin_emails') is non-empty
+        config(['tantou-cloud.superadmin_emails' => 'allowed-owner@tantou-cloud.test']);
+        $this->assertFalse($this->superAdmin->fresh()->isSuperAdmin());
+
+        config(['tantou-cloud.superadmin_emails' => 'platform-admin@tantou-cloud.test']);
+        $this->assertTrue($this->superAdmin->fresh()->isSuperAdmin());
+
+        config(['tantou-cloud.superadmin_emails' => '']);
+    }
+
+    /**
+     * 8. Seeding with TANTOU_SUPERADMIN_EMAIL and TANTOU_SUPERADMIN_PASSWORD creates "Tantou Team" workspace,
+     * sets the hashed password, and grants is_superadmin = true exclusively to that user.
+     */
+    public function test_seeding_with_master_superadmin_env_provisions_tantou_team_and_exclusive_superadmin(): void
+    {
+        config([
+            'tantou-cloud.superadmin_email' => 'founder@tantou-studio.eu',
+            'tantou-cloud.superadmin_password' => 'MasterPass#2026!Strong',
+            'tantou-cloud.superadmin_name' => 'Konstantinos Tsourdinis',
+            'tantou-cloud.superadmin_workspace' => 'Tantou Team',
+            'tantou-cloud.superadmin_slug' => 'tantou-team',
+        ]);
+
+        $this->artisan('db:seed')->assertSuccessful();
+
+        $masterWorkspace = Tenant::where('slug', 'tantou-team')->first();
+        $this->assertNotNull($masterWorkspace);
+        $this->assertSame('Tantou Team', $masterWorkspace->name);
+        $this->assertSame('business', $masterWorkspace->plan);
+        $this->assertSame('active', $masterWorkspace->subscription_status);
+        $this->assertTrue($masterWorkspace->hasActiveSubscription());
+
+        $masterUser = User::withoutGlobalScopes()->where('email', 'founder@tantou-studio.eu')->first();
+        $this->assertNotNull($masterUser);
+        $this->assertSame('Konstantinos Tsourdinis', $masterUser->name);
+        $this->assertSame($masterWorkspace->id, $masterUser->tenant_id);
+        $this->assertSame('admin', $masterUser->role);
+        $this->assertNotNull($masterUser->email_verified_at);
+        $this->assertTrue(Hash::check('MasterPass#2026!Strong', $masterUser->password));
+        $this->assertTrue($masterUser->isSuperAdmin());
+        $this->assertTrue($masterUser->is_superadmin);
+
+        // Demo admin (admin@tantou.local) has is_superadmin = false
+        $alex = User::withoutGlobalScopes()->where('email', 'admin@tantou.local')->firstOrFail();
+        $this->assertFalse($alex->isSuperAdmin());
+        $this->assertFalse($alex->is_superadmin);
+
+        // Even another user with is_superadmin = 1 in DB is rejected because superadmin_email is exclusively founder@tantou-studio.eu
+        $this->assertFalse($this->superAdmin->fresh()->isSuperAdmin());
+
+        config([
+            'tantou-cloud.superadmin_email' => '',
+            'tantou-cloud.superadmin_password' => '',
+        ]);
     }
 }

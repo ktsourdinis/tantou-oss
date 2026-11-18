@@ -143,7 +143,7 @@ class StripeWebhookController
             'current_period_ends_at' => $interval === 'yearly' ? now()->addYear() : now()->addMonth(),
         ];
 
-        if (in_array($plan, ['team', 'business'], true)) {
+        if (in_array($plan, ['cloud_managed', 'cloud', 'team', 'business'], true)) {
             $updateData['plan'] = $plan;
         }
 

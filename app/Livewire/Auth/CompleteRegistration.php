@@ -18,6 +18,7 @@ use App\Models\Department;
 use App\Models\PendingRegistration;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\StripeBillingService;
 use App\Support\Edition;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -56,7 +57,9 @@ class CompleteRegistration extends Component
 
     public string $password_confirmation = '';
 
-    public string $plan = 'team';
+    public string $plan = 'cloud_managed';
+
+    public string $billing_interval = 'monthly';
 
     /**
      * Mount and validate token against pending registrations.
@@ -99,8 +102,13 @@ class CompleteRegistration extends Component
         }
 
         $queryPlan = (string) request()->query('plan');
-        if (in_array($queryPlan, ['team', 'business'], true)) {
-            $this->plan = $queryPlan;
+        if (in_array($queryPlan, ['cloud_managed', 'cloud', 'team'], true)) {
+            $this->plan = 'cloud_managed';
+        }
+
+        $queryInterval = (string) request()->query('interval');
+        if (in_array($queryInterval, ['monthly', 'yearly'], true)) {
+            $this->billing_interval = $queryInterval;
         }
 
         return null;
@@ -189,7 +197,8 @@ class CompleteRegistration extends Component
             'organization_name' => ['required', 'string', 'min:2', 'max:100'],
             'name' => ['required', 'string', 'min:2', 'max:100'],
             'password' => ['required', 'string', 'confirmed', Password::defaults()],
-            'plan' => ['required', 'in:team,business'],
+            'plan' => ['required', 'in:cloud_managed,cloud,team'],
+            'billing_interval' => ['required', 'in:monthly,yearly'],
         ];
 
         if (Edition::isCloud()) {
@@ -232,13 +241,15 @@ class CompleteRegistration extends Component
         }
 
         // 4. Provision in DB Transaction
-        $user = DB::transaction(function () use ($pending, $finalSlug) {
-            // A. Create Tenant
+        $interval = in_array($this->billing_interval, ['monthly', 'yearly'], true) ? $this->billing_interval : 'monthly';
+
+        $user = DB::transaction(function () use ($pending, $finalSlug, $interval) {
+            // A. Create Tenant under Tantou Cloud Managed plan with 14-day trial
             $tenant = Tenant::create([
                 'name' => trim($this->organization_name),
                 'slug' => $finalSlug,
-                'plan' => in_array($this->plan, ['team', 'business'], true) ? $this->plan : 'team',
-                'billing_interval' => 'monthly',
+                'plan' => 'cloud_managed',
+                'billing_interval' => $interval,
                 'subscription_status' => 'trialing',
                 'trial_ends_at' => now()->addDays(14),
                 'settings' => [
@@ -275,29 +286,34 @@ class CompleteRegistration extends Component
             return $admin;
         });
 
-        // 5. Cloud Subdomain redirect or standard login
+        // 5. Authenticate and redirect to Stripe Checkout (if configured) or 14-day trial board on current host
         Auth::login($user);
         session()->regenerate();
 
         $tenant = $user->tenant;
 
-        if (Edition::usesSubdomains(request())) {
-            $signedUrl = Edition::signedTenantAutoLoginUrl($user, request());
-
-            $this->redirect($signedUrl, navigate: false);
-
-            return null;
-        }
-
         if ($tenant) {
             session(['active_tenant_id' => $tenant->id]);
+            app()->instance('currentTenant', $tenant);
         }
 
-        if (Edition::isSelfHosted() || config('tantou.routing_mode') === 'single') {
-            return redirect()->route('board');
+        if (Edition::isCloud() && $tenant) {
+            $stripeSecret = (string) config('tantou.stripe.secret');
+            $stripePriceId = (string) (
+                config("tantou.stripe.prices.cloud_managed.{$interval}")
+                ?: config("tantou.stripe.prices.cloud.{$interval}")
+            );
+
+            if (filled($stripeSecret) && filled($stripePriceId)) {
+                $checkoutUrl = app(StripeBillingService::class)->createCheckoutSession($tenant, 'cloud_managed', $interval);
+
+                return redirect()->away($checkoutUrl);
+            }
+
+            return redirect()->to(route('board', ['workspace' => $tenant->slug]));
         }
 
-        return redirect()->to(Edition::workspaceUrl($tenant, '/board', request()));
+        return redirect()->to('/board');
     }
 
     /**

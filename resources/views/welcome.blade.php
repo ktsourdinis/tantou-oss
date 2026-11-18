@@ -606,9 +606,7 @@
 
                         <div class="mt-8 pt-6 border-t border-slate-800">
                             <a
-                                href="https://github.com/ktsourdinis/tantou-oss/issues"
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                href="mailto:tantou@tsourdinis.info?subject=Tantou%20Enterprise%20%26%20Public%20Sector%20White-Label%20Inquiry"
                                 class="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-lg shadow-purple-600/30 transition-all"
                             >
                                 <span>{{ __('Contact Enterprise Sales →') }}</span>
@@ -706,6 +704,10 @@
                 <div class="flex items-center gap-4 text-slate-400 font-mono text-[11px]">
                     <a href="https://github.com/ktsourdinis/tantou-oss" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">
                         GitHub (Open-Core)
+                    </a>
+                    <span>•</span>
+                    <a href="mailto:tantou@tsourdinis.info" class="hover:text-white transition-colors">
+                        tantou@tsourdinis.info
                     </a>
                     <span>•</span>
                     <span>Laravel 13</span>

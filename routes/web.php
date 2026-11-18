@@ -98,7 +98,7 @@ Route::middleware('auth')->group(function (): void {
         $request->session()->forget('active_tenant_id');
 
         $originalUser = User::withoutGlobalScopes()->find($impersonatorId);
-        if ($originalUser && $originalUser->is_superadmin) {
+        if ($originalUser && $originalUser->isSuperAdmin()) {
             Auth::login($originalUser);
 
             return redirect()->route('superadmin.dashboard');

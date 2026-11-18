@@ -137,11 +137,33 @@ class Edition
         if (str_contains($domain, '://')) {
             $parsed = parse_url($domain, PHP_URL_HOST);
             if ($parsed) {
-                return $parsed;
+                $domain = $parsed;
             }
         }
 
-        return trim(explode(':', $domain)[0]);
+        $domain = trim(explode(':', $domain)[0]);
+
+        $requestHost = request() ? trim(explode(':', request()->getHost())[0]) : '';
+        $appUrlHost = (string) (parse_url((string) config('app.url'), PHP_URL_HOST) ?? '');
+
+        if (in_array($domain, ['tantou.app', ''], true)) {
+            if (
+                $requestHost !== ''
+                && ! str_ends_with($requestHost, '.tantou.app')
+            ) {
+                return $requestHost;
+            }
+
+            if (
+                $appUrlHost !== ''
+                && $appUrlHost !== 'tantou.app'
+                && ! str_ends_with($appUrlHost, '.tantou.app')
+            ) {
+                return $appUrlHost;
+            }
+        }
+
+        return $domain ?: ($requestHost ?: ($appUrlHost ?: 'localhost'));
     }
 
     /**
@@ -197,7 +219,18 @@ class Edition
         $request = $request ?? (request() ?: null);
         $host = $request ? $request->getHost() : parse_url((string) config('app.url'), PHP_URL_HOST);
 
-        return static::isCloud() && ! static::isIpAddress($host);
+        if (! static::isCloud() || static::isIpAddress($host)) {
+            return false;
+        }
+
+        $cleanHost = strtolower(trim(explode(':', (string) $host)[0]));
+        $baseDomain = strtolower(static::baseDomain());
+
+        if ($cleanHost !== '' && $cleanHost !== $baseDomain && str_ends_with($cleanHost, '.'.$baseDomain)) {
+            return true;
+        }
+
+        return in_array($baseDomain, ['localhost', 'tantou.test'], true);
     }
 
     /**

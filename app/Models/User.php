@@ -250,9 +250,62 @@ class User extends Authenticatable
     /**
      * Check if user is a platform superadmin.
      */
-    public function isSuperadmin(): bool
+    public function isSuperAdmin(): bool
     {
-        return (bool) $this->is_superadmin;
+        $email = strtolower(trim((string) ($this->attributes['email'] ?? '')));
+
+        if (
+            $email === ''
+            || str_ends_with($email, '@tantou.local')
+            || str_ends_with($email, '@hellenic-demo.gr')
+        ) {
+            return false;
+        }
+
+        if (! (bool) ($this->attributes['is_superadmin'] ?? false)) {
+            return false;
+        }
+
+        $singleEmail = strtolower(trim((string) (
+            config('tantou-cloud.superadmin_email')
+            ?: config('tantou.superadmin_email')
+            ?: env('TANTOU_SUPERADMIN_EMAIL', '')
+        )));
+
+        $configuredList = trim((string) (
+            config('tantou-cloud.superadmin_emails')
+            ?: config('tantou.superadmin_emails')
+            ?: env('SUPERADMIN_EMAIL', '')
+        ));
+
+        if ($singleEmail !== '' || $configuredList !== '') {
+            $rawItems = array_merge(
+                $singleEmail !== '' ? [$singleEmail] : [],
+                $configuredList !== '' ? explode(',', $configuredList) : []
+            );
+
+            $allowedEmails = array_values(array_filter(
+                array_map(
+                    static fn (string $item): string => strtolower(trim($item)),
+                    $rawItems
+                ),
+                static fn (string $item): bool => $item !== ''
+                    && ! str_ends_with($item, '@tantou.local')
+                    && ! str_ends_with($item, '@hellenic-demo.gr')
+            ));
+
+            return in_array($email, $allowedEmails, true);
+        }
+
+        return true;
+    }
+
+    /**
+     * Accessor for is_superadmin attribute so property access also enforces demo account exclusion and allowlist.
+     */
+    public function getIsSuperadminAttribute(mixed $value): bool
+    {
+        return $this->isSuperAdmin();
     }
 
     /**

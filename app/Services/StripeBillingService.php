@@ -28,7 +28,7 @@ class StripeBillingService
      */
     public function createCheckoutSession(Tenant $tenant, string $plan, string $interval = 'monthly'): string
     {
-        $plan = in_array($plan, ['team', 'business'], true) ? $plan : 'team';
+        $plan = in_array($plan, ['cloud_managed', 'cloud', 'team', 'business'], true) ? $plan : 'cloud_managed';
         $interval = in_array($interval, ['monthly', 'yearly'], true) ? $interval : 'monthly';
         $secret = (string) config('tantou.stripe.secret');
 
@@ -47,6 +47,9 @@ class StripeBillingService
         }
 
         $priceId = (string) config("tantou.stripe.prices.{$plan}.{$interval}");
+        if (blank($priceId) && in_array($plan, ['cloud_managed', 'cloud'], true)) {
+            $priceId = (string) (config("tantou.stripe.prices.cloud_managed.{$interval}") ?: config("tantou.stripe.prices.cloud.{$interval}"));
+        }
         if (blank($priceId)) {
             $priceId = $plan === 'business' ? 'price_business_'.$interval : 'price_team_'.$interval;
         }
@@ -55,11 +58,15 @@ class StripeBillingService
         $successUrl = Edition::workspaceUrl($tenant, '/board?session_id={CHECKOUT_SESSION_ID}', request());
         $cancelUrl = Edition::workspaceUrl($tenant, '/board?canceled=1', request());
 
+        $quantity = in_array($plan, ['cloud_managed', 'cloud'], true)
+            ? max(1, $tenant->activeWorkersCount())
+            : 1;
+
         $payload = [
             'mode' => 'subscription',
             'client_reference_id' => (string) $tenant->id,
             'line_items[0][price]' => $priceId,
-            'line_items[0][quantity]' => 1,
+            'line_items[0][quantity]' => $quantity,
             'tax_id_collection[enabled]' => 'true',
             'success_url' => $successUrl,
             'cancel_url' => $cancelUrl,
@@ -67,6 +74,10 @@ class StripeBillingService
             'metadata[plan]' => $plan,
             'metadata[interval]' => $interval,
         ];
+
+        if ($tenant->subscription_status === 'trialing') {
+            $payload['subscription_data[trial_period_days]'] = 14;
+        }
 
         if (filled($tenant->stripe_customer_id)) {
             $payload['customer'] = $tenant->stripe_customer_id;

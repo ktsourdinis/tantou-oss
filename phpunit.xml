@@ -35,5 +35,8 @@
         <env name="TANTOU_EDITION" value="community"/>
         <env name="TANTOU_ROUTING_MODE" value="auto"/>
         <env name="TANTOU_BASE_DOMAIN" value="localhost"/>
+        <env name="TANTOU_SUPERADMIN_EMAILS" value=""/>
+        <env name="TANTOU_SUPERADMIN_EMAIL" value=""/>
+        <env name="TANTOU_SUPERADMIN_PASSWORD" value=""/>
     </php>
 </phpunit>

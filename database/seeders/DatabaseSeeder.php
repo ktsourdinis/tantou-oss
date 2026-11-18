@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Console\Commands\ResetHellenicDemoCommand;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Artisan;
@@ -20,5 +21,7 @@ class DatabaseSeeder extends Seeder
         } else {
             Artisan::call('tantou:reset-demo');
         }
+
+        ResetHellenicDemoCommand::provisionMasterSuperadmin();
     }
 }
