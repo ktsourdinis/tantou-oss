@@ -203,7 +203,7 @@ trait ManagesWorkspaceSettings
                 && ! (Edition::isCloud() && $tenant->plan === 'community' && ! $tenant->isDemo());
 
             if (! $hasCustomDomainPlan) {
-                $this->addError('tenantCustomDomain', __('Custom Domain requires the Cloud Business plan. 🔒 Upgrade to Tantou Cloud Managed to connect a custom CNAME domain'));
+                $this->addError('tenantCustomDomain', __('🔒 Upgrade to Tantou Cloud Managed to connect a custom CNAME domain'));
 
                 return;
             }
@@ -229,19 +229,19 @@ trait ManagesWorkspaceSettings
         }
 
         if ($this->strictClientIsolation && ! $tenant->canUseFeature('strict_b2b_isolation')) {
-            $this->addError('strictClientIsolation', __('Strict B2B Client Isolation requires the Cloud Business plan.'));
+            $this->addError('strictClientIsolation', __('Strict B2B Client Isolation requires an active Tantou Cloud Managed subscription.'));
 
             return;
         }
 
         if ($this->telegramPrivacyMode && ! $tenant->canUseFeature('gdpr_privacy_mode')) {
-            $this->addError('telegramPrivacyMode', __('GDPR / Privacy Mode requires the Cloud Business plan.'));
+            $this->addError('telegramPrivacyMode', __('GDPR / Privacy Mode requires an active Tantou Cloud Managed subscription.'));
 
             return;
         }
 
         if (filled($this->telegramBotToken) && ! $tenant->canUseFeature('custom_telegram_bot')) {
-            $this->addError('telegramBotToken', __('Custom Dedicated Telegram Bot requires the Cloud Business plan.'));
+            $this->addError('telegramBotToken', __('Custom Dedicated Telegram Bot requires an active Tantou Cloud Managed subscription.'));
 
             return;
         }

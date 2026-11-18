@@ -376,8 +376,8 @@ class TeamManagement extends Component
 
         if ($this->editingUserId === null) {
             if ($isWorkerRole && ! $tenant->canAddWorker()) {
-                $this->addError('userRole', __('Your :plan workspace has reached its limit of :max active team workers. Please upgrade to Cloud Business for unlimited capacity.', [
-                    'plan' => 'Cloud Team',
+                $this->addError('userRole', __('Your :plan workspace has reached its limit of :max active team workers. Please upgrade to Tantou Cloud Managed for additional capacity.', [
+                    'plan' => 'Tantou Cloud Managed',
                     'max' => $tenant->maxWorkersLimit(),
                 ]));
 
@@ -396,8 +396,8 @@ class TeamManagement extends Component
 
             $wasClient = ($existingUser->role === 'client');
             if ($wasClient && $isWorkerRole && ! $tenant->canAddWorker()) {
-                $this->addError('userRole', __('Your :plan workspace has reached its limit of :max active team workers. Please upgrade to Cloud Business for unlimited capacity.', [
-                    'plan' => 'Cloud Team',
+                $this->addError('userRole', __('Your :plan workspace has reached its limit of :max active team workers. Please upgrade to Tantou Cloud Managed for additional capacity.', [
+                    'plan' => 'Tantou Cloud Managed',
                     'max' => $tenant->maxWorkersLimit(),
                 ]));
 

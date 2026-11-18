@@ -104,10 +104,14 @@
                         {{ __('est. MRR') }}
                     </span>
                 </div>
-                <div class="flex items-center gap-2 text-xs text-slate-400">
-                    <span class="text-indigo-300 font-medium">{{ $businessTenants }} {{ __('Business (€79)') }}</span>
+                <div class="flex items-center gap-2 text-xs text-slate-400 flex-wrap">
+                    <span class="text-purple-300 font-medium">{{ $enterpriseTenants }} {{ __('Enterprise') }}</span>
                     <span class="text-slate-600">•</span>
-                    <span class="text-slate-300">{{ $teamTenants }} {{ __('Team (€29)') }}</span>
+                    <span class="text-indigo-300 font-medium">{{ $cloudManagedTenants }} {{ __('Cloud Managed (€8/w)') }}</span>
+                    @if ($communityTenants > 0)
+                        <span class="text-slate-600">•</span>
+                        <span class="text-emerald-300">{{ $communityTenants }} {{ __('Community') }}</span>
+                    @endif
                 </div>
             </div>
 
@@ -164,8 +168,9 @@
                     class="py-2 px-3 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
                 >
                     <option value="">{{ __('All Plans') }}</option>
-                    <option value="team">{{ __('Team') }}</option>
-                    <option value="business">{{ __('Business') }}</option>
+                    <option value="community">{{ __('Self-Hosted Community') }}</option>
+                    <option value="cloud_managed">{{ __('Tantou Cloud Managed') }}</option>
+                    <option value="enterprise">{{ __('Public Sector & Enterprise') }}</option>
                 </select>
 
                 {{-- Status Filter --}}
@@ -364,8 +369,9 @@
                     <div>
                         <label class="block text-xs font-semibold text-slate-300 mb-1.5">{{ __('Subscription Plan') }}</label>
                         <select wire:model="editingPlan" class="w-full py-2 px-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500">
-                            <option value="team">{{ __('Team Plan (€29 / month, 15 workers, 3 depts)') }}</option>
-                            <option value="business">{{ __('Business Plan (€79 / month, unlimited workers & depts)') }}</option>
+                            <option value="community">{{ __('Self-Hosted Community (€0 / forever)') }}</option>
+                            <option value="cloud_managed">{{ __('Tantou Cloud Managed (€8 / active worker / month)') }}</option>
+                            <option value="enterprise">{{ __('Public Sector & Enterprise (€3,600 / year · Contract SLA)') }}</option>
                         </select>
                         @error('editingPlan') <span class="text-xs text-rose-400 mt-1 block">{{ $message }}</span> @enderror
                     </div>
@@ -383,17 +389,19 @@
                     </div>
 
                     {{-- Custom Domain --}}
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-300 mb-1.5">{{ __('Custom Domain (e.g. app.mycompany.gr)') }}</label>
-                        <input
-                            wire:model="editingCustomDomain"
-                            type="text"
-                            placeholder="app.example.com"
-                            class="w-full py-2 px-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        >
-                        <p class="text-[11px] text-slate-500 mt-1">{{ __('Leave blank to use default workspace subdomain or path routing.') }}</p>
-                        @error('editingCustomDomain') <span class="text-xs text-rose-400 mt-1 block">{{ $message }}</span> @enderror
-                    </div>
+                    @if (config('tantou-cloud.custom_domains_enabled'))
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">{{ __('Custom Domain (e.g. app.mycompany.gr)') }}</label>
+                            <input
+                                wire:model="editingCustomDomain"
+                                type="text"
+                                placeholder="app.example.com"
+                                class="w-full py-2 px-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            >
+                            <p class="text-[11px] text-slate-500 mt-1">{{ __('Leave blank to use default workspace subdomain or path routing.') }}</p>
+                            @error('editingCustomDomain') <span class="text-xs text-rose-400 mt-1 block">{{ $message }}</span> @enderror
+                        </div>
+                    @endif
 
                     <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
                         <button
@@ -458,8 +466,9 @@
                         <div>
                             <label class="block text-xs font-semibold text-slate-300 mb-1.5">{{ __('Plan') }}</label>
                             <select wire:model="newTenantPlan" class="w-full py-2 px-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500">
-                                <option value="team">{{ __('Team (€29)') }}</option>
-                                <option value="business">{{ __('Business (€79)') }}</option>
+                                <option value="community">{{ __('Self-Hosted Community (€0 / forever)') }}</option>
+                                <option value="cloud_managed">{{ __('Tantou Cloud Managed (€8 / active worker / month)') }}</option>
+                                <option value="enterprise">{{ __('Public Sector & Enterprise (€3,600 / year · Contract SLA)') }}</option>
                             </select>
                             @error('newTenantPlan') <span class="text-xs text-rose-400 mt-1 block">{{ $message }}</span> @enderror
                         </div>

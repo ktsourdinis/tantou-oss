@@ -51,7 +51,7 @@ class SuperadminDashboard extends Component
 
     public string $editingTenantName = '';
 
-    public string $editingPlan = 'team';
+    public string $editingPlan = 'cloud_managed';
 
     public string $editingStatus = 'active';
 
@@ -64,7 +64,7 @@ class SuperadminDashboard extends Component
 
     public string $newTenantSlug = '';
 
-    public string $newTenantPlan = 'team';
+    public string $newTenantPlan = 'cloud_managed';
 
     public string $newTenantStatus = 'active';
 
@@ -151,7 +151,7 @@ class SuperadminDashboard extends Component
 
         $this->editingTenantId = $tenant->id;
         $this->editingTenantName = $tenant->name;
-        $this->editingPlan = $tenant->plan ?: 'team';
+        $this->editingPlan = $tenant->plan ?: 'cloud_managed';
         $this->editingStatus = $tenant->subscription_status ?: 'active';
         $this->editingCustomDomain = $tenant->custom_domain;
         $this->showEditModal = true;
@@ -173,7 +173,7 @@ class SuperadminDashboard extends Component
     public function saveTenantEdits(): void
     {
         $this->validate([
-            'editingPlan' => ['required', 'in:team,business'],
+            'editingPlan' => ['required', 'in:community,cloud_managed,enterprise,team,business'],
             'editingStatus' => ['required', 'in:active,trialing,past_due,suspended'],
             'editingCustomDomain' => [
                 'nullable',
@@ -217,7 +217,7 @@ class SuperadminDashboard extends Component
             'newAdminPassword_confirmation',
         ]);
 
-        $this->newTenantPlan = 'team';
+        $this->newTenantPlan = 'cloud_managed';
         $this->newTenantStatus = 'active';
         $this->showCreateModal = true;
     }
@@ -239,7 +239,7 @@ class SuperadminDashboard extends Component
         $this->validate([
             'newTenantName' => ['required', 'string', 'min:2', 'max:100'],
             'newTenantSlug' => ['required', 'string', 'alpha_dash', 'min:2', 'max:50', 'unique:tenants,slug'],
-            'newTenantPlan' => ['required', 'in:team,business'],
+            'newTenantPlan' => ['required', 'in:community,cloud_managed,enterprise,team,business'],
             'newTenantStatus' => ['required', 'in:active,trialing,past_due,suspended'],
             'newAdminName' => ['required', 'string', 'min:2', 'max:100'],
             'newAdminEmail' => ['required', 'email', 'max:255', 'unique:users,email'],
@@ -298,9 +298,28 @@ class SuperadminDashboard extends Component
         $trialingTenants = Tenant::where('subscription_status', 'trialing')->count();
         $suspendedTenants = Tenant::whereIn('subscription_status', ['suspended', 'past_due'])->count();
 
-        $businessTenants = Tenant::where('plan', 'business')->count();
-        $teamTenants = Tenant::where('plan', 'team')->count();
-        $estimatedMrr = ($teamTenants * 29) + ($businessTenants * 79);
+        $enterpriseTenants = Tenant::whereIn('plan', ['enterprise', 'business'])->count();
+        $cloudManagedTenants = Tenant::whereIn('plan', ['cloud_managed', 'cloud', 'team'])->count();
+        $communityTenants = Tenant::where('plan', 'community')->count();
+
+        $masterSlug = (string) (config('tantou-cloud.superadmin_slug') ?: config('tantou.superadmin_slug') ?: 'tantou-team');
+        $billableTenants = Tenant::query()
+            ->where('subscription_status', 'active')
+            ->whereNotIn('slug', ['hellenic-demo-ops', $masterSlug])
+            ->withCount([
+                'users as workers_count' => fn ($q) => $q->withoutGlobalScopes()->whereIn('role', ['admin', 'coordinator', 'collaborator', 'worker']),
+            ])
+            ->get();
+
+        $estimatedMrr = 0;
+        foreach ($billableTenants as $billableTenant) {
+            if (in_array($billableTenant->plan, ['enterprise', 'business'], true)) {
+                $estimatedMrr += 300;
+            } elseif (in_array($billableTenant->plan, ['cloud_managed', 'cloud', 'team'], true)) {
+                $rate = $billableTenant->billing_interval === 'yearly' ? 7 : 8;
+                $estimatedMrr += ($rate * max(1, (int) $billableTenant->workers_count));
+            }
+        }
 
         $totalUsers = User::withoutGlobalScopes()->count();
         $workerUsers = User::withoutGlobalScopes()->whereIn('role', ['admin', 'coordinator', 'collaborator', 'worker'])->count();
@@ -342,8 +361,11 @@ class SuperadminDashboard extends Component
             'activeTenants' => $activeTenants,
             'trialingTenants' => $trialingTenants,
             'suspendedTenants' => $suspendedTenants,
-            'businessTenants' => $businessTenants,
-            'teamTenants' => $teamTenants,
+            'enterpriseTenants' => $enterpriseTenants,
+            'cloudManagedTenants' => $cloudManagedTenants,
+            'communityTenants' => $communityTenants,
+            'businessTenants' => $enterpriseTenants,
+            'teamTenants' => $cloudManagedTenants,
             'estimatedMrr' => $estimatedMrr,
             'totalUsers' => $totalUsers,
             'workerUsers' => $workerUsers,

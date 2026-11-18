@@ -591,6 +591,15 @@
                             };
                         @endphp
                         <div x-show="settingsTab === 'billing'" class="space-y-4" style="display: none;">
+                            @php
+                                $currentPlanTitle = match ($modalTenant->plan) {
+                                    'enterprise', 'business' => __('Public Sector & Enterprise'),
+                                    'community' => __('Self-Hosted Community'),
+                                    default => __('Tantou Cloud Managed'),
+                                };
+                                $isEnterprisePlan = in_array($modalTenant->plan, ['enterprise', 'business'], true);
+                                $isCloudManagedPlan = ! $isEnterprisePlan && $modalTenant->plan !== 'community';
+                            @endphp
                             {{-- Current Plan Overview Card --}}
                             <div class="p-4 rounded-2xl bg-slate-950/70 border border-indigo-500/20 space-y-3">
                                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -598,9 +607,9 @@
                                         <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
                                             {{ __('Current Subscription') }}
                                         </span>
-                                        <div class="flex items-center gap-2">
+                                        <div class="flex items-center gap-2 flex-wrap">
                                             <h4 class="text-base font-extrabold text-white">
-                                                {{ $effPlan === 'business' ? __('Cloud Business / MSP') : __('Cloud Team') }}
+                                                {{ $currentPlanTitle }}
                                             </h4>
                                             <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border {{ $statusBadgeClass }}">
                                                 {{ ucfirst($status) }}
@@ -641,7 +650,9 @@
                                     @endif
                                     <div>
                                         <span class="text-slate-500">{{ __('Interval:') }}</span>
-                                        <span class="font-medium text-slate-200 ml-1">{{ ucfirst($modalTenant->billing_interval ?: 'monthly') }}</span>
+                                        <span class="font-medium text-slate-200 ml-1">
+                                            {{ ($modalTenant->billing_interval ?: 'monthly') === 'yearly' ? __('Annual €7/worker') : __('Monthly €8/worker') }}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -666,7 +677,7 @@
                                         ></div>
                                     </div>
                                     <p class="text-[10px] text-slate-400">
-                                        {{ __('Counts Admins, Coordinators, and Collaborators. Clients are unlimited!') }}
+                                        {{ __('Billed per active worker (Admin, Coordinator, Worker). Clients are free & unlimited!') }}
                                     </p>
                                 </div>
 
@@ -703,7 +714,7 @@
                                         :class="billingInterval === 'monthly' ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200 font-medium'"
                                         class="px-2.5 py-1 rounded-lg transition-all cursor-pointer"
                                     >
-                                        {{ __('Monthly') }}
+                                        {{ __('Monthly') }} (€8)
                                     </button>
                                     <button
                                         type="button"
@@ -711,96 +722,36 @@
                                         :class="billingInterval === 'yearly' ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200 font-medium'"
                                         class="px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1"
                                     >
-                                        <span>{{ __('Yearly') }}</span>
-                                        <span class="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">-20%</span>
+                                        <span>{{ __('Yearly') }} (€7)</span>
                                     </button>
                                 </div>
                             </div>
 
-                            {{-- Side-by-side Plan Cards --}}
+                            {{-- Unified Plan Cards --}}
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {{-- Cloud Team Card --}}
-                                <div class="p-4 rounded-2xl bg-slate-950/70 border {{ $effPlan === 'team' ? 'border-sky-500/40 bg-sky-950/10' : 'border-slate-800' }} flex flex-col justify-between space-y-3">
+                                {{-- Card 1: Tantou Cloud Managed --}}
+                                <div class="p-4 rounded-2xl bg-slate-950/70 border {{ $isCloudManagedPlan ? 'border-indigo-500/50 bg-indigo-950/15' : 'border-slate-800' }} flex flex-col justify-between space-y-3">
                                     <div class="space-y-2">
                                         <div class="flex items-center justify-between">
-                                            <h5 class="text-sm font-bold text-white">{{ __('Cloud Team') }}</h5>
-                                            @if ($effPlan === 'team')
-                                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">
-                                                    {{ __('Current') }}
-                                                </span>
-                                            @endif
-                                        </div>
-                                        <div class="text-lg font-black text-white">
-                                            <span x-show="billingInterval === 'monthly'">€29<span class="text-xs font-normal text-slate-400"> /mo</span></span>
-                                            <span x-show="billingInterval === 'yearly'">€290<span class="text-xs font-normal text-slate-400"> /yr</span></span>
-                                        </div>
-                                        <ul class="text-[11px] text-slate-300 space-y-1.5 pt-2 border-t border-slate-800">
-                                            <li class="flex items-center gap-1.5">
-                                                <span class="text-emerald-400">✓</span>
-                                                <span>{{ __('Up to 15 team workers') }}</span>
-                                            </li>
-                                            <li class="flex items-center gap-1.5">
-                                                <span class="text-emerald-400">✓</span>
-                                                <span>{{ __('5 departments') }}</span>
-                                            </li>
-                                            <li class="flex items-center gap-1.5">
-                                                <span class="text-emerald-400">✓</span>
-                                                <span>{{ __('Public guest drop-box') }}</span>
-                                            </li>
-                                            <li class="flex items-center gap-1.5">
-                                                <span class="text-emerald-400">✓</span>
-                                                <span>{{ __('Unlimited client logins') }}</span>
-                                            </li>
-                                        </ul>
-                                    </div>
-
-                                    <div class="pt-2">
-                                        @if ($effPlan === 'team')
-                                            <button
-                                                type="button"
-                                                disabled
-                                                class="w-full py-2 px-3 rounded-xl bg-slate-800/80 text-slate-400 text-xs font-semibold cursor-default text-center"
-                                            >
-                                                {{ __('Active Plan') }}
-                                            </button>
-                                        @else
-                                            <button
-                                                type="button"
-                                                @click="$wire.startStripeCheckout('team', billingInterval)"
-                                                class="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors cursor-pointer text-center"
-                                            >
-                                                {{ __('Switch to Cloud Team') }}
-                                            </button>
-                                        @endif
-                                    </div>
-                                </div>
-
-                                {{-- Cloud Business Card --}}
-                                <div class="p-4 rounded-2xl bg-slate-950/70 border {{ $effPlan === 'business' ? 'border-indigo-500/50 bg-indigo-950/15' : 'border-indigo-500/20' }} flex flex-col justify-between space-y-3 relative overflow-hidden">
-                                    <div class="space-y-2">
-                                        <div class="flex items-center justify-between">
-                                            <h5 class="text-sm font-bold text-white flex items-center gap-1.5">
-                                                <span>{{ __('Cloud Business') }}</span>
-                                                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">MSP</span>
-                                            </h5>
-                                            @if ($effPlan === 'business')
+                                            <h5 class="text-sm font-bold text-white">{{ __('Tantou Cloud Managed') }}</h5>
+                                            @if ($isCloudManagedPlan)
                                                 <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
                                                     {{ __('Current') }}
                                                 </span>
                                             @endif
                                         </div>
                                         <div class="text-lg font-black text-white">
-                                            <span x-show="billingInterval === 'monthly'">€79<span class="text-xs font-normal text-slate-400"> /mo</span></span>
-                                            <span x-show="billingInterval === 'yearly'">€790<span class="text-xs font-normal text-slate-400"> /yr</span></span>
+                                            <span x-show="billingInterval === 'monthly'">€8<span class="text-xs font-normal text-slate-400"> / {{ __('active worker / month') }}</span></span>
+                                            <span x-show="billingInterval === 'yearly'">€7<span class="text-xs font-normal text-slate-400"> / {{ __('active worker / month') }}</span></span>
                                         </div>
                                         <ul class="text-[11px] text-slate-300 space-y-1.5 pt-2 border-t border-slate-800">
                                             <li class="flex items-center gap-1.5">
                                                 <span class="text-emerald-400">✓</span>
-                                                <span class="font-semibold text-white">{{ __('Unlimited team workers') }}</span>
+                                                <span class="font-semibold text-white">{{ __('Unlimited departments') }}</span>
                                             </li>
                                             <li class="flex items-center gap-1.5">
                                                 <span class="text-emerald-400">✓</span>
-                                                <span class="font-semibold text-white">{{ __('Unlimited departments') }}</span>
+                                                <span>{{ __('Unlimited client logins & QR Drop-Box') }}</span>
                                             </li>
                                             <li class="flex items-center gap-1.5">
                                                 <span class="text-indigo-400">🛡️</span>
@@ -812,29 +763,66 @@
                                             </li>
                                             <li class="flex items-center gap-1.5">
                                                 <span class="text-indigo-400">✈️</span>
-                                                <span>{{ __('Custom Telegram bot token') }}</span>
+                                                <span>{{ __('2-Way Telegram Bot & SLA Analytics') }}</span>
                                             </li>
                                         </ul>
                                     </div>
 
                                     <div class="pt-2">
-                                        @if ($effPlan === 'business')
-                                            <button
-                                                type="button"
-                                                disabled
-                                                class="w-full py-2 px-3 rounded-xl bg-indigo-900/30 border border-indigo-500/30 text-indigo-300 text-xs font-semibold cursor-default text-center"
-                                            >
-                                                {{ __('Active Plan') }}
-                                            </button>
-                                        @else
-                                            <button
-                                                type="button"
-                                                @click="$wire.startStripeCheckout('business', billingInterval)"
-                                                class="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all cursor-pointer text-center"
-                                            >
-                                                {{ __('Upgrade to Cloud Business') }}
-                                            </button>
-                                        @endif
+                                        <button
+                                            type="button"
+                                            @click="$wire.startStripeCheckout('cloud_managed', billingInterval)"
+                                            class="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all cursor-pointer text-center"
+                                        >
+                                            {{ $isCloudManagedPlan ? __('Manage Billing / Switch Interval') : __('Switch to Tantou Cloud Managed') }}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {{-- Card 2: Public Sector & Enterprise --}}
+                                <div class="p-4 rounded-2xl bg-slate-950/70 border {{ $isEnterprisePlan ? 'border-purple-500/50 bg-purple-950/15' : 'border-purple-500/20' }} flex flex-col justify-between space-y-3 relative overflow-hidden">
+                                    <div class="space-y-2">
+                                        <div class="flex items-center justify-between">
+                                            <h5 class="text-sm font-bold text-white flex items-center gap-1.5">
+                                                <span>{{ __('Public Sector & Enterprise') }}</span>
+                                                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">SLA</span>
+                                            </h5>
+                                            @if ($isEnterprisePlan)
+                                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                                    {{ __('Current') }}
+                                                </span>
+                                            @endif
+                                        </div>
+                                        <div class="text-lg font-black text-white">
+                                            <span>{{ __('From') }} €3,600<span class="text-xs font-normal text-slate-400"> / {{ __('year') }}</span></span>
+                                        </div>
+                                        <ul class="text-[11px] text-slate-300 space-y-1.5 pt-2 border-t border-slate-800">
+                                            <li class="flex items-center gap-1.5">
+                                                <span class="text-purple-400">✓</span>
+                                                <span class="font-semibold text-white">{{ __('Commercial License & White-Label rights') }}</span>
+                                            </li>
+                                            <li class="flex items-center gap-1.5">
+                                                <span class="text-purple-400">✓</span>
+                                                <span class="font-semibold text-white">{{ __('On-Premise / Air-Gapped or Dedicated Cloud') }}</span>
+                                            </li>
+                                            <li class="flex items-center gap-1.5">
+                                                <span class="text-purple-400">✓</span>
+                                                <span>{{ __('Multi-Tenant MSP Control Plane') }}</span>
+                                            </li>
+                                            <li class="flex items-center gap-1.5">
+                                                <span class="text-purple-400">✓</span>
+                                                <span>{{ __('Unlimited Workers & Direct Procurement SLA') }}</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+
+                                    <div class="pt-2">
+                                        <a
+                                            href="mailto:tantou@tsourdinis.info?subject=Tantou%20Enterprise%20%26%20Public%20Sector%20Inquiry"
+                                            class="block w-full py-2 px-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-lg shadow-purple-600/30 transition-all cursor-pointer text-center"
+                                        >
+                                            {{ __('Contact Enterprise Sales (tantou@tsourdinis.info) →') }}
+                                        </a>
                                     </div>
                                 </div>
                             </div>
