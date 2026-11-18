@@ -258,11 +258,18 @@ docker exec -u 1000:1000 tantou_app vendor/bin/pint --format agent
 
 ---
 
-## 📄 License & Credits
+## ⚖️ License & Commercial Terms
 
-Tantou is dual-licensed under:
+Tantou is dual-licensed (`AGPL-3.0-or-later OR LicenseRef-Tantou-Commercial`) under:
 - **GNU AGPL v3.0 (AGPL-3.0-or-later):** For open-source self-hosted use. You are free to run, study, and modify the software under the terms of the GNU Affero General Public License v3.0 or later. Under AGPLv3, if you run a modified version on a network server, you must provide its source code to users. See the [LICENSE](LICENSE) file for complete terms.
-- **Commercial License:** For proprietary closed-source distributions, multi-tenant SaaS hosting, enterprise integrations, or white-labeling without AGPLv3 copyleft obligations.
+- **Commercial License (`LicenseRef-Tantou-Commercial`):** For proprietary closed-source distributions, multi-tenant SaaS/MSP hosting, Public Sector / Healthcare / Enterprise SLA contracts, or white-labeling without AGPLv3 copyleft obligations. See [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md) for full details.
+
+### Governance & Legal Policies
+- **Open-Source License:** [LICENSE](LICENSE) (GNU AGPL v3.0)
+- **Commercial License Terms:** [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md)
+- **Contributing & CLA:** [CONTRIBUTING.md](CONTRIBUTING.md)
+- **Trademark & Brand Policy:** [TRADEMARK.md](TRADEMARK.md)
+- **Security & Vulnerability Disclosure:** [SECURITY.md](SECURITY.md)
 
 Copyright (c) 2026 Konstantinos Tsourdinis / HELLENIC WEB3 STUDIO. All rights reserved.  
 For commercial inquiries and licensing, visit [https://github.com/ktsourdinis/tantou-oss](https://github.com/ktsourdinis/tantou-oss).

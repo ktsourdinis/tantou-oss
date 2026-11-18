@@ -25,11 +25,11 @@ class LandingPageAndCommunityModeTest extends TestCase
         $response->assertStatus(200);
 
         // Section 1: Hero & Actions
-        $response->assertSee("Know who's available.", false);
-        $response->assertSee("Know what's getting done.", false);
-        $response->assertSee("See your team's actual workload", false);
-        $response->assertSee('Route every request to the right person', false);
-        $response->assertSee('Keep every task visible until completion', false);
+        $response->assertSee("Know who's available.");
+        $response->assertSee("Know what's getting done.");
+        $response->assertSee("See your team's actual workload");
+        $response->assertSee('Route every request to the right person');
+        $response->assertSee('Keep every task visible until completion');
         $response->assertSee('Try Live Interactive Demo');
         $response->assertSee('No signup required • Resets every 2 hours');
         $response->assertSee('Launch Cloud Workspace');

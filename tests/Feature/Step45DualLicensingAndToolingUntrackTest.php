@@ -23,7 +23,7 @@ class Step45DualLicensingAndToolingUntrackTest extends TestCase
     }
 
     /**
-     * Test LICENSE file includes dual licensing notice and AGPLv3 text.
+     * Test LICENSE file contains pure AGPLv3 text and LICENSE-COMMERCIAL.md contains commercial terms.
      */
     public function test_license_file_has_dual_licensing_notice_and_agplv3_text(): void
     {
@@ -32,10 +32,18 @@ class Step45DualLicensingAndToolingUntrackTest extends TestCase
 
         $licenseContent = file_get_contents($licensePath);
 
-        $this->assertStringContainsString('Copyright (c) 2026 Konstantinos Tsourdinis / HELLENIC WEB3 STUDIO. All rights reserved.', $licenseContent);
-        $this->assertStringContainsString('Tantou is dual-licensed under the GNU Affero General Public License v3.0 (AGPLv3) for open-source self-hosted use, and a Commercial License for proprietary/closed-source distributions, multi-tenant SaaS hosting, or enterprise white-labeling without AGPLv3 copyleft obligations.', $licenseContent);
+        $this->assertStringStartsWith('                    GNU AFFERO GENERAL PUBLIC LICENSE', $licenseContent);
         $this->assertStringContainsString('GNU AFFERO GENERAL PUBLIC LICENSE', $licenseContent);
         $this->assertStringContainsString('Version 3, 19 November 2007', $licenseContent);
+
+        $commercialPath = base_path('LICENSE-COMMERCIAL.md');
+        $this->assertFileExists($commercialPath);
+
+        $commercialContent = file_get_contents($commercialPath);
+
+        $this->assertStringContainsString('Copyright (c) 2026 Konstantinos Tsourdinis / HELLENIC WEB3 STUDIO. All rights reserved.', $commercialContent);
+        $this->assertStringContainsString('Tantou is dual-licensed under the GNU Affero General Public License v3.0 (AGPLv3) for open-source self-hosted use, and a Commercial License for proprietary/closed-source distributions, multi-tenant SaaS hosting, or enterprise white-labeling without AGPLv3 copyleft obligations.', $commercialContent);
+        $this->assertStringContainsString('LicenseRef-Tantou-Commercial', $commercialContent);
     }
 
     /**
@@ -49,8 +57,36 @@ class Step45DualLicensingAndToolingUntrackTest extends TestCase
         $readmeContent = file_get_contents($readmePath);
 
         $this->assertStringContainsString('License: AGPLv3 / Commercial', $readmeContent);
+        $this->assertStringContainsString('## ⚖️ License & Commercial Terms', $readmeContent);
         $this->assertStringContainsString('GNU AGPL v3.0 (AGPL-3.0-or-later)', $readmeContent);
         $this->assertStringContainsString('Commercial License', $readmeContent);
+        $this->assertStringContainsString('LICENSE-COMMERCIAL.md', $readmeContent);
+        $this->assertStringContainsString('CONTRIBUTING.md', $readmeContent);
+        $this->assertStringContainsString('TRADEMARK.md', $readmeContent);
+        $this->assertStringContainsString('SECURITY.md', $readmeContent);
+    }
+
+    /**
+     * Test all PHP files in app/ contain the SPDX dual-license header.
+     */
+    public function test_all_php_files_in_app_contain_spdx_dual_license_header(): void
+    {
+        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(app_path()));
+        $checked = 0;
+
+        foreach ($iterator as $file) {
+            if ($file->isFile() && $file->getExtension() === 'php') {
+                $checked++;
+                $content = file_get_contents($file->getPathname());
+                $this->assertStringContainsString(
+                    'SPDX-License-Identifier: AGPL-3.0-or-later OR LicenseRef-Tantou-Commercial',
+                    $content,
+                    "Missing SPDX header in {$file->getPathname()}"
+                );
+            }
+        }
+
+        $this->assertGreaterThan(0, $checked);
     }
 
     /**
