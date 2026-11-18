@@ -2,7 +2,7 @@
 
 Welcome to **Tantou (担当)** — the Open-Core Human Capacity Operating System.
 
-Unlike traditional ticket queues that encourage infinite backlogs and worker burnout, Tantou is engineered around **real, finite cognitive capacity**. It gives teams a visual, real-time workload canvas where tasks ("Post-its") reflect mental weight ($W1–W5$), column load thresholds prevent overload, and team members can collaborate live via Web and Telegram.
+Unlike traditional ticket queues that encourage infinite backlogs and worker burnout, Tantou is engineered around **real, finite cognitive capacity**. It gives teams a visual, real-time workload canvas where tasks ("Task Cards") reflect mental weight ($W1–W5$), column load thresholds prevent overload, and team members can collaborate live via Web and Telegram.
 
 ---
 
@@ -52,7 +52,7 @@ Traditional issue trackers treat teams like infinite conveyor belts. When ticket
 
 | Component | Technology | Purpose |
 | :--- | :--- | :--- |
-| **App Engine** | PHP 8.4-FPM Alpine | Core application logic, Livewire 3 reactivity, API |
+| **App Engine** | PHP 8.4-FPM Alpine | Core application logic, Livewire 4.x reactivity, API |
 | **Web Server** | Caddy 2 | Reverse proxy, automatic Let's Encrypt SSL, static files, WebSocket proxy |
 | **Database** | MariaDB 11 | High-performance transactional storage with tenant isolation |
 | **Cache & Queue** | Redis 7 Alpine | Session driver, background queue worker, and Reverb state |
@@ -201,7 +201,7 @@ In the **Self-Hosted Community Edition**, all features and capacities are comple
 
 ### Cognitive Load Weights ($W1–W5$)
 
-Every Post-it is assigned a mental weight:
+Every Task Card is assigned a mental weight:
 
 | Weight | Cognitive Load | Typical Examples | Visual Height |
 | :---: | :--- | :--- | :---: |

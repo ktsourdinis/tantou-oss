@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -26,6 +27,7 @@ class PublicSubmitRequest extends Component
 
     public ?Tenant $tenant = null;
 
+    #[Locked]
     public ?int $tenantId = null;
 
     #[Validate('required|string|min:2|max:100')]

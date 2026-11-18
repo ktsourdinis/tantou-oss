@@ -11,15 +11,18 @@ use App\Services\TelegramBotService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 
 #[Layout('layouts.app')]
 class PublicTrackRequest extends Component
 {
+    #[Locked]
     public string $token = '';
 
-    public int $postItId;
+    #[Locked]
+    public ?int $postItId = null;
 
     /**
      * Honeypot field (bots fill this, humans leave empty).
@@ -34,12 +37,30 @@ class PublicTrackRequest extends Component
     public bool $showClosePrompt = false;
 
     /**
+     * Resolve the tracked PostIt model scoped strictly to the locked tracking token.
+     *
+     * @param  array<int, string|\Closure>  $with
+     */
+    private function resolveTrackedPostIt(array $with = []): PostIt
+    {
+        $query = PostIt::withoutGlobalScopes()
+            ->where('tracking_token', $this->token)
+            ->when($this->postItId, fn ($q) => $q->where('id', $this->postItId));
+
+        if (! empty($with)) {
+            $query->with($with);
+        }
+
+        return $query->firstOrFail();
+    }
+
+    /**
      * Mount the tracker with the given tracking token.
      */
     public function mount(string $token): void
     {
         $this->token = trim($token);
-        $postIt = PostIt::withoutGlobalScopes()->where('tracking_token', $this->token)->firstOrFail();
+        $postIt = $this->resolveTrackedPostIt();
         $this->postItId = $postIt->id;
 
         if ($postIt->tenant) {
@@ -53,7 +74,7 @@ class PublicTrackRequest extends Component
     public function hydrate(): void
     {
         if (isset($this->postItId)) {
-            $postIt = PostIt::withoutGlobalScopes()->find($this->postItId);
+            $postIt = $this->resolveTrackedPostIt();
             if ($postIt && $postIt->tenant) {
                 app()->instance('currentTenant', $postIt->tenant);
             }
@@ -85,7 +106,7 @@ class PublicTrackRequest extends Component
 
         $this->validate();
 
-        $postIt = PostIt::withoutGlobalScopes()->where('id', $this->postItId)->firstOrFail();
+        $postIt = $this->resolveTrackedPostIt();
 
         if ($postIt->status === 'done') {
             $this->addError('newCommentBody', __('Cannot add comments to a completed request.'));
@@ -112,6 +133,14 @@ class PublicTrackRequest extends Component
     }
 
     /**
+     * Alias for addComment.
+     */
+    public function submitReply(): void
+    {
+        $this->addComment();
+    }
+
+    /**
      * Self-close the request as the guest requester via tracking link.
      */
     public function closeByGuest(?string $reason = null): void
@@ -127,7 +156,7 @@ class PublicTrackRequest extends Component
             return;
         }
 
-        $postIt = PostIt::withoutGlobalScopes()->where('id', $this->postItId)->firstOrFail();
+        $postIt = $this->resolveTrackedPostIt();
 
         if ($postIt->status === 'done') {
             return;
@@ -201,18 +230,26 @@ class PublicTrackRequest extends Component
     }
 
     /**
+     * Alias for closeByGuest.
+     */
+    public function closeByRequester(?string $reason = null): void
+    {
+        $this->closeByGuest($reason);
+    }
+
+    /**
      * Render the tracking view.
      */
     public function render(): View
     {
-        $postIt = PostIt::withoutGlobalScopes()->with([
+        $postIt = $this->resolveTrackedPostIt([
             'tenant',
             'department',
             'assignee',
             'comments' => fn ($query) => $query->oldest('id'),
             'comments.user',
             'attachments',
-        ])->where('id', $this->postItId)->firstOrFail();
+        ]);
 
         $queuePosition = null;
         $queueTotal = null;

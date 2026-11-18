@@ -767,6 +767,23 @@
     "Your request has been successfully resolved and marked as completed by :actor.": "Το αίτημά σας επιλύθηκε επιτυχώς και ολοκληρώθηκε από :actor.",
     "Resolution Note / Latest Comment": "Σημείωση Επίλυσης / Τελευταίο Σχόλιο",
     "View Timeline & Details": "Προβολή Χρονολογίου & Λεπτομερειών",
-    "Thank you for using :org!": "Ευχαριστούμε που χρησιμοποιείτε το :org!"
+    "Thank you for using :org!": "Ευχαριστούμε που χρησιμοποιείτε το :org!",
+    "New Task Card": "Νέα Κάρτα Εργασίας",
+    "Create Task Card": "Δημιουργία Κάρτας Εργασίας",
+    "Create New Task Card": "Δημιουργία Νέας Κάρτας Εργασίας",
+    "Queue Task Card": "Προσθήκη Κάρτας στην Ουρά",
+    "Edit Task Card Details": "Επεξεργασία Στοιχείων Κάρτας",
+    "Total Task Cards Processed": "Συνολικές Κάρτες Εργασίας που Επεξεργάστηκαν",
+    "No attachments on this task card.": "Δεν υπάρχουν συνημμένα σε αυτή την κάρτα εργασίας.",
+    "Open-Core Human Capacity OS · Real-Time Work Coordination": "Open-Core Human Capacity OS · Συντονισμός Εργασιών σε Πραγματικό Χρόνο",
+    "Know who's available.": "Μάθετε ποιος είναι διαθέσιμος.",
+    "Know what's getting done.": "Δείτε τι εκτελείται τώρα.",
+    "A real-time work coordination and request dispatch platform for teams that need to manage incoming requests, assign work fairly, and maintain complete visibility over operational capacity — across Web Canvas & 2-Way Telegram.": "Μια πλατφόρμα συντονισμού εργασιών και δρομολόγησης αιτημάτων σε πραγματικό χρόνο για ομάδες που θέλουν να διαχειρίζονται εισερχόμενα αιτήματα, να κατανέμουν δίκαια τον φόρτο και να έχουν πλήρη εικόνα της διαθεσιμότητας — σε Web Canvas & αμφίδρομο Telegram.",
+    "See your team's actual workload": "Δείτε τον πραγματικό φόρτο της ομάδας",
+    "Visual W1–W5 capacity gauges instead of endless ticket backlogs.": "Οπτικοποιημένοι μετρητές δυναμικότητας W1–W5 αντί για ατελείωτες ουρές tickets.",
+    "Route every request to the right person": "Δρομολογήστε κάθε αίτημα στον σωστό συνεργάτη",
+    "Smart FIFO + Priority queue with instant 2-way Telegram execution.": "Έξυπνη ουρά FIFO + Προτεραιότητας με άμεση αμφίδρομη εκτέλεση μέσω Telegram.",
+    "Keep every task visible until completion": "Κρατήστε κάθε εργασία ορατή μέχρι την ολοκλήρωση",
+    "Live requester tracking links, SLA metrics & 3-tier visibility firewalls.": "Ζωντανοί σύνδεσμοι παρακολούθησης αιτούντος, μετρικές SLA & firewalls ορατότητας 3 επιπέδων."
 }
 

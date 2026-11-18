@@ -17,6 +17,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 #[Layout('layouts.app')]
@@ -25,6 +26,7 @@ class TeamManagement extends Component
     use ManagesTelegramPairing;
     use ManagesWorkspaceSettings;
 
+    #[Locked]
     public int $tenantId = 0;
 
     public string $tenantName = '';
@@ -41,6 +43,7 @@ class TeamManagement extends Component
     // Department Modal Properties
     public bool $showDepartmentModal = false;
 
+    #[Locked]
     public ?int $editingDepartmentId = null;
 
     public string $departmentName = '';
@@ -52,6 +55,7 @@ class TeamManagement extends Component
     // User Modal Properties
     public bool $showUserModal = false;
 
+    #[Locked]
     public ?int $editingUserId = null;
 
     public string $userName = '';
@@ -191,6 +195,14 @@ class TeamManagement extends Component
         $this->departmentSlug = $department->slug;
         $this->departmentColor = $department->color;
         $this->showDepartmentModal = true;
+    }
+
+    /**
+     * Alias for openEditDepartmentModal.
+     */
+    public function editDepartment(int $id): void
+    {
+        $this->openEditDepartmentModal($id);
     }
 
     /**
@@ -451,6 +463,14 @@ class TeamManagement extends Component
     }
 
     /**
+     * Alias for openEditUserModal.
+     */
+    public function editMember(int $id): void
+    {
+        $this->openEditUserModal($id);
+    }
+
+    /**
      * Quick toggle collaborator working/away state from roster table.
      */
     public function quickToggleAvailability(int $userId): void
@@ -510,6 +530,14 @@ class TeamManagement extends Component
         $user->delete();
 
         BoardUpdated::dispatch($this->tenantId);
+    }
+
+    /**
+     * Alias for deleteUser.
+     */
+    public function deleteMember(int $id): void
+    {
+        $this->deleteUser($id);
     }
 
     /**

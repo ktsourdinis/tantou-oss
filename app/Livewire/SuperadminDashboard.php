@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -33,6 +34,7 @@ class SuperadminDashboard extends Component
     // Edit Tenant Modal State
     public bool $showEditModal = false;
 
+    #[Locked]
     public ?int $editingTenantId = null;
 
     public string $editingTenantName = '';

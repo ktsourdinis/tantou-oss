@@ -130,7 +130,7 @@
             <div class="rounded-2xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-xl p-5 shadow-xl relative overflow-hidden group hover:border-slate-700/80 transition-all">
                 <div class="absolute -top-12 -right-12 w-28 h-28 bg-amber-500/10 rounded-full blur-2xl group-hover:bg-amber-500/20 transition-all"></div>
                 <div class="flex items-center justify-between text-xs font-semibold text-slate-400 mb-2">
-                    <span>{{ __('Total Post-Its Processed') }}</span>
+                    <span>{{ __('Total Task Cards Processed') }}</span>
                     <span class="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">📋</span>
                 </div>
                 <div class="text-3xl font-bold tracking-tight text-white mb-2">{{ $totalPostIts }}</div>

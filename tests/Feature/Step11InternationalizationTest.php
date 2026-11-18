@@ -121,7 +121,7 @@ class Step11InternationalizationTest extends TestCase
         Livewire::actingAs($this->worker)
             ->test(CapacityBoard::class)
             ->assertSee('Capacity Board')
-            ->assertSee('New Post-it')
+            ->assertSee('New Task Card')
             ->assertSee('Backlog');
     }
 
@@ -133,7 +133,7 @@ class Step11InternationalizationTest extends TestCase
         Livewire::actingAs($this->worker)
             ->test(CapacityBoard::class)
             ->assertSee('Πίνακας Δυναμικότητας')
-            ->assertSee('Νέο Post-it')
+            ->assertSee('Νέα Κάρτα Εργασίας')
             ->assertSee('Εκκρεμή');
     }
 

@@ -213,7 +213,7 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
-                    <span>{{ __('New Post-it') }}</span>
+                    <span>{{ __('New Task Card') }}</span>
                 </button>
 
                 @auth
@@ -416,12 +416,12 @@
                                 wire:click="openCreateModal(null, true)"
                                 type="button"
                                 class="group w-full min-h-[96px] rounded-2xl border-2 border-dashed border-slate-800/90 hover:border-violet-500/70 bg-slate-900/20 hover:bg-violet-500/10 transition-all duration-200 flex flex-col items-center justify-center gap-1.5 p-4 cursor-pointer text-slate-500 hover:text-violet-300"
-                                title="{{ __('Queue Post-it') }}"
+                                title="{{ __('Queue Task Card') }}"
                             >
                                 <div class="w-9 h-9 rounded-full bg-slate-800/80 group-hover:bg-violet-600 group-hover:text-white flex items-center justify-center text-xl font-semibold transition-transform group-hover:scale-110">
                                     +
                                 </div>
-                                <span class="text-xs font-medium tracking-wide">{{ __('Queue Post-it') }}</span>
+                                <span class="text-xs font-medium tracking-wide">{{ __('Queue Task Card') }}</span>
                             </button>
                         @endif
                     </div>
@@ -581,12 +581,12 @@
                                     wire:click="openCreateModal({{ $worker->id }})"
                                     type="button"
                                     class="group w-full min-h-[96px] rounded-2xl border-2 border-dashed border-slate-800/90 hover:border-violet-500/70 bg-slate-900/20 hover:bg-violet-500/10 transition-all duration-200 flex flex-col items-center justify-center gap-1.5 p-4 cursor-pointer text-slate-500 hover:text-violet-300"
-                                    title="{{ __('Queue Post-it') }}"
+                                    title="{{ __('Queue Task Card') }}"
                                 >
                                     <div class="w-9 h-9 rounded-full bg-slate-800/80 group-hover:bg-violet-600 group-hover:text-white flex items-center justify-center text-xl font-semibold transition-transform group-hover:scale-110">
                                         +
                                     </div>
-                                    <span class="text-xs font-medium tracking-wide">{{ __('Queue Post-it') }}</span>
+                                    <span class="text-xs font-medium tracking-wide">{{ __('Queue Task Card') }}</span>
                                 </button>
                             @endif
                         </div>
@@ -801,7 +801,7 @@
                         <div class="h-7 w-7 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-bold text-xs">
                             担
                         </div>
-                        <h3 class="text-base font-bold text-white">{{ __('Create New Post-it') }}</h3>
+                        <h3 class="text-base font-bold text-white">{{ __('Create New Task Card') }}</h3>
                     </div>
                     <button
                         wire:click="$set('showCreateModal', false)"
@@ -998,7 +998,7 @@
                             type="submit"
                             class="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/25 transition-all cursor-pointer"
                         >
-                            {{ __('Create Post-it') }}
+                            {{ __('Create Task Card') }}
                         </button>
                     </div>
                 </form>
@@ -1337,7 +1337,7 @@
                             <div class="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-4">
                                 <h4 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
                                     <span>✏️</span>
-                                    <span>{{ __('Edit Post-it Details') }}</span>
+                                    <span>{{ __('Edit Task Card Details') }}</span>
                                 </h4>
 
                                 {{-- Description --}}
@@ -1795,7 +1795,7 @@
                                     </div>
                                 @empty
                                     <div class="py-4 text-center text-xs text-slate-500 italic">
-                                        {{ __('No attachments on this post-it.') }}
+                                        {{ __('No attachments on this task card.') }}
                                     </div>
                                 @endforelse
                             </div>

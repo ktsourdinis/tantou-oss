@@ -46,7 +46,7 @@ trait ManagesWorkspaceSettings
     public function openWorkspaceSettingsModal(): void
     {
         $currentUser = Auth::user();
-        if (! $currentUser || ! $currentUser->isAdmin()) {
+        if (! $currentUser || ! $currentUser->isAdmin() || (int) $currentUser->tenant_id !== (int) $this->tenantId) {
             abort(403, 'Unauthorized.');
         }
 
@@ -161,6 +161,11 @@ trait ManagesWorkspaceSettings
                 Rule::unique('tenants', 'custom_domain')->ignore($this->tenantId),
             ],
         ]);
+
+        $currentUser = Auth::user();
+        if (! $currentUser || ! $currentUser->isAdmin() || (int) $currentUser->tenant_id !== (int) $this->tenantId) {
+            abort(403, 'Unauthorized.');
+        }
 
         $tenant = Tenant::findOrFail($this->tenantId);
 

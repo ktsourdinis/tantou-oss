@@ -156,7 +156,7 @@ class Step18ContextualCreateTest extends TestCase
 
         Livewire::test(CapacityBoard::class)
             ->assertSeeHtml('wire:click="openCreateModal('.$worker->id.')"')
-            ->assertSeeHtml(__('Queue Post-it'));
+            ->assertSeeHtml(__('Queue Task Card'));
     }
 
     public function test_away_collaborator_column_does_not_render_queue_ghost_card(): void

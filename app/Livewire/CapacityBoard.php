@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -31,6 +32,7 @@ class CapacityBoard extends Component
     use ManagesWorkspaceSettings;
     use WithFileUploads;
 
+    #[Locked]
     public int $tenantId = 0;
 
     public string $tenantName = '';
@@ -87,6 +89,7 @@ class CapacityBoard extends Component
     // Slide-Over Detail, Scope Calibration & Micro-Comments
     public bool $showSlideOver = false;
 
+    #[Locked]
     public ?int $selectedPostItId = null;
 
     public int $slideOverWeight = 1;
@@ -375,6 +378,14 @@ class CapacityBoard extends Component
     }
 
     /**
+     * Alias for startPostIt.
+     */
+    public function startTask(int $postItId): void
+    {
+        $this->startPostIt($postItId);
+    }
+
+    /**
      * Start working on an assigned post-it card (transitions 'assigned' -> 'doing').
      */
     public function startPostIt(int $postItId): void
@@ -517,15 +528,21 @@ class CapacityBoard extends Component
         // Strict Firewall: Client requests CANNOT enter 'internal' or 'private' columns,
         // even if an admin, coordinator, or worker attempts the move.
         // 'internal' columns can only receive Post-its created by internal staff (worker, coordinator, admin).
-        if ($isClientRequest && $assigneeId !== null) {
+        if ($assigneeId !== null) {
             $targetCollaborator = User::where('tenant_id', $this->tenantId)->find($assigneeId);
-            $targetVisibility = $targetCollaborator?->visibility ?: ($targetCollaborator?->board_visibility ?: 'public');
-            if (! $targetCollaborator || $targetVisibility !== 'public') {
+            if (! $targetCollaborator) {
                 return;
             }
 
-            if ($currentUser->role === 'client' && ! $targetCollaborator->is_available) {
-                return;
+            if ($isClientRequest) {
+                $targetVisibility = $targetCollaborator->visibility ?: ($targetCollaborator->board_visibility ?: 'public');
+                if ($targetVisibility !== 'public') {
+                    return;
+                }
+
+                if ($currentUser->role === 'client' && ! $targetCollaborator->is_available) {
+                    return;
+                }
             }
         }
 
@@ -1639,6 +1656,39 @@ class CapacityBoard extends Component
     {
         $this->dropIntoCompleted($postItId);
         unset($this->selectedPostIt);
+    }
+
+    /**
+     * Alias for completePostIt.
+     */
+    public function completeTask(int $postItId): void
+    {
+        $this->completePostIt($postItId);
+    }
+
+    /**
+     * Open the post-it detail modal with strict tenant isolation.
+     */
+    public function openPostItModal(int $postItId): void
+    {
+        $postIt = PostIt::where('tenant_id', $this->tenantId)->findOrFail($postItId);
+        $this->openSlideOver($postIt->id);
+    }
+
+    /**
+     * Alias for movePostIt.
+     */
+    public function assignTask(int $postItId, ?int $workerId): void
+    {
+        $this->movePostIt($postItId, $workerId, $workerId !== null ? 'assigned' : 'backlog');
+    }
+
+    /**
+     * Cancel an open task (alias for closeByRequester).
+     */
+    public function cancelTask(int $postItId, ?string $reason = null): void
+    {
+        $this->closeByRequester($postItId, $reason);
     }
 
     /**

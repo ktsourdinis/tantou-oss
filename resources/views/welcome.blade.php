@@ -91,18 +91,18 @@
         <section class="max-w-7xl mx-auto px-6 pt-16 pb-20 text-center">
             <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-medium mb-8">
                 <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>{{ __('Open-Core Human Capacity OS • Inversion of Control') }}</span>
+                <span>{{ __('Open-Core Human Capacity OS · Real-Time Work Coordination') }}</span>
             </div>
 
             <h1 class="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white max-w-4xl mx-auto leading-tight">
-                {{ __('The Open-Core Human Capacity OS') }}<br>
+                {{ __('Know who\'s available.') }}<br>
                 <span class="bg-gradient-to-r from-indigo-400 via-purple-300 to-amber-300 bg-clip-text text-transparent">
-                    {{ __('for Real-Time Operations') }}
+                    {{ __('Know what\'s getting done.') }}
                 </span>
             </h1>
 
             <p class="mt-6 text-lg sm:text-xl text-slate-400 max-w-3xl mx-auto leading-relaxed">
-                {{ __('Manage finite human cognitive load with visual W1–W5 capacity gauges, smart FIFO + Priority queue dispatch, 3-tier visibility firewalls, and instant dual-transport execution across Web Canvas & 2-Way Telegram.') }}
+                {{ __('A real-time work coordination and request dispatch platform for teams that need to manage incoming requests, assign work fairly, and maintain complete visibility over operational capacity — across Web Canvas & 2-Way Telegram.') }}
             </p>
 
             @if(\App\Support\Edition::isSelfHosted() && \App\Models\Tenant::count() === 0)
@@ -158,6 +158,45 @@
                     <span>🐳</span>
                     <span>{{ __('Self-Host (Single-Tenant)') }}</span>
                 </a>
+            </div>
+
+            {{-- The 3 Core Promises --}}
+            <div class="mt-12 max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
+                <div class="p-5 rounded-2xl bg-slate-900/50 border border-slate-800/80 backdrop-blur-xl hover:border-indigo-500/40 transition-all group shadow-lg">
+                    <div class="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center text-lg mb-3 group-hover:scale-105 transition-transform">
+                        📊
+                    </div>
+                    <h3 class="text-sm font-bold text-white mb-1.5 flex items-center gap-1.5">
+                        {{ __('See your team\'s actual workload') }}
+                    </h3>
+                    <p class="text-xs text-slate-400 leading-relaxed">
+                        {{ __('Visual W1–W5 capacity gauges instead of endless ticket backlogs.') }}
+                    </p>
+                </div>
+
+                <div class="p-5 rounded-2xl bg-slate-900/50 border border-slate-800/80 backdrop-blur-xl hover:border-purple-500/40 transition-all group shadow-lg">
+                    <div class="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center text-lg mb-3 group-hover:scale-105 transition-transform">
+                        ⚡
+                    </div>
+                    <h3 class="text-sm font-bold text-white mb-1.5 flex items-center gap-1.5">
+                        {{ __('Route every request to the right person') }}
+                    </h3>
+                    <p class="text-xs text-slate-400 leading-relaxed">
+                        {{ __('Smart FIFO + Priority queue with instant 2-way Telegram execution.') }}
+                    </p>
+                </div>
+
+                <div class="p-5 rounded-2xl bg-slate-900/50 border border-slate-800/80 backdrop-blur-xl hover:border-emerald-500/40 transition-all group shadow-lg">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg mb-3 group-hover:scale-105 transition-transform">
+                        🎯
+                    </div>
+                    <h3 class="text-sm font-bold text-white mb-1.5 flex items-center gap-1.5">
+                        {{ __('Keep every task visible until completion') }}
+                    </h3>
+                    <p class="text-xs text-slate-400 leading-relaxed">
+                        {{ __('Live requester tracking links, SLA metrics & 3-tier visibility firewalls.') }}
+                    </p>
+                </div>
             </div>
 
             {{-- Live Canvas Preview Card --}}
@@ -666,7 +705,7 @@
                     <span>•</span>
                     <span>Laravel 13</span>
                     <span>•</span>
-                    <span>Livewire 3</span>
+                    <span>Livewire 4</span>
                     <span>•</span>
                     <span>Alpine.js</span>
                     <span>•</span>

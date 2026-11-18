@@ -1,13 +1,21 @@
 # ⚡ Tantou (担当) — The Open-Core Human Capacity OS
 
-> **Stop burning out your team with infinite Kanban lists. Manage real human workload (`W1–W5`), enforce visibility firewalls, and execute requests in real time via Web & Telegram.**
+> **Know who's available. Know what's getting done.**  
+> Tantou (担当) is an open-core, real-time work coordination and request dispatch platform built around a simple product philosophy: the **Human Capacity OS**.
 
 [![License: AGPLv3 / Commercial](https://img.shields.io/badge/License-AGPLv3%20%2F%20Commercial-blue.svg)](LICENSE)
-[![Laravel 11](https://img.shields.io/badge/Laravel-11-FF2D20.svg?logo=laravel)](https://laravel.com)
-[![Livewire 3](https://img.shields.io/badge/Livewire-3-FB70A9.svg?logo=livewire)](https://livewire.laravel.com)
+[![Laravel 13](https://img.shields.io/badge/Laravel-13-FF2D20.svg?logo=laravel)](https://laravel.com)
+[![Livewire 4](https://img.shields.io/badge/Livewire-4-FB70A9.svg?logo=livewire)](https://livewire.laravel.com)
 [![Reverb WebSockets](https://img.shields.io/badge/Reverb-WebSockets-6366F1.svg)](https://laravel.com/docs/reverb)
 [![Docker Ready](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker)](docker-compose.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg)](https://github.com/ktsourdinis/tantou-oss/pulls)
+
+---
+
+### 🎯 The 3 Core Promises
+1. **📊 See your team's actual workload:** Visual W1–W5 capacity gauges instead of endless ticket backlogs.
+2. **⚡ Route every request to the right person:** Smart FIFO + Priority queue with instant 2-way Telegram execution.
+3. **🎯 Keep every task visible until completion:** Live requester tracking links, SLA metrics & 3-tier visibility firewalls.
 
 ---
 
@@ -226,14 +234,14 @@ docker exec -d tantou_app php artisan tantou:telegram-poll
 
 ## 🛠️ Tech Stack, Testing & Contributing
 
-Tantou is crafted on the **TALL Stack** with modern PHP 8.4:
-- **Framework:** [Laravel 11 / 13](https://laravel.com)
-- **Reactivity:** [Livewire 3](https://livewire.laravel.com) & [Alpine.js](https://alpinejs.dev)
+Tantou is crafted on the **TALL Stack** with modern PHP 8.3+ / 8.4:
+- **Framework:** [Laravel 13.x](https://laravel.com)
+- **Reactivity:** [Livewire 4.x](https://livewire.laravel.com) & [Alpine.js](https://alpinejs.dev)
 - **Styling:** [Tailwind CSS](https://tailwindcss.com)
 - **WebSockets:** [Laravel Reverb](https://laravel.com/docs/reverb)
 - **Database:** MariaDB 11 / MySQL 8
 - **Cache & Queue:** Redis
-- **Testing:** [Pest PHP / PHPUnit](https://pestphp.com)
+- **Testing:** [PHPUnit 12.5](https://phpunit.de)
 
 ### Running the Test Suite
 All backend isolation, concurrency, security, and Livewire component tests can be executed inside the Docker container:
