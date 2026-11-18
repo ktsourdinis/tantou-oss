@@ -314,11 +314,13 @@ class StripeBillingAndTiersTest extends TestCase
             ->call('saveWorkspaceSettings')
             ->assertHasErrors(['telegramBotToken']);
 
+        config(['tantou-cloud.custom_domains_enabled' => true]);
         Livewire::test(CapacityBoard::class)
             ->call('openWorkspaceSettingsModal')
             ->set('tenantCustomDomain', 'ops.acme-corp.com')
             ->call('saveWorkspaceSettings')
             ->assertHasErrors(['tenantCustomDomain']);
+        config(['tantou-cloud.custom_domains_enabled' => false]);
     }
 
     /**
@@ -327,6 +329,7 @@ class StripeBillingAndTiersTest extends TestCase
     public function test_business_tenant_can_configure_and_access_custom_domain(): void
     {
         Edition::fake(true);
+        config(['tantou-cloud.custom_domains_enabled' => true]);
 
         $tenant = Tenant::factory()->create([
             'plan' => 'business',
@@ -349,6 +352,8 @@ class StripeBillingAndTiersTest extends TestCase
         $response = $this->get('http://ops.acme-corp.com/board');
         $response->assertOk();
         $this->assertEquals($tenant->id, app('currentTenant')->id);
+
+        config(['tantou-cloud.custom_domains_enabled' => false]);
     }
 
     /**
@@ -364,5 +369,81 @@ class StripeBillingAndTiersTest extends TestCase
         ]);
 
         $response->assertStatus(404);
+    }
+
+    /**
+     * Test Caddy On-Demand TLS domain check endpoint, Demo Sandbox lock, and TANTOU_CUSTOM_DOMAINS_ENABLED toggle.
+     */
+    public function test_caddy_domain_check_demo_lock_and_custom_domains_enabled_flag(): void
+    {
+        Edition::fake(true);
+
+        // 0. By default, config('tantou-cloud.custom_domains_enabled') is false
+        $this->assertFalse((bool) config('tantou-cloud.custom_domains_enabled'));
+
+        config(['tantou-cloud.custom_domains_enabled' => true, 'tantou.custom_domains_enabled' => true]);
+
+        $cloudManagedTenant = Tenant::factory()->create([
+            'slug' => 'acme-ops',
+            'plan' => 'cloud_managed',
+            'subscription_status' => 'active',
+            'custom_domain' => 'ops.acme.com',
+        ]);
+
+        // 1. GET /api/caddy/domain-check returns 200 for active Cloud Managed workspace and 404 otherwise
+        $this->get('/api/caddy/domain-check?domain=ops.acme.com')
+            ->assertOk()
+            ->assertSeeText('OK');
+
+        $this->get('/api/caddy/domain-check?domain=unknown.acme.com')
+            ->assertNotFound();
+
+        $this->get('/api/caddy/domain-check?domain=localhost')
+            ->assertNotFound();
+
+        // 2. Demo users (admin@tantou.local) cannot modify custom_domain
+        $demoTenant = Tenant::factory()->create([
+            'slug' => 'hellenic-demo-ops',
+            'plan' => 'business',
+            'subscription_status' => 'active',
+            'custom_domain' => null,
+        ]);
+        $demoAdmin = User::factory()->admin()->create([
+            'tenant_id' => $demoTenant->id,
+            'email' => 'admin@tantou.local',
+        ]);
+
+        $this->actingAs($demoAdmin);
+
+        Livewire::test(CapacityBoard::class)
+            ->call('openWorkspaceSettingsModal')
+            ->assertSee('Locked in Public Demo Sandbox')
+            ->set('tenantCustomDomain', 'hacked.demo.com')
+            ->call('saveWorkspaceSettings')
+            ->assertHasErrors(['tenantCustomDomain']);
+
+        $this->assertNull($demoTenant->fresh()->custom_domain);
+
+        // 3. Setting TANTOU_CUSTOM_DOMAINS_ENABLED=false hides the field, disables custom domain saving, and returns 404 on domain-check
+        config(['tantou-cloud.custom_domains_enabled' => false]);
+
+        $this->get('/api/caddy/domain-check?domain=ops.acme.com')
+            ->assertNotFound();
+
+        $acmeAdmin = User::factory()->admin()->create([
+            'tenant_id' => $cloudManagedTenant->id,
+            'email' => 'admin@acme.com',
+        ]);
+
+        $this->actingAs($acmeAdmin);
+
+        Livewire::test(CapacityBoard::class)
+            ->call('openWorkspaceSettingsModal')
+            ->assertDontSee('Branded Custom Domain')
+            ->set('tenantCustomDomain', 'new-domain.acme.com')
+            ->call('saveWorkspaceSettings')
+            ->assertHasNoErrors();
+
+        $this->assertSame('ops.acme.com', $cloudManagedTenant->fresh()->custom_domain);
     }
 }

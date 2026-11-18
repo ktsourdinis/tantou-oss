@@ -14,6 +14,7 @@
 
 namespace App\Livewire\Concerns;
 
+use App\Livewire\Auth\Login;
 use App\Models\Tenant;
 use App\Services\StripeBillingService;
 use App\Support\Edition;
@@ -180,17 +181,51 @@ trait ManagesWorkspaceSettings
         }
 
         $tenant = Tenant::findOrFail($this->tenantId);
+        $customDomainsEnabled = (bool) config('tantou-cloud.custom_domains_enabled', false);
+        $isDemoSandbox = (bool) config('app.demo_mode', false)
+            || $tenant->slug === 'hellenic-demo-ops'
+            || Login::isDemoEmail((string) $currentUser->email);
 
-        if (filled($this->tenantCustomDomain)) {
-            $this->tenantCustomDomain = strtolower(trim($this->tenantCustomDomain));
-            $this->tenantCustomDomain = preg_replace('#^https?://#', '', $this->tenantCustomDomain);
-            $this->tenantCustomDomain = rtrim($this->tenantCustomDomain, '/');
-        }
-
-        if (filled($this->tenantCustomDomain) && ! $tenant->canUseFeature('custom_domain')) {
-            $this->addError('tenantCustomDomain', __('Custom Domain requires the Cloud Business plan.'));
+        if (! $customDomainsEnabled) {
+            $this->tenantCustomDomain = (string) ($tenant->custom_domain ?? '');
+        } elseif ($isDemoSandbox && filled($this->tenantCustomDomain) && strtolower(trim($this->tenantCustomDomain)) !== strtolower((string) ($tenant->custom_domain ?? ''))) {
+            $this->tenantCustomDomain = (string) ($tenant->custom_domain ?? '');
+            $this->addError('tenantCustomDomain', __('🔒 Locked in Public Demo Sandbox'));
 
             return;
+        } elseif (filled($this->tenantCustomDomain)) {
+            $this->tenantCustomDomain = strtolower(trim($this->tenantCustomDomain));
+            $this->tenantCustomDomain = (string) preg_replace('#^https?://#', '', $this->tenantCustomDomain);
+            $this->tenantCustomDomain = rtrim(explode('/', $this->tenantCustomDomain)[0], '.');
+            $this->tenantCustomDomain = explode(':', $this->tenantCustomDomain)[0];
+
+            $hasCustomDomainPlan = $tenant->canUseFeature('custom_domain')
+                && ! (Edition::isCloud() && $tenant->plan === 'community' && ! $tenant->isDemo());
+
+            if (! $hasCustomDomainPlan) {
+                $this->addError('tenantCustomDomain', __('Custom Domain requires the Cloud Business plan. 🔒 Upgrade to Tantou Cloud Managed to connect a custom CNAME domain'));
+
+                return;
+            }
+
+            $appUrlHost = strtolower((string) (parse_url((string) config('app.url'), PHP_URL_HOST) ?? ''));
+            $baseDomain = strtolower(Edition::baseDomain());
+            $isValidHostname = preg_match('/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/', $this->tenantCustomDomain) === 1;
+
+            if (
+                ! $isValidHostname
+                || in_array($this->tenantCustomDomain, ['localhost', '127.0.0.1', $appUrlHost, $baseDomain], true)
+            ) {
+                $this->addError('tenantCustomDomain', __('Please enter a valid lowercase custom domain that does not match the primary platform host.'));
+
+                return;
+            }
+
+            if (Tenant::where('custom_domain', $this->tenantCustomDomain)->where('id', '!=', $this->tenantId)->exists()) {
+                $this->addError('tenantCustomDomain', __('This custom domain is already connected to another workspace.'));
+
+                return;
+            }
         }
 
         if ($this->strictClientIsolation && ! $tenant->canUseFeature('strict_b2b_isolation')) {
@@ -225,7 +260,9 @@ trait ManagesWorkspaceSettings
         $updateData = [
             'name' => $this->tenantName,
             'slug' => $newSlug,
-            'custom_domain' => $isDemoMode ? $tenant->custom_domain : (filled($this->tenantCustomDomain) ? $this->tenantCustomDomain : null),
+            'custom_domain' => ($isDemoMode || ! $customDomainsEnabled || $isDemoSandbox)
+                ? $tenant->custom_domain
+                : (filled($this->tenantCustomDomain) ? $this->tenantCustomDomain : null),
             'strict_client_isolation' => $this->strictClientIsolation,
             'public_submission_enabled' => $this->publicSubmissionEnabled,
             'timezone' => $this->tenantTimezone,

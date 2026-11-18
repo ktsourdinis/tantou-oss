@@ -56,6 +56,8 @@ class LandingPageAndCommunityModeTest extends TestCase
         $response->assertSee('€0');
         $response->assertSee('€8');
         $response->assertSee('€3,600');
+        $response->assertSee('Dedicated Managed Workspace with Zero-Config Auto-SSL &amp; Instant Onboarding', false);
+        $response->assertDontSee('Dedicated {slug}.tantou.app workspace', false);
         $response->assertSee('mailto:tantou@tsourdinis.info?subject=Tantou%20Enterprise%20%26%20Public%20Sector%20White-Label%20Inquiry', false);
 
         // Section 5: Self-Host Quickstart

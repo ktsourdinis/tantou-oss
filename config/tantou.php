@@ -37,6 +37,7 @@ $communityConfig = [
     |
     */
     'hide_marketing' => true,
+    'custom_domains_enabled' => false,
 
     /*
     |--------------------------------------------------------------------------

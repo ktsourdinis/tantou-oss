@@ -153,6 +153,22 @@ If your server already runs an external reverse proxy (such as an existing Caddy
    VITE_REVERB_SCHEME=https
    ```
 4. Tantou's proxy middleware (`$middleware->trustProxies(at: '*')`) and `AppServiceProvider` HTTPS enforcement (`URL::forceScheme('https')`) automatically ensure all Vite `@vite` CSS/JS assets, Livewire requests, and signed links generate `https://` URLs with zero Mixed-Content warnings.
+5. **Automatic SSL for Customer Branded Custom Domains (`on_demand_tls`):**
+   To automatically provision Let's Encrypt TLS certificates for verified customer CNAME domains (`ops.customer.com`), add `on_demand_tls` pointing to Tantou's domain-verification endpoint (`/api/caddy/domain-check`) in your external `Caddyfile`:
+   ```caddyfile
+   {
+       on_demand_tls {
+           ask http://tantou_caddy:80/api/caddy/domain-check
+       }
+   }
+
+   https:// {
+       tls {
+           on_demand
+       }
+       reverse_proxy tantou_caddy:80
+   }
+   ```
 
 ---
 

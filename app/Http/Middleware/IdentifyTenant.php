@@ -89,37 +89,44 @@ class IdentifyTenant
             }
         }
 
-        // 3. Custom Domain Resolution (for Business Tier tenants)
-        $host = strtolower($request->getHost());
-        $customDomainTenant = Tenant::where('custom_domain', $host)->first();
-        if ($customDomainTenant && $customDomainTenant->canUseFeature('custom_domain')) {
-            app()->instance('currentTenant', $customDomainTenant);
+        // 3. Custom Domain Resolution (for Cloud Managed / Business / Enterprise Tier tenants)
+        if (Edition::customDomainsEnabled()) {
+            $host = strtolower($request->getHost());
+            $appUrlHost = strtolower((string) (parse_url((string) config('app.url'), PHP_URL_HOST) ?? ''));
 
-            if ($request->is('register')) {
-                return redirect()->to(route('login'));
-            }
+            if ($host !== '' && $host !== $appUrlHost) {
+                $customDomainTenant = Tenant::where('custom_domain', $host)->first();
+                if ($customDomainTenant && $customDomainTenant->canUseFeature('custom_domain') && $customDomainTenant->hasActiveSubscription()) {
+                    app()->instance('currentTenant', $customDomainTenant);
+                    session(['active_tenant_id' => $customDomainTenant->id]);
 
-            if ($request->is('cloud/autologin/*')) {
-                return $next($request);
-            }
+                    if ($request->is('register')) {
+                        return redirect()->to(route('login'));
+                    }
 
-            $user = $request->user() ?? (Auth::check() ? Auth::user() : null);
-            if ($user && (int) $user->tenant_id !== (int) $customDomainTenant->id) {
-                if ($user->tenant) {
-                    $signedUrl = Edition::signedTenantAutoLoginUrl($user, $request);
+                    if ($request->is('cloud/autologin/*')) {
+                        return $next($request);
+                    }
 
-                    return redirect()->away($signedUrl);
+                    $user = $request->user() ?? (Auth::check() ? Auth::user() : null);
+                    if ($user && (int) $user->tenant_id !== (int) $customDomainTenant->id) {
+                        if ($user->tenant) {
+                            $signedUrl = Edition::signedTenantAutoLoginUrl($user, $request);
+
+                            return redirect()->away($signedUrl);
+                        }
+
+                        Auth::logout();
+                        $request->session()->invalidate();
+                        $request->session()->regenerateToken();
+
+                        return redirect()->to(route('login'))
+                            ->with('error', __('You do not have access to this workspace.'));
+                    }
+
+                    return $next($request);
                 }
-
-                Auth::logout();
-                $request->session()->invalidate();
-                $request->session()->regenerateToken();
-
-                return redirect()->to(route('login'))
-                    ->with('error', __('You do not have access to this workspace.'));
             }
-
-            return $next($request);
         }
 
         if (Edition::usesSubdomains($request)) {

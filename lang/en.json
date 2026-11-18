@@ -755,6 +755,13 @@
     "From": "From",
     "year": "year",
     "Public Sector & Enterprise (White-Label / On-Premise / SLA Contract)": "Public Sector & Enterprise (White-Label / On-Premise / SLA Contract)",
-    "Need White-Label or Public Sector Procurement? Contact tantou@tsourdinis.info →": "Need White-Label or Public Sector Procurement? Contact tantou@tsourdinis.info →"
+    "Need White-Label or Public Sector Procurement? Contact tantou@tsourdinis.info →": "Need White-Label or Public Sector Procurement? Contact tantou@tsourdinis.info →",
+    "Locked in Public Demo Sandbox": "Locked in Public Demo Sandbox",
+    "🔒 Locked in Public Demo Sandbox": "🔒 Locked in Public Demo Sandbox",
+    "Upgrade to Tantou Cloud Managed to connect a custom CNAME domain": "Upgrade to Tantou Cloud Managed to connect a custom CNAME domain",
+    "Point a CNAME record for :domain to :target": "Point a CNAME record for :domain to :target",
+    "Please enter a valid lowercase custom domain that does not match the primary platform host.": "Please enter a valid lowercase custom domain that does not match the primary platform host.",
+    "This custom domain is already connected to another workspace.": "This custom domain is already connected to another workspace.",
+    "Dedicated Managed Workspace with Zero-Config Auto-SSL & Instant Onboarding": "Dedicated Managed Workspace with Zero-Config Auto-SSL & Instant Onboarding"
 }
 

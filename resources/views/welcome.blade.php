@@ -533,7 +533,7 @@
                                 </li>
                                 <li class="flex items-center gap-2">
                                     <span class="text-indigo-400 font-bold">✓</span>
-                                    <span>{{ __('Custom Domain + Auto-SSL & Dedicated {slug}.tantou.app workspace') }}</span>
+                                    <span>{{ __('Dedicated Managed Workspace with Zero-Config Auto-SSL & Instant Onboarding') }}</span>
                                 </li>
                                 <li class="flex items-center gap-2">
                                     <span class="text-indigo-400 font-bold">✓</span>

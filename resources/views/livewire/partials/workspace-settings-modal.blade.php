@@ -205,35 +205,50 @@
                             @enderror
                         </div>
 
-                        {{-- Custom Domain (Business Plan) --}}
-                        <div>
-                            <div class="flex items-center justify-between mb-1.5">
-                                <label for="settingsTenantCustomDomain" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                                    <span>🌐</span>
-                                    <span>{{ __('Branded Custom Domain') }}</span>
-                                </label>
-                                @if (! $canCustomDomain)
-                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                        🔒 {{ __('Business Plan') }}
-                                    </span>
-                                @endif
-                            </div>
+                        {{-- Custom Domain (Cloud Managed / Enterprise Plan) --}}
+                        @if (config('tantou-cloud.custom_domains_enabled'))
+                            @php
+                                $isDemoCustomDomainLocked = (bool) config('app.demo_mode', false)
+                                    || ($modalTenant && $modalTenant->slug === 'hellenic-demo-ops')
+                                    || \App\Livewire\Auth\Login::isDemoEmail((string) auth()->user()?->email);
+                                $hasCustomDomainEntitlement = $canCustomDomain
+                                    && ! (\App\Support\Edition::isCloud() && $modalTenant && $modalTenant->plan === 'community' && ! $modalTenant->isDemo());
+                                $canEditCustomDomain = $hasCustomDomainEntitlement && ! $isDemoCustomDomainLocked;
+                                $cnameTargetHost = parse_url((string) config('app.url'), PHP_URL_HOST) ?: request()->getHost() ?: 'localhost';
+                            @endphp
+                            <div>
+                                <div class="flex items-center justify-between mb-1.5 gap-2 flex-wrap">
+                                    <label for="settingsTenantCustomDomain" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                                        <span>🌐</span>
+                                        <span>{{ __('Branded Custom Domain') }}</span>
+                                    </label>
+                                    @if ($isDemoCustomDomainLocked)
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                            🔒 {{ __('Locked in Public Demo Sandbox') }}
+                                        </span>
+                                    @elseif (! $hasCustomDomainEntitlement)
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                            🔒 {{ __('Upgrade to Tantou Cloud Managed to connect a custom CNAME domain') }}
+                                        </span>
+                                    @endif
+                                </div>
 
-                            <input
-                                wire:model="tenantCustomDomain"
-                                id="settingsTenantCustomDomain"
-                                type="text"
-                                @disabled(! $canCustomDomain)
-                                class="block w-full rounded-xl bg-slate-950/70 border {{ $errors->has('tenantCustomDomain') ? 'border-rose-500/80 focus:border-rose-500 focus:ring-rose-500/20' : 'border-slate-800 focus:border-indigo-500 focus:ring-indigo-500/20' }} px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-4 transition-all font-mono {{ ! $canCustomDomain ? 'opacity-50 cursor-not-allowed' : '' }}"
-                                placeholder="ops.yourcompany.com"
-                            >
-                            <p class="mt-1 text-[11px] text-slate-400">
-                                {{ __('Point a CNAME record to your Tantou server to access this workspace under your own brand.') }}
-                            </p>
-                            @error('tenantCustomDomain')
-                                <p class="mt-1 text-xs text-rose-400">{{ $message }}</p>
-                            @enderror
-                        </div>
+                                <input
+                                    wire:model="tenantCustomDomain"
+                                    id="settingsTenantCustomDomain"
+                                    type="text"
+                                    @disabled(! $canEditCustomDomain)
+                                    class="block w-full rounded-xl bg-slate-950/70 border {{ $errors->has('tenantCustomDomain') ? 'border-rose-500/80 focus:border-rose-500 focus:ring-rose-500/20' : 'border-slate-800 focus:border-indigo-500 focus:ring-indigo-500/20' }} px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-4 transition-all font-mono {{ ! $canEditCustomDomain ? 'opacity-50 cursor-not-allowed' : '' }}"
+                                    placeholder="ops.yourcompany.com"
+                                >
+                                <p class="mt-1 text-[11px] text-slate-400">
+                                    {{ __('Point a CNAME record for :domain to :target', ['domain' => $tenantCustomDomain ?: 'ops.yourcompany.com', 'target' => $cnameTargetHost]) }}
+                                </p>
+                                @error('tenantCustomDomain')
+                                    <p class="mt-1 text-xs text-rose-400">{{ $message }}</p>
+                                @enderror
+                            </div>
+                        @endif
                     </div>
 
                     {{-- Tab 2: Access & Drop-Box --}}

@@ -92,6 +92,14 @@ class Edition
     }
 
     /**
+     * Determine if Branded Custom Domains (CNAME) are enabled.
+     */
+    public static function customDomainsEnabled(): bool
+    {
+        return (bool) config('tantou-cloud.custom_domains_enabled', false);
+    }
+
+    /**
      * Resolve the effective routing mode.
      * When running community edition, defaults to 'single' (single-tenant operation).
      */

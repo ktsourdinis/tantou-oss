@@ -799,6 +799,13 @@
     "From": "Από",
     "year": "έτος",
     "Public Sector & Enterprise (White-Label / On-Premise / SLA Contract)": "Δημόσιος Τομέας & Enterprise (White-Label / On-Premise / Συμβόλαιο SLA)",
-    "Need White-Label or Public Sector Procurement? Contact tantou@tsourdinis.info →": "Χρειάζεστε White-Label ή Δημόσια Σύμβαση; Επικοινωνήστε στο tantou@tsourdinis.info →"
+    "Need White-Label or Public Sector Procurement? Contact tantou@tsourdinis.info →": "Χρειάζεστε White-Label ή Δημόσια Σύμβαση; Επικοινωνήστε στο tantou@tsourdinis.info →",
+    "Locked in Public Demo Sandbox": "Κλειδωμένο στο Δημόσιο Demo Sandbox",
+    "🔒 Locked in Public Demo Sandbox": "🔒 Κλειδωμένο στο Δημόσιο Demo Sandbox",
+    "Upgrade to Tantou Cloud Managed to connect a custom CNAME domain": "Αναβαθμίστε σε Tantou Cloud Managed για σύνδεση προσαρμοσμένου CNAME domain",
+    "Point a CNAME record for :domain to :target": "Στρέψτε μια εγγραφή CNAME για το :domain προς το :target",
+    "Please enter a valid lowercase custom domain that does not match the primary platform host.": "Παρακαλούμε εισάγετε ένα έγκυρο προσαρμοσμένο domain με πεζούς χαρακτήρες που δεν ταυτίζεται με το κύριο domain της πλατφόρμας.",
+    "This custom domain is already connected to another workspace.": "Αυτό το προσαρμοσμένο domain είναι ήδη συνδεδεμένο σε άλλον χώρο εργασίας.",
+    "Dedicated Managed Workspace with Zero-Config Auto-SSL & Instant Onboarding": "Αποκλειστικό Managed Workspace με Auto-SSL & Άμεση Ενεργοποίηση"
 }
 
