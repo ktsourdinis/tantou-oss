@@ -112,29 +112,28 @@ In traditional ticketing tools and Kanban boards (Jira, Trello, Asana), tickets 
 
 Tantou ships with pre-configured Docker Compose blueprints running **PHP 8.4, Node.js 20, MariaDB 11, Redis, Caddy 2, and Laravel Reverb**. On first boot, the container entrypoint (`docker-entrypoint.sh`) automatically installs Composer dependencies (`vendor/`) and compiles frontend assets (`public/build/`) when missing.
 
-### 1. Clone & Boot Containers
+### 1. Clone, Configure & Boot
 ```bash
-# Clone the repository
-git clone https://github.com/ktsourdinis/tantou-oss.git && cd tantou-oss
+# 1. Clone the repository
+git clone https://github.com/ktsourdinis/tantou-oss.git tantou && cd tantou
 
-# Copy environment, Docker Compose & Caddy configuration blueprints
-cp .env.example .env
-cp docker-compose.example.yml docker-compose.yml
-cp Caddyfile.example Caddyfile
+# 2. Copy environment, Docker Compose & Caddy configuration blueprints
+cp .env.example .env && cp docker-compose.example.yml docker-compose.yml && cp Caddyfile.example Caddyfile
 
-# Build & start Docker containers in the background
-# (First boot automatically bootstraps vendor/ and public/build/ via docker-entrypoint.sh)
+# 3. Build & start Docker containers in the background
 docker compose up -d --build
-```
 
-### 2. Initialize Database & Seed Demo Data
-```bash
-# Optional: If running artisan before first-boot auto-bootstrap finishes, install manually:
+# 4. Install PHP dependencies (or wait for first-boot auto-bootstrap)
 docker exec -u 1000:1000 tantou_app composer install --no-dev --optimize-autoloader
 
-# Generate application key & run database migrations with demo dataset
+# 5. Compile production frontend assets (Vite CSS/JS)
+docker run --rm -u 1000:1000 -e npm_config_cache=/tmp/.npm -v $(pwd):/app -w /app node:20 sh -c "npm ci && npm run build"
+
+# 6. Generate application encryption key
 docker exec -u 1000:1000 tantou_app php artisan key:generate
-docker exec -u 1000:1000 tantou_app php artisan migrate --seed
+
+# 7. Run database migrations & create storage symlink (add --seed for demo data)
+docker exec -u 1000:1000 tantou_app php artisan migrate --force && docker exec -u 1000:1000 tantou_app php artisan storage:link
 ```
 
 ### 3. Access Tantou
@@ -175,6 +174,30 @@ APP_URL=https://ops.yourcompany.com
 ```
 
 All team members, coordinators, and clients access the workspace directly through your configured `APP_URL`.
+
+### Running Behind an External Reverse Proxy (Caddy / Nginx / Traefik)
+
+When hosting Tantou alongside other services behind an existing reverse-proxy container on the same server:
+
+1. **Attach `tantou_caddy` to your shared proxy network** in `docker-compose.yml` (uncomment `proxy_network` under `caddy.networks` and root `networks`, and set internal `Caddyfile` site address to `:80`).
+2. **External `Caddyfile` Snippet:**
+   ```caddyfile
+   ops.yourcompany.com {
+       reverse_proxy tantou_caddy:80
+   }
+   ```
+3. **Required `.env` Variables for HTTPS & WebSockets:**
+   ```ini
+   APP_URL=https://ops.yourcompany.com
+   SESSION_SECURE_COOKIE=true
+   REVERB_HOST=ops.yourcompany.com
+   REVERB_PORT=443
+   REVERB_SCHEME=https
+   VITE_REVERB_HOST=ops.yourcompany.com
+   VITE_REVERB_PORT=443
+   VITE_REVERB_SCHEME=https
+   ```
+   *(Tantou automatically trusts upstream `X-Forwarded-*` headers and enforces `https://` asset URLs whenever `APP_URL` starts with `https://`, preventing Mixed-Content CSS/JS issues).*
 
 ---
 

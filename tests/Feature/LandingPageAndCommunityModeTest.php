@@ -150,9 +150,35 @@ class LandingPageAndCommunityModeTest extends TestCase
 
         foreach (['README.md', 'resources/views/welcome.blade.php', 'docs/USER_AND_ADMIN_GUIDE.md'] as $relPath) {
             $content = file_get_contents(base_path($relPath));
-            $this->assertStringContainsString('cp docker-compose.example.yml docker-compose.yml', $content, "Missing compose copy in {$relPath}");
-            $this->assertStringContainsString('cp Caddyfile.example Caddyfile', $content, "Missing Caddyfile copy in {$relPath}");
+            $this->assertStringContainsString('git clone https://github.com/ktsourdinis/tantou-oss.git tantou && cd tantou', $content, "Missing clone command in {$relPath}");
+            $this->assertStringContainsString('cp .env.example .env && cp docker-compose.example.yml docker-compose.yml && cp Caddyfile.example Caddyfile', $content, "Missing config copy in {$relPath}");
+            $this->assertStringContainsString('docker compose up -d --build', $content, "Missing compose build in {$relPath}");
             $this->assertStringContainsString('docker exec -u 1000:1000 tantou_app composer install --no-dev --optimize-autoloader', $content, "Missing manual composer fallback in {$relPath}");
+            $this->assertStringContainsString('docker exec -u 1000:1000 tantou_app php artisan key:generate', $content, "Missing key:generate in {$relPath}");
+            $this->assertStringContainsString('docker exec -u 1000:1000 tantou_app php artisan migrate --force && docker exec -u 1000:1000 tantou_app php artisan storage:link', $content, "Missing migrate & storage:link in {$relPath}");
+        }
+
+        $bootstrapApp = file_get_contents(base_path('bootstrap/app.php'));
+        $this->assertStringContainsString("\$middleware->trustProxies(at: '*');", $bootstrapApp);
+
+        $appServiceProvider = file_get_contents(app_path('Providers/AppServiceProvider.php'));
+        $this->assertStringContainsString("str_starts_with((string) config('app.url'), 'https://')", $appServiceProvider);
+        $this->assertStringContainsString("URL::forceScheme('https');", $appServiceProvider);
+
+        $caddyfile = file_get_contents(base_path('Caddyfile.example'));
+        $this->assertStringContainsString('root * /var/www/html/public', $caddyfile);
+        $this->assertStringContainsString('reverse_proxy tantou_reverb:8080', $caddyfile);
+        $this->assertStringContainsString('php_fastcgi tantou_app:9000', $caddyfile);
+
+        $compose = file_get_contents(base_path('docker-compose.example.yml'));
+        $this->assertStringContainsString('proxy_network', $compose);
+        $this->assertStringContainsString('external: true', $compose);
+
+        foreach (['README.md', 'docs/USER_AND_ADMIN_GUIDE.md'] as $docPath) {
+            $docContent = file_get_contents(base_path($docPath));
+            $this->assertStringContainsString('Running Behind an External Reverse Proxy (Caddy / Nginx / Traefik)', $docContent);
+            $this->assertStringContainsString('reverse_proxy tantou_caddy:80', $docContent);
+            $this->assertStringContainsString('SESSION_SECURE_COOKIE=true', $docContent);
         }
     }
 }

@@ -637,7 +637,7 @@
             <div class="max-w-3xl mx-auto space-y-6">
                 {{-- Interactive Terminal Card --}}
                 <div
-                    x-data="{ copied: false, commands: 'git clone https://github.com/ktsourdinis/tantou-oss.git && cd tantou-oss\ncp .env.example .env\ncp docker-compose.example.yml docker-compose.yml\ncp Caddyfile.example Caddyfile\ndocker compose up -d --build\ndocker exec -u 1000:1000 tantou_app composer install --no-dev --optimize-autoloader\ndocker exec -u 1000:1000 tantou_app php artisan key:generate\ndocker exec -it tantou_app php artisan migrate --seed' }"
+                    x-data="{ copied: false, commands: 'git clone https://github.com/ktsourdinis/tantou-oss.git tantou && cd tantou\ncp .env.example .env && cp docker-compose.example.yml docker-compose.yml && cp Caddyfile.example Caddyfile\ndocker compose up -d --build\ndocker exec -u 1000:1000 tantou_app composer install --no-dev --optimize-autoloader\ndocker run --rm -u 1000:1000 -e npm_config_cache=/tmp/.npm -v $(pwd):/app -w /app node:20 sh -c &quot;npm ci && npm run build&quot;\ndocker exec -u 1000:1000 tantou_app php artisan key:generate\ndocker exec -u 1000:1000 tantou_app php artisan migrate --force && docker exec -u 1000:1000 tantou_app php artisan storage:link' }"
                     class="rounded-3xl bg-slate-950 border border-slate-800 overflow-hidden shadow-2xl"
                 >
                     <div class="px-6 py-4 bg-slate-900/80 border-b border-slate-800 flex items-center justify-between">
@@ -645,7 +645,7 @@
                             <span class="w-3 h-3 rounded-full bg-rose-500/80"></span>
                             <span class="w-3 h-3 rounded-full bg-amber-500/80"></span>
                             <span class="w-3 h-3 rounded-full bg-emerald-500/80"></span>
-                            <span class="text-xs font-mono text-slate-400 ml-2">bash • 4-step quickstart</span>
+                            <span class="text-xs font-mono text-slate-400 ml-2">bash • 7-step quickstart</span>
                         </div>
 
                         <button
@@ -660,7 +660,7 @@
 
                     <div class="p-6 font-mono text-xs text-slate-300 leading-loose overflow-x-auto space-y-2">
                         <div class="text-slate-500 select-none"># 1. Clone repository & enter workspace</div>
-                        <div class="text-emerald-400">git clone https://github.com/ktsourdinis/tantou-oss.git && cd tantou-oss</div>
+                        <div class="text-emerald-400">git clone https://github.com/ktsourdinis/tantou-oss.git tantou && cd tantou</div>
 
                         <div class="text-slate-500 select-none pt-2"># 2. Copy environment, Docker Compose & Caddy configuration blueprints</div>
                         <div class="text-emerald-400">cp .env.example .env && cp docker-compose.example.yml docker-compose.yml && cp Caddyfile.example Caddyfile</div>
@@ -668,10 +668,13 @@
                         <div class="text-slate-500 select-none pt-2"># 3. Build & boot containers (docker-entrypoint.sh auto-bootstraps vendor/ & public/build/ on first boot)</div>
                         <div class="text-emerald-400">docker compose up -d --build</div>
 
-                        <div class="text-slate-500 select-none pt-2"># 4. (Optional manual fallback if running artisan before first-boot finishes) + Key & Migrations</div>
+                        <div class="text-slate-500 select-none pt-2"># 4. Install PHP dependencies & compile frontend assets</div>
                         <div class="text-emerald-400">docker exec -u 1000:1000 tantou_app composer install --no-dev --optimize-autoloader</div>
+                        <div class="text-emerald-400">docker run --rm -u 1000:1000 -e npm_config_cache=/tmp/.npm -v $(pwd):/app -w /app node:20 sh -c "npm ci && npm run build"</div>
+
+                        <div class="text-slate-500 select-none pt-2"># 5. Generate app key, run database migrations & link storage (or docker exec -it tantou_app php artisan migrate --seed)</div>
                         <div class="text-emerald-400">docker exec -u 1000:1000 tantou_app php artisan key:generate</div>
-                        <div class="text-emerald-400">docker exec -it tantou_app php artisan migrate --seed</div>
+                        <div class="text-emerald-400">docker exec -u 1000:1000 tantou_app php artisan migrate --force && docker exec -u 1000:1000 tantou_app php artisan storage:link</div>
                     </div>
                 </div>
 

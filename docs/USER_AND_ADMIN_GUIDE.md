@@ -65,26 +65,25 @@ On first boot, `docker-entrypoint.sh` automatically checks for and bootstraps mi
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/ktsourdinis/tantou-oss.git
-cd tantou-oss
+git clone https://github.com/ktsourdinis/tantou-oss.git tantou && cd tantou
 
 # 2. Copy environment, Docker Compose & Caddy configuration blueprints
-cp .env.example .env
-cp docker-compose.example.yml docker-compose.yml
-cp Caddyfile.example Caddyfile
+cp .env.example .env && cp docker-compose.example.yml docker-compose.yml && cp Caddyfile.example Caddyfile
 
 # 3. Build & start the Docker stack (first boot auto-installs vendor/ & public/build/)
 docker compose up -d --build
 
-# 4. (Optional manual fallback if running artisan before first-boot auto-bootstrap finishes)
+# 4. Install PHP dependencies (explicit manual step if running artisan immediately)
 docker exec -u 1000:1000 tantou_app composer install --no-dev --optimize-autoloader
 
-# 5. Generate application key & run database migrations with demo dataset
-docker exec -u 1000:1000 tantou_app php artisan key:generate
-docker exec -u 1000:1000 tantou_app php artisan migrate --seed
+# 5. Compile production frontend assets (Vite CSS/JS)
+docker run --rm -u 1000:1000 -e npm_config_cache=/tmp/.npm -v $(pwd):/app -w /app node:20 sh -c "npm ci && npm run build"
 
-# 6. Access Tantou
-# Open your browser at http://localhost
+# 6. Generate application encryption key
+docker exec -u 1000:1000 tantou_app php artisan key:generate
+
+# 7. Run database migrations & create storage symlink (add --seed for demo dataset)
+docker exec -u 1000:1000 tantou_app php artisan migrate --force && docker exec -u 1000:1000 tantou_app php artisan storage:link
 ```
 
 ### Mode A: Private Intranet IP Mode (Air-Gapped)
@@ -122,6 +121,30 @@ For production domain hosting (e.g. `https://ops.yourcompany.com`):
    ```
 3. In `Caddyfile.example`, replace `{$DOMAIN:localhost}` with `ops.yourcompany.com`.
 4. Caddy will automatically provision and renew Let's Encrypt / ZeroSSL TLS certificates and proxy WebSocket connections over `wss://ops.yourcompany.com/app/*`.
+
+### Running Behind an External Reverse Proxy (Caddy / Nginx / Traefik)
+
+If your server already runs an external reverse proxy (such as an existing Caddy, Nginx Proxy Manager, or Traefik container) handling ports `80/443`:
+
+1. Attach `tantou_caddy` to your external Docker proxy network (`proxy_network: external: true` in `docker-compose.yml`) and set the site address in Tantou's `Caddyfile` to `:80`.
+2. Add the following upstream block to your **external `Caddyfile`**:
+   ```caddyfile
+   ops.yourcompany.com {
+       reverse_proxy tantou_caddy:80
+   }
+   ```
+3. Configure the required HTTPS & WebSocket variables in Tantou's `.env`:
+   ```dotenv
+   APP_URL=https://ops.yourcompany.com
+   SESSION_SECURE_COOKIE=true
+   REVERB_HOST=ops.yourcompany.com
+   REVERB_PORT=443
+   REVERB_SCHEME=https
+   VITE_REVERB_HOST=ops.yourcompany.com
+   VITE_REVERB_PORT=443
+   VITE_REVERB_SCHEME=https
+   ```
+4. Tantou's proxy middleware (`$middleware->trustProxies(at: '*')`) and `AppServiceProvider` HTTPS enforcement (`URL::forceScheme('https')`) automatically ensure all Vite `@vite` CSS/JS assets, Livewire requests, and signed links generate `https://` URLs with zero Mixed-Content warnings.
 
 ---
 
