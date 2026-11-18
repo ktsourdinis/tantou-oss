@@ -23,7 +23,7 @@ services:
       - "443:443"
       - "443:443/udp" # HTTP/3
     volumes:
-      - ./Caddyfile.example:/etc/caddy/Caddyfile:ro
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - .:/var/www/html:ro
       - caddy_data:/data
       - caddy_config:/config
@@ -63,6 +63,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /var/www/html/vendor/autoload.php"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
     networks:
       - tantou_network
 
@@ -115,8 +121,10 @@ services:
     volumes:
       - .:/var/www/html
     depends_on:
-      - app
-      - redis
+      app:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - tantou_network
 
@@ -133,8 +141,10 @@ services:
     volumes:
       - .:/var/www/html
     depends_on:
-      - app
-      - redis
+      app:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - tantou_network
 
@@ -151,9 +161,12 @@ services:
     volumes:
       - .:/var/www/html
     depends_on:
-      - app
-      - db
-      - redis
+      app:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - tantou_network
 

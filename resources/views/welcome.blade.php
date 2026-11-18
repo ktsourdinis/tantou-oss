@@ -637,7 +637,7 @@
             <div class="max-w-3xl mx-auto space-y-6">
                 {{-- Interactive Terminal Card --}}
                 <div
-                    x-data="{ copied: false, commands: 'git clone https://github.com/ktsourdinis/tantou-oss.git && cd tantou-oss\ncp .env.example .env\ndocker compose up -d\ndocker exec -it tantou_app php artisan migrate --seed' }"
+                    x-data="{ copied: false, commands: 'git clone https://github.com/ktsourdinis/tantou-oss.git && cd tantou-oss\ncp .env.example .env\ncp docker-compose.example.yml docker-compose.yml\ncp Caddyfile.example Caddyfile\ndocker compose up -d --build\ndocker exec -u 1000:1000 tantou_app composer install --no-dev --optimize-autoloader\ndocker exec -u 1000:1000 tantou_app php artisan key:generate\ndocker exec -it tantou_app php artisan migrate --seed' }"
                     class="rounded-3xl bg-slate-950 border border-slate-800 overflow-hidden shadow-2xl"
                 >
                     <div class="px-6 py-4 bg-slate-900/80 border-b border-slate-800 flex items-center justify-between">
@@ -662,13 +662,15 @@
                         <div class="text-slate-500 select-none"># 1. Clone repository & enter workspace</div>
                         <div class="text-emerald-400">git clone https://github.com/ktsourdinis/tantou-oss.git && cd tantou-oss</div>
 
-                        <div class="text-slate-500 select-none pt-2"># 2. Configure environment (Community Single-Tenant default)</div>
-                        <div class="text-emerald-400">cp .env.example .env</div>
+                        <div class="text-slate-500 select-none pt-2"># 2. Copy environment, Docker Compose & Caddy configuration blueprints</div>
+                        <div class="text-emerald-400">cp .env.example .env && cp docker-compose.example.yml docker-compose.yml && cp Caddyfile.example Caddyfile</div>
 
-                        <div class="text-slate-500 select-none pt-2"># 3. Boot containers (PHP 8.4, MariaDB 11, Redis, Reverb WebSockets)</div>
-                        <div class="text-emerald-400">docker compose up -d</div>
+                        <div class="text-slate-500 select-none pt-2"># 3. Build & boot containers (docker-entrypoint.sh auto-bootstraps vendor/ & public/build/ on first boot)</div>
+                        <div class="text-emerald-400">docker compose up -d --build</div>
 
-                        <div class="text-slate-500 select-none pt-2"># 4. Run migrations & demo seeders</div>
+                        <div class="text-slate-500 select-none pt-2"># 4. (Optional manual fallback if running artisan before first-boot finishes) + Key & Migrations</div>
+                        <div class="text-emerald-400">docker exec -u 1000:1000 tantou_app composer install --no-dev --optimize-autoloader</div>
+                        <div class="text-emerald-400">docker exec -u 1000:1000 tantou_app php artisan key:generate</div>
                         <div class="text-emerald-400">docker exec -it tantou_app php artisan migrate --seed</div>
                     </div>
                 </div>

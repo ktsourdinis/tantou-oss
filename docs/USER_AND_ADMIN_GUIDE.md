@@ -61,22 +61,29 @@ Traditional issue trackers treat teams like infinite conveyor belts. When ticket
 
 ### 60-Second Quickstart
 
+On first boot, `docker-entrypoint.sh` automatically checks for and bootstraps missing Composer dependencies (`vendor/autoload.php`) and compiled frontend assets (`public/build/manifest.json`) inside `tantou_app`, while secondary worker containers (`tantou_queue`, `tantou_reverb`, `tantou_telegram_poll`) wait until `vendor/autoload.php` is ready.
+
 ```bash
 # 1. Clone the repository
 git clone https://github.com/ktsourdinis/tantou-oss.git
 cd tantou-oss
 
-# 2. Configure environment
+# 2. Copy environment, Docker Compose & Caddy configuration blueprints
 cp .env.example .env
+cp docker-compose.example.yml docker-compose.yml
+cp Caddyfile.example Caddyfile
 
-# 3. Start the Docker stack
-docker compose -f docker-compose.example.yml up -d
+# 3. Build & start the Docker stack (first boot auto-installs vendor/ & public/build/)
+docker compose up -d --build
 
-# 4. Generate application key & run database migrations
-docker compose -f docker-compose.example.yml exec -u 1000:1000 app php artisan key:generate
-docker compose -f docker-compose.example.yml exec -u 1000:1000 app php artisan migrate --seed
+# 4. (Optional manual fallback if running artisan before first-boot auto-bootstrap finishes)
+docker exec -u 1000:1000 tantou_app composer install --no-dev --optimize-autoloader
 
-# 5. Access Tantou
+# 5. Generate application key & run database migrations with demo dataset
+docker exec -u 1000:1000 tantou_app php artisan key:generate
+docker exec -u 1000:1000 tantou_app php artisan migrate --seed
+
+# 6. Access Tantou
 # Open your browser at http://localhost
 ```
 

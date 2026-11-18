@@ -127,4 +127,32 @@ class LandingPageAndCommunityModeTest extends TestCase
         $response->assertSee('Χωρίς εγγραφή • Επαναφορά κάθε 2 ώρες');
         $response->assertSee('Αυτοφιλοξενία (Single-Tenant)');
     }
+
+    /**
+     * Test Docker auto-bootstrap entrypoint and quickstart guides are complete.
+     */
+    public function test_docker_auto_bootstrap_entrypoint_and_quickstart_guides_are_complete(): void
+    {
+        $dockerfile = file_get_contents(base_path('Dockerfile'));
+        $this->assertStringContainsString('nodejs', $dockerfile);
+        $this->assertStringContainsString('npm', $dockerfile);
+        $this->assertStringContainsString('ENTRYPOINT ["docker-entrypoint.sh"]', $dockerfile);
+        $this->assertStringContainsString('CMD ["php-fpm"]', $dockerfile);
+
+        $entrypointPath = base_path('docker-entrypoint.sh');
+        $this->assertFileExists($entrypointPath);
+        $entrypoint = file_get_contents($entrypointPath);
+        $this->assertStringContainsString('/var/www/html/vendor/autoload.php', $entrypoint);
+        $this->assertStringContainsString('composer install --no-interaction --prefer-dist --optimize-autoloader', $entrypoint);
+        $this->assertStringContainsString('/var/www/html/public/build/manifest.json', $entrypoint);
+        $this->assertStringContainsString('npm ci --no-audit --no-fund && npm run build', $entrypoint);
+        $this->assertStringContainsString('exec "$@"', $entrypoint);
+
+        foreach (['README.md', 'resources/views/welcome.blade.php', 'docs/USER_AND_ADMIN_GUIDE.md'] as $relPath) {
+            $content = file_get_contents(base_path($relPath));
+            $this->assertStringContainsString('cp docker-compose.example.yml docker-compose.yml', $content, "Missing compose copy in {$relPath}");
+            $this->assertStringContainsString('cp Caddyfile.example Caddyfile', $content, "Missing Caddyfile copy in {$relPath}");
+            $this->assertStringContainsString('docker exec -u 1000:1000 tantou_app composer install --no-dev --optimize-autoloader', $content, "Missing manual composer fallback in {$relPath}");
+        }
+    }
 }

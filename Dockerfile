@@ -23,6 +23,8 @@ RUN apk add --no-cache \
     libzip-dev \
     oniguruma-dev \
     mariadb-client \
+    nodejs \
+    npm \
     shadow
 
 # Configure and install core PHP extensions
@@ -57,10 +59,15 @@ RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
 # Set permissions for www-data
 RUN chown -R www-data:www-data /var/www/html
 
+# Copy and configure auto-bootstrap entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Switch to non-root user
 USER www-data
 
 # Expose FastCGI port
 EXPOSE 9000
 
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["php-fpm"]

@@ -110,22 +110,28 @@ In traditional ticketing tools and Kanban boards (Jira, Trello, Asana), tickets 
 
 ## 🐳 60-Second Docker Quickstart
 
-Tantou ships with pre-configured Docker Compose files running **PHP 8.4, MariaDB 11, Redis, and Laravel Reverb**.
+Tantou ships with pre-configured Docker Compose blueprints running **PHP 8.4, Node.js 20, MariaDB 11, Redis, Caddy 2, and Laravel Reverb**. On first boot, the container entrypoint (`docker-entrypoint.sh`) automatically installs Composer dependencies (`vendor/`) and compiles frontend assets (`public/build/`) when missing.
 
 ### 1. Clone & Boot Containers
 ```bash
 # Clone the repository
 git clone https://github.com/ktsourdinis/tantou-oss.git && cd tantou-oss
 
-# Copy environment configuration
+# Copy environment, Docker Compose & Caddy configuration blueprints
 cp .env.example .env
+cp docker-compose.example.yml docker-compose.yml
+cp Caddyfile.example Caddyfile
 
-# Start Docker containers in background
-docker compose up -d
+# Build & start Docker containers in the background
+# (First boot automatically bootstraps vendor/ and public/build/ via docker-entrypoint.sh)
+docker compose up -d --build
 ```
 
 ### 2. Initialize Database & Seed Demo Data
 ```bash
+# Optional: If running artisan before first-boot auto-bootstrap finishes, install manually:
+docker exec -u 1000:1000 tantou_app composer install --no-dev --optimize-autoloader
+
 # Generate application key & run database migrations with demo dataset
 docker exec -u 1000:1000 tantou_app php artisan key:generate
 docker exec -u 1000:1000 tantou_app php artisan migrate --seed
