@@ -27,6 +27,22 @@ use Livewire\Component;
 #[Layout('layouts.app')]
 class Login extends Component
 {
+    /**
+     * Explicit list of allowed seeded demo account emails.
+     *
+     * @var list<string>
+     */
+    public const array ALLOWED_DEMO_EMAILS = [
+        'admin@tantou.local',
+        'coordinator@tantou.local',
+        'elena@tantou.local',
+        'kostas@tantou.local',
+        'maria@tantou.local',
+        'giorgos@tantou.local',
+        'client@tantou.local',
+        'lab@tantou.local',
+    ];
+
     #[Validate('required|email')]
     public string $email = '';
 
@@ -34,6 +50,29 @@ class Login extends Component
     public string $password = '';
 
     public bool $remember = false;
+
+    /**
+     * Determine whether 1-click quick demo login is enabled.
+     */
+    public static function isDemoLoginEnabled(): bool
+    {
+        return (bool) config('app.demo_mode', false) || app()->environment('local', 'testing');
+    }
+
+    /**
+     * Determine whether the provided identifier is an explicit @tantou.local demo email.
+     */
+    public static function isDemoEmail(string $email): bool
+    {
+        $normalized = strtolower(trim($email));
+
+        if ($normalized === '' || is_numeric($normalized) || ! str_contains($normalized, '@')) {
+            return false;
+        }
+
+        return in_array($normalized, self::ALLOWED_DEMO_EMAILS, true)
+            || str_ends_with($normalized, '@tantou.local');
+    }
 
     /**
      * Authenticate the user with provided credentials.
@@ -115,18 +154,24 @@ class Login extends Component
     }
 
     /**
-     * Quick demo one-click login for local environment testing.
+     * Quick demo one-click login for demo mode or local environment testing.
      */
     public function quickLogin(string $email): mixed
     {
-        if (! app()->environment('local', 'testing')) {
-            abort(403, __('Quick demo login is only available in local development.'));
+        if (! self::isDemoLoginEnabled()) {
+            abort(403, __('Quick demo login is only available in Demo Mode or local development.'));
         }
 
-        $user = User::where('email', $email)->first();
+        $cleanEmail = strtolower(trim($email));
+
+        if (! self::isDemoEmail($cleanEmail)) {
+            abort(403, __('Only explicit demo accounts (@tantou.local) are permitted for quick demo login.'));
+        }
+
+        $user = User::where('email', $cleanEmail)->first();
 
         if ($user === null) {
-            $this->addError('email', __('Demo user with email :email was not found. Please re-run seeders.', ['email' => $email]));
+            $this->addError('email', __('Demo user with email :email was not found. Please re-run seeders.', ['email' => $cleanEmail]));
 
             return null;
         }

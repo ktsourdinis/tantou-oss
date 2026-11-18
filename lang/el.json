@@ -784,6 +784,15 @@
     "Route every request to the right person": "Δρομολογήστε κάθε αίτημα στον σωστό συνεργάτη",
     "Smart FIFO + Priority queue with instant 2-way Telegram execution.": "Έξυπνη ουρά FIFO + Προτεραιότητας με άμεση αμφίδρομη εκτέλεση μέσω Telegram.",
     "Keep every task visible until completion": "Κρατήστε κάθε εργασία ορατή μέχρι την ολοκλήρωση",
-    "Live requester tracking links, SLA metrics & 3-tier visibility firewalls.": "Ζωντανοί σύνδεσμοι παρακολούθησης αιτούντος, μετρικές SLA & firewalls ορατότητας 3 επιπέδων."
+    "Live requester tracking links, SLA metrics & 3-tier visibility firewalls.": "Ζωντανοί σύνδεσμοι παρακολούθησης αιτούντος, μετρικές SLA & firewalls ορατότητας 3 επιπέδων.",
+    "Interactive Public Demo Sandbox — Resets periodically": "Διαδραστικό Δημόσιο Demo Sandbox — Επαναφέρεται περιοδικά",
+    "demo sandbox": "demo sandbox",
+    "Quick demo login is only available in Demo Mode or local development.": "Η γρήγορη σύνδεση demo είναι διαθέσιμη μόνο σε Demo Mode ή τοπική ανάπτυξη.",
+    "Only explicit demo accounts (@tantou.local) are permitted for quick demo login.": "Επιτρέπονται μόνο οι λογαριασμοί demo (@tantou.local) για γρήγορη σύνδεση demo.",
+    "Arbitrary user ID login is forbidden.": "Απαγορεύεται η σύνδεση με αυθαίρετο ID χρήστη.",
+    "Demo account credentials (email and password) cannot be modified in Demo Mode.": "Τα διαπιστευτήρια των λογαριασμών demo (email και κωδικός) δεν μπορούν να τροποποιηθούν σε Demo Mode.",
+    "Demo accounts (@tantou.local) cannot be deleted in Demo Mode.": "Οι λογαριασμοί demo (@tantou.local) δεν μπορούν να διαγραφούν σε Demo Mode.",
+    "Demo account credentials cannot be modified in Demo Mode.": "Τα διαπιστευτήρια των λογαριασμών demo δεν μπορούν να τροποποιηθούν σε Demo Mode.",
+    "Modifying Telegram Bot tokens and webhook secrets is disabled in Demo Mode.": "Η τροποποίηση των Telegram Bot tokens και webhook secrets είναι απενεργοποιημένη σε Demo Mode."
 }
 

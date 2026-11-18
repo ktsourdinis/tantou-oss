@@ -179,6 +179,15 @@ class LandingPageAndCommunityModeTest extends TestCase
             $this->assertStringContainsString('Running Behind an External Reverse Proxy (Caddy / Nginx / Traefik)', $docContent);
             $this->assertStringContainsString('reverse_proxy tantou_caddy:80', $docContent);
             $this->assertStringContainsString('SESSION_SECURE_COOKIE=true', $docContent);
+            $this->assertStringContainsString('Upgrading a Self-Hosted Instance', $docContent);
+            $this->assertStringContainsString('./update.sh', $docContent);
         }
+
+        $updateScriptPath = base_path('update.sh');
+        $this->assertFileExists($updateScriptPath);
+        $updateScript = file_get_contents($updateScriptPath);
+        $this->assertStringContainsString('git pull --ff-only', $updateScript);
+        $this->assertStringContainsString('php artisan migrate --force', $updateScript);
+        $this->assertStringContainsString('php artisan queue:restart', $updateScript);
     }
 }

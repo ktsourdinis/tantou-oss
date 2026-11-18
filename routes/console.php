@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('tantou:prune-pending-registrations')->everyFifteenMinutes();
 Schedule::command('tantou:telegram-poll --once')->everyFiveSeconds()->withoutOverlapping(10);
+Schedule::command('tantou:demo-reset')->everyTwoHours()->when(fn () => config('app.demo_mode') === true);

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\Auth\Login;
+use App\Livewire\TeamManagement;
 use App\Models\PostIt;
 use App\Models\Tenant;
 use App\Models\User;
@@ -281,5 +282,120 @@ class ResetHellenicDemoTest extends TestCase
             ->assertSee('Elena D. (Worker - Public)')
             ->assertSee('Kostas K. (Worker - Internal)')
             ->assertSee('Sofia C. (Client - Radiology Unit)');
+    }
+
+    /**
+     * Test 1-click demo login works in production when demo_mode is true, blocks non-demo emails, and is disabled when demo_mode is false.
+     */
+    public function test_demo_mode_flag_controls_quick_login_and_blocks_non_demo_emails_in_production(): void
+    {
+        $this->artisan('tantou:reset-demo');
+
+        $tenant = Tenant::where('slug', 'hellenic-demo-ops')->firstOrFail();
+        $nonDemoUser = User::factory()->create([
+            'tenant_id' => $tenant->id,
+            'email' => 'ceo@enterprise.com',
+        ]);
+
+        // Simulate production environment
+        app()->detectEnvironment(fn (): string => 'production');
+
+        // 1. When demo_mode is false in production: Quick Demo Login is hidden and blocked
+        config(['app.demo_mode' => false]);
+
+        Livewire::test(Login::class)
+            ->assertDontSee('Quick Demo Login')
+            ->assertDontSee('Interactive Public Demo Sandbox — Resets periodically')
+            ->call('quickLogin', 'admin@tantou.local')
+            ->assertForbidden();
+
+        $this->post('/demo-login', ['email' => 'admin@tantou.local'])
+            ->assertForbidden();
+
+        // 2. When demo_mode is true in production: Quick Demo Login is shown and works for @tantou.local
+        config(['app.demo_mode' => true]);
+
+        Livewire::test(Login::class)
+            ->assertSee('Quick Demo Login')
+            ->assertSee('Interactive Public Demo Sandbox — Resets periodically')
+            ->call('quickLogin', 'admin@tantou.local')
+            ->assertRedirect('/board');
+
+        $this->assertAuthenticated();
+        $this->assertSame('admin@tantou.local', auth()->user()->email);
+
+        auth()->logout();
+
+        // 3. Blocks non-demo emails and arbitrary user IDs even when demo_mode is true
+        Livewire::test(Login::class)
+            ->call('quickLogin', $nonDemoUser->email)
+            ->assertForbidden();
+
+        $this->post('/demo-login', ['email' => $nonDemoUser->email])
+            ->assertForbidden();
+
+        $this->post('/demo-login', ['user_id' => $nonDemoUser->id])
+            ->assertForbidden();
+
+        $this->assertGuest();
+
+        // Restore testing environment
+        app()->detectEnvironment(fn (): string => 'testing');
+    }
+
+    /**
+     * Test sandbox guardrails protect demo credentials and Telegram secrets while allowing UI toggles and tantou:demo-reset.
+     */
+    public function test_demo_mode_sandbox_guardrails_and_demo_reset_command(): void
+    {
+        config(['app.demo_mode' => true]);
+
+        $this->artisan('tantou:demo-reset')
+            ->assertSuccessful();
+
+        $tenant = Tenant::where('slug', 'hellenic-demo-ops')->firstOrFail();
+        $tenant->update([
+            'telegram_bot_token' => 'original-secret-token',
+            'telegram_webhook_secret' => 'original-webhook-secret',
+        ]);
+
+        $admin = User::where('email', 'admin@tantou.local')->firstOrFail();
+        $elena = User::where('email', 'elena@tantou.local')->firstOrFail();
+
+        $this->actingAs($admin);
+
+        // 1. Cannot delete @tantou.local user in demo_mode
+        Livewire::test(TeamManagement::class)
+            ->call('deleteUser', $elena->id)
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('users', ['id' => $elena->id, 'email' => 'elena@tantou.local']);
+
+        // 2. Cannot change email or password of @tantou.local user in demo_mode
+        Livewire::test(TeamManagement::class)
+            ->call('openEditUserModal', $elena->id)
+            ->set('userEmail', 'hacked@example.com')
+            ->set('userPassword', 'NewStrongPass#2026!')
+            ->call('saveUser')
+            ->assertHasErrors(['userEmail']);
+
+        $this->assertSame('elena@tantou.local', $elena->fresh()->email);
+
+        // 3. Can toggle Strict B2B Client Isolation in Workspace Settings, but cannot overwrite Telegram Bot Token
+        Livewire::test(TeamManagement::class)
+            ->call('openWorkspaceSettingsModal')
+            ->set('strictClientIsolation', true)
+            ->call('saveWorkspaceSettings')
+            ->assertHasNoErrors();
+
+        $this->assertTrue((bool) $tenant->fresh()->strict_client_isolation);
+
+        Livewire::test(TeamManagement::class)
+            ->call('openWorkspaceSettingsModal')
+            ->set('telegramBotToken', 'malicious-bot-token')
+            ->call('saveWorkspaceSettings')
+            ->assertHasErrors(['telegramBotToken']);
+
+        $this->assertSame('original-secret-token', $tenant->fresh()->telegram_bot_token);
     }
 }

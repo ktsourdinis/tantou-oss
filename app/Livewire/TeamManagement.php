@@ -15,6 +15,7 @@
 namespace App\Livewire;
 
 use App\Events\BoardUpdated;
+use App\Livewire\Auth\Login;
 use App\Livewire\Concerns\ManagesTelegramPairing;
 use App\Livewire\Concerns\ManagesWorkspaceSettings;
 use App\Models\Department;
@@ -384,6 +385,15 @@ class TeamManagement extends Component
             }
         } else {
             $existingUser = User::where('tenant_id', $this->tenantId)->findOrFail($this->editingUserId);
+
+            if ((bool) config('app.demo_mode', false) && Login::isDemoEmail((string) $existingUser->email)) {
+                if (strtolower(trim($this->userEmail)) !== strtolower((string) $existingUser->email) || ! empty($this->userPassword)) {
+                    $this->addError('userEmail', __('Demo account credentials (email and password) cannot be modified in Demo Mode.'));
+
+                    return;
+                }
+            }
+
             $wasClient = ($existingUser->role === 'client');
             if ($wasClient && $isWorkerRole && ! $tenant->canAddWorker()) {
                 $this->addError('userRole', __('Your :plan workspace has reached its limit of :max active team workers. Please upgrade to Cloud Business for unlimited capacity.', [
@@ -539,6 +549,11 @@ class TeamManagement extends Component
         abort_if((int) $id === (int) Auth::id(), 403, 'You cannot delete your own admin account.');
 
         $user = User::where('tenant_id', $this->tenantId)->findOrFail($id);
+
+        if ((bool) config('app.demo_mode', false) && Login::isDemoEmail((string) $user->email)) {
+            abort(403, __('Demo accounts (@tantou.local) cannot be deleted in Demo Mode.'));
+        }
+
         $user->delete();
 
         BoardUpdated::dispatch($this->tenantId);

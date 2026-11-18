@@ -212,27 +212,47 @@ trait ManagesWorkspaceSettings
         }
 
         $oldSlug = $tenant->slug;
-        $newSlug = $this->tenantSlug;
+        $isDemoMode = (bool) config('app.demo_mode', false);
+        $newSlug = $isDemoMode ? $tenant->slug : $this->tenantSlug;
         $slugChanged = ($oldSlug !== $newSlug);
+
+        $attemptedTelegramCredentialChange = $isDemoMode && (
+            filled($this->telegramBotToken)
+            || trim($this->telegramWebhookSecret) !== (string) ($tenant->telegram_webhook_secret ?? '')
+            || ltrim(trim($this->telegramBotUsername), '@') !== (string) ($tenant->telegram_bot_username ?? '')
+        );
 
         $updateData = [
             'name' => $this->tenantName,
             'slug' => $newSlug,
-            'custom_domain' => filled($this->tenantCustomDomain) ? $this->tenantCustomDomain : null,
+            'custom_domain' => $isDemoMode ? $tenant->custom_domain : (filled($this->tenantCustomDomain) ? $this->tenantCustomDomain : null),
             'strict_client_isolation' => $this->strictClientIsolation,
             'public_submission_enabled' => $this->publicSubmissionEnabled,
             'timezone' => $this->tenantTimezone,
             'telegram_enabled' => $this->telegramEnabled,
             'telegram_privacy_mode' => $this->telegramPrivacyMode,
-            'telegram_bot_username' => filled($this->telegramBotUsername) ? ltrim(trim($this->telegramBotUsername), '@') : null,
-            'telegram_webhook_secret' => filled($this->telegramWebhookSecret) ? trim($this->telegramWebhookSecret) : null,
+            'telegram_bot_username' => $isDemoMode
+                ? $tenant->telegram_bot_username
+                : (filled($this->telegramBotUsername) ? ltrim(trim($this->telegramBotUsername), '@') : null),
+            'telegram_webhook_secret' => $isDemoMode
+                ? $tenant->telegram_webhook_secret
+                : (filled($this->telegramWebhookSecret) ? trim($this->telegramWebhookSecret) : null),
         ];
 
-        if (filled($this->telegramBotToken)) {
+        if (! $isDemoMode && filled($this->telegramBotToken)) {
             $updateData['telegram_bot_token'] = trim($this->telegramBotToken);
         }
 
         $tenant->update($updateData);
+
+        if ($attemptedTelegramCredentialChange) {
+            $this->telegramBotToken = '';
+            $this->telegramBotUsername = (string) ($tenant->telegram_bot_username ?? '');
+            $this->telegramWebhookSecret = (string) ($tenant->telegram_webhook_secret ?? '');
+            $this->addError('telegramBotToken', __('Modifying Telegram Bot tokens and webhook secrets is disabled in Demo Mode.'));
+
+            return;
+        }
 
         $this->tenantName = $tenant->name;
         $this->tenantSlug = $tenant->slug;

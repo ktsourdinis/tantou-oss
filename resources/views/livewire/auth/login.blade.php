@@ -15,6 +15,13 @@
         </a>
         <h2 class="mt-6 text-2xl font-bold tracking-tight text-white">{{ __('Sign In to Your Workspace') }}</h2>
 
+        @if(config('app.demo_mode'))
+            <div class="mt-3 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/30 shadow-sm">
+                <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                <span>{{ __('Interactive Public Demo Sandbox — Resets periodically') }}</span>
+            </div>
+        @endif
+
         @if(app()->bound('currentTenant'))
             <div class="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 shadow-sm">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
@@ -152,14 +159,14 @@
                 </div>
             </form>
 
-            @if (app()->environment('local', 'testing'))
+            @if (\App\Livewire\Auth\Login::isDemoLoginEnabled())
                 <div class="mt-8 pt-6 border-t border-slate-800/80">
                     <div class="flex items-center justify-between mb-3">
                         <span class="text-xs font-semibold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                             {{ __('Quick Demo Login') }}
                         </span>
-                        <span class="text-[10px] text-slate-500 font-mono">{{ __('local dev mode') }}</span>
+                        <span class="text-[10px] text-slate-500 font-mono">{{ config('app.demo_mode') ? __('demo sandbox') : __('local dev mode') }}</span>
                     </div>
                     <p class="text-xs text-slate-400 mb-3">
                         {{ __('Instantly test the board through different organizational roles:') }}

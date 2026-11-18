@@ -46,6 +46,13 @@ class ForgotPassword extends Component
         $this->validate();
 
         $cleanEmail = Str::lower(trim($this->email));
+
+        if ((bool) config('app.demo_mode', false) && Login::isDemoEmail($cleanEmail)) {
+            $this->addError('email', __('Demo account credentials cannot be modified in Demo Mode.'));
+
+            return null;
+        }
+
         $throttleKey = 'forgot-password|'.request()->ip().'|'.$cleanEmail;
 
         if (RateLimiter::tooManyAttempts($throttleKey, 3)) {

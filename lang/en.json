@@ -740,6 +740,15 @@
     "Route every request to the right person": "Route every request to the right person",
     "Smart FIFO + Priority queue with instant 2-way Telegram execution.": "Smart FIFO + Priority queue with instant 2-way Telegram execution.",
     "Keep every task visible until completion": "Keep every task visible until completion",
-    "Live requester tracking links, SLA metrics & 3-tier visibility firewalls.": "Live requester tracking links, SLA metrics & 3-tier visibility firewalls."
+    "Live requester tracking links, SLA metrics & 3-tier visibility firewalls.": "Live requester tracking links, SLA metrics & 3-tier visibility firewalls.",
+    "Interactive Public Demo Sandbox — Resets periodically": "Interactive Public Demo Sandbox — Resets periodically",
+    "demo sandbox": "demo sandbox",
+    "Quick demo login is only available in Demo Mode or local development.": "Quick demo login is only available in Demo Mode or local development.",
+    "Only explicit demo accounts (@tantou.local) are permitted for quick demo login.": "Only explicit demo accounts (@tantou.local) are permitted for quick demo login.",
+    "Arbitrary user ID login is forbidden.": "Arbitrary user ID login is forbidden.",
+    "Demo account credentials (email and password) cannot be modified in Demo Mode.": "Demo account credentials (email and password) cannot be modified in Demo Mode.",
+    "Demo accounts (@tantou.local) cannot be deleted in Demo Mode.": "Demo accounts (@tantou.local) cannot be deleted in Demo Mode.",
+    "Demo account credentials cannot be modified in Demo Mode.": "Demo account credentials cannot be modified in Demo Mode.",
+    "Modifying Telegram Bot tokens and webhook secrets is disabled in Demo Mode.": "Modifying Telegram Bot tokens and webhook secrets is disabled in Demo Mode."
 }
 

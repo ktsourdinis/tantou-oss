@@ -12,6 +12,7 @@ use App\Livewire\PublicTrackRequest;
 use App\Livewire\SuperadminDashboard;
 use App\Livewire\TeamManagement;
 use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -41,6 +42,36 @@ Route::post('/locale/{locale}', function (Request $request, string $locale) {
 // Guest Authentication Routes
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', Login::class)->name('login');
+    Route::match(['get', 'post'], '/demo-login/{email?}', function (Request $request, ?string $email = null) {
+        if (! Login::isDemoLoginEnabled()) {
+            abort(403, __('Quick demo login is only available in Demo Mode or local development.'));
+        }
+
+        if ($request->filled('user_id') || $request->filled('id')) {
+            abort(403, __('Arbitrary user ID login is forbidden.'));
+        }
+
+        $targetEmail = strtolower(trim((string) ($email ?? $request->input('email', ''))));
+
+        if (! Login::isDemoEmail($targetEmail)) {
+            abort(403, __('Only explicit demo accounts (@tantou.local) are permitted for quick demo login.'));
+        }
+
+        $user = User::where('email', $targetEmail)->first();
+
+        if (! $user) {
+            return redirect()->route('login')->with('error', __('Demo user with email :email was not found. Please re-run seeders.', ['email' => $targetEmail]));
+        }
+
+        Auth::login($user, true);
+        $request->session()->regenerate();
+
+        if ($user->tenant) {
+            $request->session()->put('active_tenant_id', $user->tenant->id);
+        }
+
+        return redirect()->intended('/board');
+    })->withoutMiddleware(ValidateCsrfToken::class)->name('demo.login');
     Route::get('/register', RegisterTenant::class)->name('register');
     Route::get('/register/complete/{token}', CompleteRegistration::class)->name('register.complete');
     Route::get('/forgot-password', ForgotPassword::class)->name('password.request');

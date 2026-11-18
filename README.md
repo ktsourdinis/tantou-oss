@@ -136,8 +136,14 @@ docker exec -u 1000:1000 tantou_app php artisan key:generate
 docker exec -u 1000:1000 tantou_app php artisan migrate --force && docker exec -u 1000:1000 tantou_app php artisan storage:link
 ```
 
-### 3. Access Tantou
+### 2. Access Tantou
 Open your browser at **[http://localhost:8085](http://localhost:8085)** (or your server's LAN IP, e.g. `http://192.168.1.100:8085`).
+
+### Upgrading a Self-Hosted Instance
+To pull the latest release, install dependencies, rebuild frontend assets, run migrations, refresh caches, and restart queue/Reverb workers in one command:
+```bash
+./update.sh
+```
 
 ---
 

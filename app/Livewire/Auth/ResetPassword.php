@@ -66,6 +66,12 @@ class ResetPassword extends Component
 
         $cleanEmail = Str::lower(trim($this->email));
 
+        if ((bool) config('app.demo_mode', false) && Login::isDemoEmail($cleanEmail)) {
+            $this->addError('email', __('Demo account credentials cannot be modified in Demo Mode.'));
+
+            return null;
+        }
+
         // 1. Validate token record from password_reset_tokens
         $record = DB::table('password_reset_tokens')->where('email', $cleanEmail)->first();
 

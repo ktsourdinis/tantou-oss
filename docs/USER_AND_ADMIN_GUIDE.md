@@ -86,6 +86,14 @@ docker exec -u 1000:1000 tantou_app php artisan key:generate
 docker exec -u 1000:1000 tantou_app php artisan migrate --force && docker exec -u 1000:1000 tantou_app php artisan storage:link
 ```
 
+### Upgrading a Self-Hosted Instance
+
+To upgrade an existing self-hosted Docker installation to the latest version (pulls latest Git changes, updates Composer packages, rebuilds Vite assets, runs migrations, refreshes Laravel caches, and restarts queue & Reverb workers):
+
+```bash
+./update.sh
+```
+
 ### Mode A: Private Intranet IP Mode (Air-Gapped)
 
 For internal hospital intranets, laboratory subnets, or air-gapped corporate servers (e.g. `http://192.168.1.100:8085`):

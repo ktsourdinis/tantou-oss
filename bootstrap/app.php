@@ -27,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'api/*',
             'stripe/*',
+            'demo-login*',
         ]);
         $middleware->alias([
             'superadmin' => EnsureSuperadmin::class,
