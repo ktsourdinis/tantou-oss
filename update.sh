@@ -7,30 +7,23 @@ APP_USER="${TANTOU_DOCKER_USER:-1000:1000}"
 
 echo "⚡ Updating Tantou (Human Capacity OS)..."
 
-echo "1/6 Pulling latest changes from Git..."
+echo "1/5 Pulling latest changes from Git..."
 git checkout -- public/build/ 2>/dev/null || true
 git pull --ff-only
 
-echo "2/6 Installing PHP Composer dependencies..."
+echo "2/5 Installing PHP Composer dependencies..."
 docker exec -u "$APP_USER" "$APP_CONTAINER" composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
 
-echo "3/6 Compiling Vite frontend assets..."
-if docker exec "$APP_CONTAINER" which npm >/dev/null 2>&1; then
-    docker exec -u "$APP_USER" "$APP_CONTAINER" sh -c "npm ci --no-audit --no-fund && npm run build"
-else
-    docker run --rm -u "$APP_USER" -e npm_config_cache=/tmp/.npm -v "$(pwd):/app" -w /app node:20 sh -c "npm ci --no-audit --no-fund && npm run build"
-fi
-
-echo "4/6 Running database migrations..."
+echo "3/5 Running database migrations..."
 docker exec -u "$APP_USER" "$APP_CONTAINER" php artisan migrate --force
 
-echo "5/6 Refreshing application caches..."
+echo "4/5 Refreshing application caches..."
 docker exec -u "$APP_USER" "$APP_CONTAINER" php artisan optimize:clear
 docker exec -u "$APP_USER" "$APP_CONTAINER" php artisan config:cache
 docker exec -u "$APP_USER" "$APP_CONTAINER" php artisan route:cache
 docker exec -u "$APP_USER" "$APP_CONTAINER" php artisan view:cache
 
-echo "6/6 Restarting queue workers and Reverb WebSocket server..."
+echo "5/5 Restarting queue workers and Reverb WebSocket server..."
 docker exec -u "$APP_USER" "$APP_CONTAINER" php artisan queue:restart
 docker restart "$REVERB_CONTAINER" >/dev/null 2>&1 || true
 

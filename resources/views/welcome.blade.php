@@ -4,7 +4,27 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Tantou (担当) — {{ __('The Open-Core Human Capacity OS') }}</title>
-        <meta name="description" content="{{ __('An interactive workload marketplace where tasks are managed via a live Drag-and-Drop canvas with real-time capacity transparency, smart queues, and automated gamification.') }}">
+        <meta name="description" content="Know who's available. Know what's getting done. Open-core real-time Human Capacity OS, W1-W5 workload radar, zero-login QR drop-box, and 2-way Telegram dispatch.">
+        <link rel="canonical" href="{{ url('/') }}">
+
+        {{-- Open Graph / LinkedIn / Social Meta Tags --}}
+        <meta property="og:site_name" content="Tantou — Human Capacity OS">
+        <meta property="og:type" content="website">
+        <meta property="og:url" content="{{ url()->current() }}">
+        <meta property="og:title" content="Tantou (担当) — Human Capacity OS & Work Coordination">
+        <meta property="og:description" content="Know who's available. Know what's getting done. Real-time W1-W5 cognitive load radar, zero-login QR drop-box, 3-tier B2B isolation, and 2-way Telegram bot.">
+        <meta property="og:image" content="{{ asset('images/og-cover.png') }}">
+        <meta property="og:image:secure_url" content="{{ asset('images/og-cover.png') }}">
+        <meta property="og:image:type" content="image/png">
+        <meta property="og:image:width" content="1200">
+        <meta property="og:image:height" content="627">
+
+        {{-- Twitter / X Card Meta Tags --}}
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:title" content="Tantou (担当) — Human Capacity OS">
+        <meta name="twitter:description" content="Know who's available. Know what's getting done. Real-time cognitive load radar and request dispatch platform.">
+        <meta name="twitter:image" content="{{ asset('images/og-cover.png') }}">
+
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet" />
 

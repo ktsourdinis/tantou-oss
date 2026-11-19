@@ -189,8 +189,37 @@ class LandingPageAndCommunityModeTest extends TestCase
         $updateScriptPath = base_path('update.sh');
         $this->assertFileExists($updateScriptPath);
         $updateScript = file_get_contents($updateScriptPath);
+        $this->assertStringContainsString('git checkout -- public/build/ 2>/dev/null || true', $updateScript);
         $this->assertStringContainsString('git pull --ff-only', $updateScript);
         $this->assertStringContainsString('php artisan migrate --force', $updateScript);
         $this->assertStringContainsString('php artisan queue:restart', $updateScript);
+        $this->assertStringNotContainsString('npm ci', $updateScript);
+        $this->assertStringNotContainsString('npm run build', $updateScript);
+    }
+
+    /**
+     * Test landing page renders Open Graph and Twitter Card meta tags and og-cover.png exists at 1200x627.
+     */
+    public function test_landing_page_renders_open_graph_and_twitter_card_meta_tags(): void
+    {
+        $ogPath = public_path('images/og-cover.png');
+        $this->assertFileExists($ogPath);
+
+        $imageSize = getimagesize($ogPath);
+        $this->assertIsArray($imageSize);
+        $this->assertSame(1200, $imageSize[0]);
+        $this->assertSame(627, $imageSize[1]);
+
+        $response = $this->get('/');
+
+        $response->assertStatus(200);
+        $response->assertSee('property="og:title" content="Tantou (担当) — Human Capacity OS & Work Coordination"', false);
+        $response->assertSee('property="og:description"', false);
+        $response->assertSee('property="og:image"', false);
+        $response->assertSee('images/og-cover.png', false);
+        $response->assertSee('property="og:image:width" content="1200"', false);
+        $response->assertSee('property="og:image:height" content="627"', false);
+        $response->assertSee('name="twitter:card" content="summary_large_image"', false);
+        $response->assertSee('name="twitter:image"', false);
     }
 }
