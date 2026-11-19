@@ -507,26 +507,37 @@
                                 @endif
                             @endif
 
-                            {{-- Admin Actions --}}
-                            @if (auth()->user()?->role === 'admin')
-                                <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-end gap-2">
-                                    <button
-                                        wire:click="openEditDepartmentModal({{ $dept->id }})"
-                                        type="button"
-                                        class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
-                                    >
-                                        {{ __('Edit') }}
-                                    </button>
-                                    <button
-                                        wire:click="deleteDepartment({{ $dept->id }})"
-                                        wire:confirm="{{ __('Are you sure you want to delete department :name? Workers will be unassigned.', ['name' => $dept->name]) }}"
-                                        type="button"
-                                        class="px-3 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-semibold transition-colors cursor-pointer"
-                                    >
-                                        {{ __('Delete') }}
-                                    </button>
-                                </div>
-                            @endif
+                            {{-- Department Actions (QR Drop-Box + Admin Edit/Delete) --}}
+                            <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between gap-2 flex-wrap">
+                                <button
+                                    wire:click="openDepartmentQrModal({{ $dept->id }})"
+                                    type="button"
+                                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition-colors cursor-pointer"
+                                >
+                                    <span>📱</span>
+                                    <span>{{ __('QR Drop-Box') }}</span>
+                                </button>
+
+                                @if (auth()->user()?->role === 'admin')
+                                    <div class="flex items-center gap-2">
+                                        <button
+                                            wire:click="openEditDepartmentModal({{ $dept->id }})"
+                                            type="button"
+                                            class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+                                        >
+                                            {{ __('Edit') }}
+                                        </button>
+                                        <button
+                                            wire:click="deleteDepartment({{ $dept->id }})"
+                                            wire:confirm="{{ __('Are you sure you want to delete department :name? Workers will be unassigned.', ['name' => $dept->name]) }}"
+                                            type="button"
+                                            class="px-3 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-semibold transition-colors cursor-pointer"
+                                        >
+                                            {{ __('Delete') }}
+                                        </button>
+                                    </div>
+                                @endif
+                            </div>
                         </div>
                     @empty
                         <div class="col-span-full py-12 text-center text-slate-500 italic rounded-2xl border border-slate-800/60 bg-slate-900/40">
@@ -1422,6 +1433,228 @@
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    @endif
+
+    {{-- MODAL: PER-DEPARTMENT QR DROP-BOX GENERATOR & PRINT POSTER --}}
+    @if ($showDepartmentQrModal)
+        <div
+            class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4"
+            wire:keydown.escape.window="closeDepartmentQrModal"
+            x-data="{
+                copied: false,
+                qrUrl: @js($qrDropBoxUrl),
+                deptName: @js($qrDepartmentName),
+                deptSlug: @js($qrDepartmentSlug),
+                deptColor: @js($qrDepartmentColor),
+                workspaceName: @js($tenantName),
+                copyLink() {
+                    if (typeof copyToClipboard === 'function') {
+                        copyToClipboard(this.qrUrl);
+                    } else if (navigator.clipboard) {
+                        navigator.clipboard.writeText(this.qrUrl);
+                    }
+                    this.copied = true;
+                    setTimeout(() => this.copied = false, 2200);
+                },
+                downloadSvg() {
+                    const svgEl = this.$refs.qrContainer?.querySelector('svg');
+                    if (!svgEl) return;
+                    const blob = new Blob([svgEl.outerHTML], { type: 'image/svg+xml;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `qr-dropbox-${this.deptSlug || 'department'}.svg`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                },
+                downloadPng() {
+                    const svgEl = this.$refs.qrContainer?.querySelector('svg');
+                    if (!svgEl) return;
+                    const svgData = new XMLSerializer().serializeToString(svgEl);
+                    const img = new Image();
+                    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+                    const url = URL.createObjectURL(svgBlob);
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 1024;
+                        canvas.height = 1024;
+                        const ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        URL.revokeObjectURL(url);
+                        const pngUrl = canvas.toDataURL('image/png');
+                        const a = document.createElement('a');
+                        a.href = pngUrl;
+                        a.download = `qr-dropbox-${this.deptSlug || 'department'}.png`;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                    };
+                    img.src = url;
+                },
+                printPoster() {
+                    const svgEl = this.$refs.qrContainer?.querySelector('svg');
+                    if (!svgEl) return;
+                    const esc = (s) => String(s ?? '').replace(/[&<>'\x22]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\x27': '&#39;', '\x22': '&quot;' }[c]));
+                    const win = window.open('', '_blank', 'width=820,height=980');
+                    if (!win) return;
+                    const svgMarkup = svgEl.outerHTML;
+                    win.document.open();
+                    win.document.write(`<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8'>
+<title>QR Drop-Box — ${esc(this.deptName)} (${esc(this.workspaceName)})</title>
+<style>
+  @page { size: A5 portrait; margin: 12mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #ffffff; color: #09090b; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+  .poster { width: 100%; max-width: 520px; border: 3px solid #09090b; border-radius: 24px; padding: 32px 28px; text-align: center; background: #ffffff; }
+  .brand { display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px; border-radius: 999px; background: #09090b; color: #ffffff; font-weight: 800; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .brand-kanji { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 6px; background: #6366f1; color: #ffffff; font-size: 13px; }
+  .workspace { margin-top: 14px; font-size: 14px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; }
+  .dept { margin: 8px 0 18px; font-size: 34px; line-height: 1.15; font-weight: 900; color: #09090b; word-break: break-word; }
+  .accent-bar { width: 72px; height: 6px; border-radius: 999px; margin: 0 auto 22px; background: ${esc(this.deptColor)}; }
+  .qr-box { display: inline-block; padding: 14px; border: 2px solid #e2e8f0; border-radius: 18px; background: #ffffff; }
+  .qr-box svg { display: block; width: 300px; height: 300px; }
+  .instructions { margin-top: 22px; padding-top: 18px; border-top: 2px dashed #cbd5e1; }
+  .inst-en { font-size: 15px; font-weight: 700; color: #0f172a; margin: 0 0 8px; line-height: 1.4; }
+  .inst-el { font-size: 14px; font-weight: 600; color: #334155; margin: 0; line-height: 1.4; }
+  .url { margin-top: 14px; font-size: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #64748b; word-break: break-all; }
+  @media print { body { padding: 0; min-height: auto; } .poster { border-width: 2.5px; } }
+</style>
+</head>
+<body>
+  <div class='poster'>
+    <div class='brand'><span class='brand-kanji'>担当</span><span>Tantou · QR Drop-Box</span></div>
+    <div class='workspace'>${esc(this.workspaceName)}</div>
+    <h1 class='dept'>${esc(this.deptName)}</h1>
+    <div class='accent-bar'></div>
+    <div class='qr-box'>${svgMarkup}</div>
+    <div class='instructions'>
+      <p class='inst-en'>Scan with your phone camera to submit an IT / Support request — No login required</p>
+      <p class='inst-el'>Σαρώστε με την κάμερα του κινητού σας για να υποβάλετε αίτημα IT / Υποστήριξης — Χωρίς σύνδεση</p>
+    </div>
+    <div class='url'>${esc(this.qrUrl)}</div>
+  </div>
+  <script>window.onload = function() { setTimeout(function() { window.print(); }, 150); };<\/script>
+</body>
+</html>`);
+                    win.document.close();
+                }
+            }"
+        >
+            <div class="w-full max-w-lg rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden animate-fadeIn">
+                {{-- Header --}}
+                <div class="px-5 py-4 bg-slate-950/70 border-b border-slate-800 flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <span
+                            class="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm"
+                            style="background-color: {{ $qrDepartmentColor }};"
+                        ></span>
+                        <div class="min-w-0">
+                            <h3 class="text-sm font-bold text-white truncate flex items-center gap-1.5">
+                                <span>📱</span>
+                                <span>{{ __('QR Drop-Box') }} — {{ $qrDepartmentName }}</span>
+                            </h3>
+                            <p class="text-[11px] text-slate-400 truncate">
+                                {{ $tenantName }} · {{ __('Zero-Login Equipment & Unit Sticker') }}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        wire:click="closeDepartmentQrModal"
+                        type="button"
+                        class="text-slate-400 hover:text-white cursor-pointer shrink-0"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                {{-- Body --}}
+                <div class="p-5 space-y-4">
+                    @if (! $qrPublicSubmissionEnabled)
+                        <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2">
+                            <span class="shrink-0">⚠️</span>
+                            <span>{{ __('Public Guest Drop-Box is currently disabled for this workspace. Enable it in Workspace Settings → Access & Drop-Box so guests can submit via this QR code.') }}</span>
+                        </div>
+                    @endif
+
+                    {{-- QR Code Preview Card --}}
+                    <div class="flex flex-col items-center justify-center p-5 rounded-2xl bg-slate-950/70 border border-slate-800">
+                        <div
+                            x-ref="qrContainer"
+                            class="p-3 rounded-2xl bg-white shadow-xl border border-slate-200"
+                        >
+                            {!! $qrSvgMarkup !!}
+                        </div>
+                        <div class="mt-3 text-center">
+                            <p class="text-xs font-bold text-white">{{ $qrDepartmentName }}</p>
+                            <p class="text-[11px] text-slate-400 mt-0.5">
+                                {{ __('Scan with your phone camera to submit an IT / Support request — No login required') }}
+                            </p>
+                        </div>
+                    </div>
+
+                    {{-- Pre-filled Drop-Box URL --}}
+                    <div class="space-y-1.5">
+                        <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                            {{ __('Pre-filled Department Drop-Box URL') }}
+                        </label>
+                        <div class="flex items-center gap-2">
+                            <input
+                                type="text"
+                                readonly
+                                value="{{ $qrDropBoxUrl }}"
+                                class="w-full px-3 py-2 text-xs font-mono bg-slate-950 border border-slate-800 rounded-xl text-slate-200 select-all focus:outline-none focus:border-emerald-500/50"
+                            >
+                            <button
+                                type="button"
+                                @click="copyLink()"
+                                class="shrink-0 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shadow-emerald-900/30"
+                            >
+                                <span x-show="!copied">📋 {{ __('Copy Link') }}</span>
+                                <span x-show="copied" style="display: none;" class="flex items-center gap-1">
+                                    <span>✓</span>
+                                    <span>{{ __('Copied!') }}</span>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {{-- One-Click Download & Print Poster Actions --}}
+                    <div class="pt-3 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <button
+                            type="button"
+                            @click="downloadSvg()"
+                            class="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-semibold border border-slate-700 transition-all cursor-pointer"
+                        >
+                            <span>⬇️</span>
+                            <span>{{ __('Download SVG') }}</span>
+                        </button>
+                        <button
+                            type="button"
+                            @click="downloadPng()"
+                            class="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-semibold border border-slate-700 transition-all cursor-pointer"
+                        >
+                            <span>⬇️</span>
+                            <span>{{ __('Download PNG') }}</span>
+                        </button>
+                        <button
+                            type="button"
+                            @click="printPoster()"
+                            class="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
+                        >
+                            <span>🖨️</span>
+                            <span>{{ __('Print QR Poster') }}</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     @endif

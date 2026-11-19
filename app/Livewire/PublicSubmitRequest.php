@@ -77,9 +77,13 @@ class PublicSubmitRequest extends Component
     public function mount(?string $tenantSlug = null): void
     {
         $tenant = null;
+        $workspaceQuery = request()->query('workspace');
+        $resolvedSlug = ! empty($tenantSlug)
+            ? $tenantSlug
+            : (is_string($workspaceQuery) && filled($workspaceQuery) ? $workspaceQuery : null);
 
-        if (! empty($tenantSlug)) {
-            $tenant = Tenant::where('slug', strtolower(trim($tenantSlug)))->first();
+        if (! empty($resolvedSlug)) {
+            $tenant = Tenant::where('slug', strtolower(trim($resolvedSlug)))->first();
             if (! $tenant) {
                 abort(404, __('Workspace not found.'));
             }
@@ -97,16 +101,26 @@ class PublicSubmitRequest extends Component
         $this->tenant = $tenant;
         $this->tenantId = $tenant->id;
 
-        // Auto-select first department if only one exists
-        $firstDepartment = Department::where('tenant_id', $this->tenantId)->first();
-        if ($firstDepartment) {
-            $this->department_id = $firstDepartment->id;
+        // Auto-select first department as default
+        $departments = Department::where('tenant_id', $this->tenantId)->get();
+        if ($departments->isNotEmpty()) {
+            $this->department_id = $departments->first()->id;
         }
 
-        // Pre-fill facility if passed via query string (?facility=...)
+        // Pre-fill facility if passed via query string (?facility=...) and auto-select matching department
         $queryFacility = request()->query('facility');
         if (is_string($queryFacility) && filled($queryFacility)) {
-            $this->facility_name = trim($queryFacility);
+            $trimmedFacility = trim($queryFacility);
+            $this->facility_name = $trimmedFacility;
+
+            $matchingDepartment = $departments->first(function (Department $dept) use ($trimmedFacility): bool {
+                return mb_strtolower($dept->name) === mb_strtolower($trimmedFacility)
+                    || mb_strtolower($dept->slug) === mb_strtolower($trimmedFacility);
+            });
+
+            if ($matchingDepartment) {
+                $this->department_id = $matchingDepartment->id;
+            }
         }
     }
 

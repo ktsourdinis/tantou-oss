@@ -761,6 +761,14 @@
     "Point a CNAME record for :domain to :target": "Point a CNAME record for :domain to :target",
     "Please enter a valid lowercase custom domain that does not match the primary platform host.": "Please enter a valid lowercase custom domain that does not match the primary platform host.",
     "This custom domain is already connected to another workspace.": "This custom domain is already connected to another workspace.",
-    "Dedicated Managed Workspace with Zero-Config Auto-SSL & Instant Onboarding": "Dedicated Managed Workspace with Zero-Config Auto-SSL & Instant Onboarding"
+    "Dedicated Managed Workspace with Zero-Config Auto-SSL & Instant Onboarding": "Dedicated Managed Workspace with Zero-Config Auto-SSL & Instant Onboarding",
+    "QR Drop-Box": "QR Drop-Box",
+    "Zero-Login Equipment & Unit Sticker": "Zero-Login Equipment & Unit Sticker",
+    "Public Guest Drop-Box is currently disabled for this workspace. Enable it in Workspace Settings → Access & Drop-Box so guests can submit via this QR code.": "Public Guest Drop-Box is currently disabled for this workspace. Enable it in Workspace Settings → Access & Drop-Box so guests can submit via this QR code.",
+    "Scan with your phone camera to submit an IT / Support request — No login required": "Scan with your phone camera to submit an IT / Support request — No login required",
+    "Pre-filled Department Drop-Box URL": "Pre-filled Department Drop-Box URL",
+    "Download SVG": "Download SVG",
+    "Download PNG": "Download PNG",
+    "Print QR Poster": "Print QR Poster"
 }
 

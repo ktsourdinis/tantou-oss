@@ -22,6 +22,7 @@ use App\Models\Department;
 use App\Models\PostIt;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Support\QrCodeSvg;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
@@ -64,6 +65,21 @@ class TeamManagement extends Component
     public string $departmentSlug = '';
 
     public string $departmentColor = '#6366f1';
+
+    // Per-Department QR Drop-Box Modal Properties
+    public bool $showDepartmentQrModal = false;
+
+    public string $qrDepartmentName = '';
+
+    public string $qrDepartmentSlug = '';
+
+    public string $qrDepartmentColor = '#6366f1';
+
+    public string $qrDropBoxUrl = '';
+
+    public string $qrSvgMarkup = '';
+
+    public bool $qrPublicSubmissionEnabled = true;
 
     // User Modal Properties
     public bool $showUserModal = false;
@@ -257,6 +273,44 @@ class TeamManagement extends Component
 
         $this->reset(['showDepartmentModal', 'editingDepartmentId', 'departmentName', 'departmentSlug']);
         BoardUpdated::dispatch($this->tenantId);
+    }
+
+    /**
+     * Open the per-department QR Drop-Box generator modal.
+     */
+    public function openDepartmentQrModal(int $id): void
+    {
+        abort_unless(Auth::check() && Auth::user()?->role !== 'client', 403);
+
+        $department = Department::where('tenant_id', $this->tenantId)->findOrFail($id);
+        $tenant = Tenant::findOrFail($this->tenantId);
+
+        $this->qrDepartmentName = $department->name;
+        $this->qrDepartmentSlug = $department->slug ?: Str::slug($department->name);
+        $this->qrDepartmentColor = $department->color ?: '#6366f1';
+        $this->qrDropBoxUrl = route('public.submit', [
+            'workspace' => $tenant->slug,
+            'facility' => $department->name,
+        ]);
+        $this->qrSvgMarkup = QrCodeSvg::generate($this->qrDropBoxUrl, 260);
+        $this->qrPublicSubmissionEnabled = (bool) $tenant->public_submission_enabled;
+        $this->showDepartmentQrModal = true;
+    }
+
+    /**
+     * Close the per-department QR Drop-Box generator modal.
+     */
+    public function closeDepartmentQrModal(): void
+    {
+        $this->reset([
+            'showDepartmentQrModal',
+            'qrDepartmentName',
+            'qrDepartmentSlug',
+            'qrDropBoxUrl',
+            'qrSvgMarkup',
+        ]);
+        $this->qrDepartmentColor = '#6366f1';
+        $this->qrPublicSubmissionEnabled = true;
     }
 
     /**
