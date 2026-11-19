@@ -71,7 +71,7 @@ class QrCodeSvg
     /**
      * Generate a crisp, self-contained SVG QR code string for the given payload.
      */
-    public static function generate(string $data, int $size = 260, int $quietZone = 4): string
+    public static function generate(string $data, int $size = 260, int $quietZone = 4, ?string $id = null): string
     {
         $matrix = self::encodeMatrix($data);
         $modules = count($matrix);
@@ -89,12 +89,16 @@ class QrCodeSvg
         }
 
         $pathData = implode('', $pathParts);
+        $idAttr = $id !== null && $id !== ''
+            ? ' id="'.htmlspecialchars($id, ENT_QUOTES, 'UTF-8').'"'
+            : '';
 
         return sprintf(
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" width="%d" height="%d" shape-rendering="crispEdges" role="img" aria-label="QR Code">'
+            '<svg%s xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" width="%d" height="%d" shape-rendering="crispEdges" role="img" aria-label="QR Code">'
             .'<rect width="100%%" height="100%%" fill="#ffffff"/>'
             .'<path fill="#09090b" d="%s"/>'
             .'</svg>',
+            $idAttr,
             $fullSize,
             $fullSize,
             $size,

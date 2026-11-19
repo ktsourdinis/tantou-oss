@@ -1440,114 +1440,16 @@
     {{-- MODAL: PER-DEPARTMENT QR DROP-BOX GENERATOR & PRINT POSTER --}}
     @if ($showDepartmentQrModal)
         <div
+            wire:key="dept-qr-modal-{{ $qrDepartmentSlug }}-{{ md5($qrDropBoxUrl) }}"
             class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4"
             wire:keydown.escape.window="closeDepartmentQrModal"
-            x-data="{
-                copied: false,
-                qrUrl: @js($qrDropBoxUrl),
+            x-data="window.tantouDeptQrDropBox({
+                url: @js($qrDropBoxUrl),
                 deptName: @js($qrDepartmentName),
                 deptSlug: @js($qrDepartmentSlug),
                 deptColor: @js($qrDepartmentColor),
                 workspaceName: @js($tenantName),
-                copyLink() {
-                    if (typeof copyToClipboard === 'function') {
-                        copyToClipboard(this.qrUrl);
-                    } else if (navigator.clipboard) {
-                        navigator.clipboard.writeText(this.qrUrl);
-                    }
-                    this.copied = true;
-                    setTimeout(() => this.copied = false, 2200);
-                },
-                downloadSvg() {
-                    const svgEl = this.$refs.qrContainer?.querySelector('svg');
-                    if (!svgEl) return;
-                    const blob = new Blob([svgEl.outerHTML], { type: 'image/svg+xml;charset=utf-8' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `qr-dropbox-${this.deptSlug || 'department'}.svg`;
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    URL.revokeObjectURL(url);
-                },
-                downloadPng() {
-                    const svgEl = this.$refs.qrContainer?.querySelector('svg');
-                    if (!svgEl) return;
-                    const svgData = new XMLSerializer().serializeToString(svgEl);
-                    const img = new Image();
-                    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-                    const url = URL.createObjectURL(svgBlob);
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = 1024;
-                        canvas.height = 1024;
-                        const ctx = canvas.getContext('2d');
-                        ctx.fillStyle = '#ffffff';
-                        ctx.fillRect(0, 0, canvas.width, canvas.height);
-                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        URL.revokeObjectURL(url);
-                        const pngUrl = canvas.toDataURL('image/png');
-                        const a = document.createElement('a');
-                        a.href = pngUrl;
-                        a.download = `qr-dropbox-${this.deptSlug || 'department'}.png`;
-                        document.body.appendChild(a);
-                        a.click();
-                        a.remove();
-                    };
-                    img.src = url;
-                },
-                printPoster() {
-                    const svgEl = this.$refs.qrContainer?.querySelector('svg');
-                    if (!svgEl) return;
-                    const esc = (s) => String(s ?? '').replace(/[&<>'\x22]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\x27': '&#39;', '\x22': '&quot;' }[c]));
-                    const win = window.open('', '_blank', 'width=820,height=980');
-                    if (!win) return;
-                    const svgMarkup = svgEl.outerHTML;
-                    win.document.open();
-                    win.document.write(`<!DOCTYPE html>
-<html lang='en'>
-<head>
-<meta charset='utf-8'>
-<title>QR Drop-Box — ${esc(this.deptName)} (${esc(this.workspaceName)})</title>
-<style>
-  @page { size: A5 portrait; margin: 12mm; }
-  * { box-sizing: border-box; }
-  body { margin: 0; padding: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #ffffff; color: #09090b; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-  .poster { width: 100%; max-width: 520px; border: 3px solid #09090b; border-radius: 24px; padding: 32px 28px; text-align: center; background: #ffffff; }
-  .brand { display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px; border-radius: 999px; background: #09090b; color: #ffffff; font-weight: 800; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; }
-  .brand-kanji { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 6px; background: #6366f1; color: #ffffff; font-size: 13px; }
-  .workspace { margin-top: 14px; font-size: 14px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; }
-  .dept { margin: 8px 0 18px; font-size: 34px; line-height: 1.15; font-weight: 900; color: #09090b; word-break: break-word; }
-  .accent-bar { width: 72px; height: 6px; border-radius: 999px; margin: 0 auto 22px; background: ${esc(this.deptColor)}; }
-  .qr-box { display: inline-block; padding: 14px; border: 2px solid #e2e8f0; border-radius: 18px; background: #ffffff; }
-  .qr-box svg { display: block; width: 300px; height: 300px; }
-  .instructions { margin-top: 22px; padding-top: 18px; border-top: 2px dashed #cbd5e1; }
-  .inst-en { font-size: 15px; font-weight: 700; color: #0f172a; margin: 0 0 8px; line-height: 1.4; }
-  .inst-el { font-size: 14px; font-weight: 600; color: #334155; margin: 0; line-height: 1.4; }
-  .url { margin-top: 14px; font-size: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #64748b; word-break: break-all; }
-  @media print { body { padding: 0; min-height: auto; } .poster { border-width: 2.5px; } }
-</style>
-</head>
-<body>
-  <div class='poster'>
-    <div class='brand'><span class='brand-kanji'>担当</span><span>Tantou · QR Drop-Box</span></div>
-    <div class='workspace'>${esc(this.workspaceName)}</div>
-    <h1 class='dept'>${esc(this.deptName)}</h1>
-    <div class='accent-bar'></div>
-    <div class='qr-box'>${svgMarkup}</div>
-    <div class='instructions'>
-      <p class='inst-en'>Scan with your phone camera to submit an IT / Support request — No login required</p>
-      <p class='inst-el'>Σαρώστε με την κάμερα του κινητού σας για να υποβάλετε αίτημα IT / Υποστήριξης — Χωρίς σύνδεση</p>
-    </div>
-    <div class='url'>${esc(this.qrUrl)}</div>
-  </div>
-  <script>window.onload = function() { setTimeout(function() { window.print(); }, 150); };<\/script>
-</body>
-</html>`);
-                    win.document.close();
-                }
-            }"
+            })"
         >
             <div class="w-full max-w-lg rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden animate-fadeIn">
                 {{-- Header --}}
@@ -1585,9 +1487,10 @@
                         </div>
                     @endif
 
-                    {{-- QR Code Preview Card --}}
+                    {{-- QR Code Preview Card (wire:ignore preserves inline SVG across Livewire morphs) --}}
                     <div class="flex flex-col items-center justify-center p-5 rounded-2xl bg-slate-950/70 border border-slate-800">
                         <div
+                            wire:ignore
                             x-ref="qrContainer"
                             class="p-3 rounded-2xl bg-white shadow-xl border border-slate-200"
                         >
@@ -1615,11 +1518,11 @@
                             >
                             <button
                                 type="button"
-                                @click="copyLink()"
+                                @click.prevent="copyLink()"
                                 class="shrink-0 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shadow-emerald-900/30"
                             >
                                 <span x-show="!copied">📋 {{ __('Copy Link') }}</span>
-                                <span x-show="copied" style="display: none;" class="flex items-center gap-1">
+                                <span x-show="copied" x-cloak class="flex items-center gap-1">
                                     <span>✓</span>
                                     <span>{{ __('Copied!') }}</span>
                                 </span>
@@ -1627,32 +1530,77 @@
                         </div>
                     </div>
 
+                    {{-- Action Feedback / Error Toast --}}
+                    <div
+                        x-show="statusMessage"
+                        x-cloak
+                        class="px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-medium flex items-center gap-2"
+                    >
+                        <span>✓</span>
+                        <span x-text="statusMessage"></span>
+                    </div>
+                    <div
+                        x-show="errorMessage"
+                        x-cloak
+                        class="px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-medium flex items-center gap-2"
+                    >
+                        <span>⚠️</span>
+                        <span x-text="errorMessage"></span>
+                    </div>
+
                     {{-- One-Click Download & Print Poster Actions --}}
                     <div class="pt-3 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                         <button
                             type="button"
-                            @click="downloadSvg()"
+                            @click.prevent="downloadSvg()"
                             class="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-semibold border border-slate-700 transition-all cursor-pointer"
                         >
-                            <span>⬇️</span>
-                            <span>{{ __('Download SVG') }}</span>
+                            <span x-show="!svgDownloaded">⬇️ {{ __('Download SVG') }}</span>
+                            <span x-show="svgDownloaded" x-cloak class="text-emerald-300">✓ {{ __('Downloaded!') }}</span>
                         </button>
                         <button
                             type="button"
-                            @click="downloadPng()"
+                            @click.prevent="downloadPng()"
                             class="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-semibold border border-slate-700 transition-all cursor-pointer"
                         >
-                            <span>⬇️</span>
-                            <span>{{ __('Download PNG') }}</span>
+                            <span x-show="!pngDownloaded">⬇️ {{ __('Download PNG') }}</span>
+                            <span x-show="pngDownloaded" x-cloak class="text-emerald-300">✓ {{ __('Downloaded!') }}</span>
                         </button>
                         <button
                             type="button"
-                            @click="printPoster()"
+                            @click.prevent="printPoster()"
                             class="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
                         >
                             <span>🖨️</span>
                             <span>{{ __('Print QR Poster') }}</span>
                         </button>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Dedicated @media print Poster Fallback (used automatically if browser blocks popup window) --}}
+            <div id="dept-qr-print-fallback" aria-hidden="true">
+                <div style="width: 100%; max-width: 520px; border: 3px solid #09090b; border-radius: 24px; padding: 32px 28px; text-align: center; background: #ffffff; color: #09090b;">
+                    <div style="display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px; border-radius: 999px; background: #09090b; color: #ffffff; font-weight: 800; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase;">
+                        <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 6px; background: #6366f1; color: #ffffff; font-size: 13px;">担当</span>
+                        <span>Tantou · QR Drop-Box</span>
+                    </div>
+                    <div style="margin-top: 14px; font-size: 14px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.08em;">
+                        {{ $tenantName }}
+                    </div>
+                    <h1 style="margin: 8px 0 18px; font-size: 34px; line-height: 1.15; font-weight: 900; color: #09090b;">
+                        {{ $qrDepartmentName }}
+                    </h1>
+                    <div style="width: 72px; height: 6px; border-radius: 999px; margin: 0 auto 22px; background: {{ $qrDepartmentColor }};"></div>
+                    <div wire:ignore style="display: inline-block; padding: 14px; border: 2px solid #e2e8f0; border-radius: 18px; background: #ffffff;">
+                        {!! str_replace('id="dept-qr-code-svg"', 'id="dept-qr-code-svg-print"', $qrSvgMarkup) !!}
+                    </div>
+                    <div style="margin-top: 22px; padding-top: 18px; border-top: 2px dashed #cbd5e1;">
+                        <p style="font-size: 15px; font-weight: 700; color: #0f172a; margin: 0 0 8px;">Scan with your phone camera to submit an IT / Support request — No login required</p>
+                        <p style="font-size: 14px; font-weight: 600; color: #334155; margin: 0;">Σαρώστε με την κάμερα του κινητού σας για να υποβάλετε αίτημα IT / Υποστήριξης — Χωρίς σύνδεση</p>
+                    </div>
+                    <div style="margin-top: 14px; font-size: 10px; font-family: monospace; color: #64748b; word-break: break-all;">
+                        {{ $qrDropBoxUrl }}
                     </div>
                 </div>
             </div>

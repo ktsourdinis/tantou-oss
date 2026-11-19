@@ -292,7 +292,7 @@ class TeamManagement extends Component
             'workspace' => $tenant->slug,
             'facility' => $department->name,
         ]);
-        $this->qrSvgMarkup = QrCodeSvg::generate($this->qrDropBoxUrl, 260);
+        $this->qrSvgMarkup = QrCodeSvg::generate($this->qrDropBoxUrl, 260, 4, 'dept-qr-code-svg');
         $this->qrPublicSubmissionEnabled = (bool) $tenant->public_submission_enabled;
         $this->showDepartmentQrModal = true;
     }

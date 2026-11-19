@@ -57,7 +57,10 @@ class DepartmentQrDropBoxTest extends TestCase
             ->assertSee('Download PNG')
             ->assertSee('Print QR Poster')
             ->assertSee('Scan with your phone camera to submit an IT / Support request — No login required')
-            ->assertSeeHtml('<svg xmlns="http://www.w3.org/2000/svg"')
+            ->assertSeeHtml('<svg id="dept-qr-code-svg" xmlns="http://www.w3.org/2000/svg"')
+            ->assertSeeHtml('wire:ignore')
+            ->assertSeeHtml('window.tantouDeptQrDropBox')
+            ->assertSeeHtml('id="dept-qr-print-fallback"')
             ->call('closeDepartmentQrModal')
             ->assertSet('showDepartmentQrModal', false);
 

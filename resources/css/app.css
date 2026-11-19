@@ -7,3 +7,30 @@
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
+
+#dept-qr-print-fallback {
+    display: none;
+}
+
+@media print {
+    body.tantou-printing-qr-poster * {
+        visibility: hidden !important;
+    }
+
+    body.tantou-printing-qr-poster #dept-qr-print-fallback,
+    body.tantou-printing-qr-poster #dept-qr-print-fallback * {
+        visibility: visible !important;
+    }
+
+    body.tantou-printing-qr-poster #dept-qr-print-fallback {
+        display: flex !important;
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        background: #ffffff !important;
+        color: #09090b !important;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+    }
+}
