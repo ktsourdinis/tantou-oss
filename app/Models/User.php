@@ -103,6 +103,13 @@ class User extends Authenticatable
     protected static function booted(): void
     {
         static::saving(function (User $user): void {
+            if ($user->role === 'client') {
+                $user->visibility = 'none';
+                $user->board_visibility = 'none';
+
+                return;
+            }
+
             if (empty($user->visibility) && ! empty($user->board_visibility)) {
                 $user->visibility = $user->board_visibility;
             } elseif (empty($user->board_visibility) && ! empty($user->visibility)) {
@@ -347,6 +354,10 @@ class User extends Authenticatable
     public function canChangeBoardVisibilityOf(self $targetUser): bool
     {
         if ((int) $this->tenant_id !== (int) $targetUser->tenant_id) {
+            return false;
+        }
+
+        if ($targetUser->role === 'client') {
             return false;
         }
 

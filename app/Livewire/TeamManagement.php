@@ -103,6 +103,8 @@ class TeamManagement extends Component
 
     public string $userBoardVisibility = 'public';
 
+    public string $lastNonClientVisibility = 'public';
+
     public string $userFacilityName = '';
 
     public bool $userIsAvailable = true;
@@ -333,11 +335,45 @@ class TeamManagement extends Component
     }
 
     /**
+     * Automatically lock visibility to 'none' when role is 'client', and unlock/restore when switching away.
+     */
+    public function updatedUserRole(string $value): void
+    {
+        if ($value === 'client') {
+            if ($this->userVisibility !== 'none') {
+                $this->lastNonClientVisibility = $this->userVisibility;
+            }
+            $this->userVisibility = 'none';
+            $this->userBoardVisibility = 'none';
+
+            return;
+        }
+
+        if ($this->userVisibility === 'none') {
+            $restored = in_array($this->lastNonClientVisibility, ['public', 'internal', 'private'], true)
+                ? $this->lastNonClientVisibility
+                : 'public';
+            $this->userVisibility = $restored;
+            $this->userBoardVisibility = $restored;
+        }
+    }
+
+    /**
      * Keep userVisibility and userBoardVisibility synchronized when updated via Livewire.
      */
     public function updatedUserVisibility(string $value): void
     {
+        if ($this->userRole === 'client') {
+            $this->userVisibility = 'none';
+            $this->userBoardVisibility = 'none';
+
+            return;
+        }
+
         $this->userBoardVisibility = $value;
+        if ($value !== 'none') {
+            $this->lastNonClientVisibility = $value;
+        }
     }
 
     /**
@@ -345,7 +381,17 @@ class TeamManagement extends Component
      */
     public function updatedUserBoardVisibility(string $value): void
     {
+        if ($this->userRole === 'client') {
+            $this->userVisibility = 'none';
+            $this->userBoardVisibility = 'none';
+
+            return;
+        }
+
         $this->userVisibility = $value;
+        if ($value !== 'none') {
+            $this->lastNonClientVisibility = $value;
+        }
     }
 
     /**
@@ -360,6 +406,7 @@ class TeamManagement extends Component
         $this->userMaxCapacity = 10;
         $this->userVisibility = 'public';
         $this->userBoardVisibility = 'public';
+        $this->lastNonClientVisibility = 'public';
         $this->userFacilityName = '';
         $tenant = Tenant::find($this->tenantId);
         $this->userTimezone = $tenant?->timezone ?: 'Europe/Athens';
@@ -384,8 +431,11 @@ class TeamManagement extends Component
         $this->userFacilityName = $user->facility_name ?? '';
         $this->userDepartmentId = $user->department_id;
         $this->userMaxCapacity = $user->max_capacity;
-        $this->userVisibility = $user->visibility ?: ($user->board_visibility ?: 'public');
+        $this->userVisibility = $user->role === 'client'
+            ? 'none'
+            : ($user->visibility ?: ($user->board_visibility ?: 'public'));
         $this->userBoardVisibility = $this->userVisibility;
+        $this->lastNonClientVisibility = $this->userVisibility !== 'none' ? $this->userVisibility : 'public';
         $tenant = Tenant::find($this->tenantId);
         $this->userTimezone = $user->timezone ?: ($tenant?->timezone ?: 'Europe/Athens');
         $this->userIsAvailable = (bool) $user->is_available;
@@ -459,7 +509,14 @@ class TeamManagement extends Component
             }
         }
 
-        $visibility = $this->userVisibility ?: ($this->userBoardVisibility ?: 'public');
+        if ($this->userRole === 'client') {
+            $this->userVisibility = 'none';
+            $this->userBoardVisibility = 'none';
+        }
+
+        $visibility = $this->userRole === 'client'
+            ? 'none'
+            : ($this->userVisibility ?: ($this->userBoardVisibility ?: 'public'));
 
         $data = [
             'name' => $this->userName,

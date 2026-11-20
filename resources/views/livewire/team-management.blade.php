@@ -685,6 +685,10 @@
                                                 <option value="private" @selected(($user->visibility ?? $user->board_visibility) === 'private')>{{ __('Private') }}</option>
                                                 <option value="none" @selected(($user->visibility ?? $user->board_visibility) === 'none')>{{ __('None (Hide)') }}</option>
                                             </select>
+                                        @elseif ($user->role === 'client')
+                                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider cursor-default bg-slate-800/80 text-slate-400 border border-slate-700/80" title="{{ __('Locked to None (Hidden) — Clients do not have a capacity board column.') }}">
+                                                🔒 {{ __('None (Hidden)') }}
+                                            </span>
                                         @else
                                             <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider cursor-default {{ ($user->visibility ?? $user->board_visibility) === 'public' ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30' : (($user->visibility ?? $user->board_visibility) === 'internal' ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' : 'bg-purple-500/15 text-purple-300 border border-purple-500/30') }}">
                                                 {{ $user->visibility ?? $user->board_visibility }}
@@ -1318,7 +1322,7 @@
                         <div>
                             <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">{{ __('Role') }}</label>
                             <select
-                                wire:model="userRole"
+                                wire:model.live="userRole"
                                 class="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
                             >
                                 <option value="worker">{{ __('Worker (Tantou)') }}</option>
@@ -1361,13 +1365,20 @@
                             <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">{{ __('Visibility') }}</label>
                             <select
                                 wire:model="userVisibility"
-                                class="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                                @disabled($userRole === 'client')
+                                class="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-slate-900/80"
                             >
                                 <option value="public">{{ __('Public (Clients & Team)') }}</option>
                                 <option value="internal">{{ __('Internal (Team Only)') }}</option>
                                 <option value="private">{{ __('Private (Owner Only)') }}</option>
                                 <option value="none">{{ __('None (Hidden)') }}</option>
                             </select>
+                            @if ($userRole === 'client')
+                                <p class="text-[10px] text-amber-300/90 mt-1 flex items-start gap-1">
+                                    <span class="shrink-0">🔒</span>
+                                    <span>{{ __('Locked to None (Hidden) — Clients do not have a capacity board column.') }}</span>
+                                </p>
+                            @endif
                             @error('userVisibility') <span class="text-[10px] text-rose-400 mt-1 block">{{ $message }}</span> @enderror
                             @error('userBoardVisibility') <span class="text-[10px] text-rose-400 mt-1 block">{{ $message }}</span> @enderror
                         </div>

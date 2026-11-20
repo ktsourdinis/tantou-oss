@@ -249,4 +249,92 @@ class TeamManagementTest extends TestCase
             ->assertSee('2') // Co-op count
             ->assertSee('3'); // Tantou count
     }
+
+    public function test_client_role_locks_visibility_to_none_and_unlocks_when_switched_back(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $admin = User::factory()->admin()->create([
+            'tenant_id' => $tenant->id,
+            'locale' => 'en',
+        ]);
+
+        $this->actingAs($admin);
+
+        Livewire::test(TeamManagement::class)
+            ->call('openCreateUserModal')
+            ->assertSet('userRole', 'worker')
+            ->assertSet('userVisibility', 'public')
+            ->set('userVisibility', 'internal')
+            ->set('userRole', 'client')
+            ->assertSet('userVisibility', 'none')
+            ->assertSet('userBoardVisibility', 'none')
+            ->assertSee('Locked to None (Hidden) — Clients do not have a capacity board column.')
+            ->set('userVisibility', 'public')
+            ->assertSet('userVisibility', 'none')
+            ->assertSet('userBoardVisibility', 'none')
+            ->set('userRole', 'worker')
+            ->assertSet('userVisibility', 'internal')
+            ->assertSet('userBoardVisibility', 'internal')
+            ->assertDontSee('Locked to None (Hidden) — Clients do not have a capacity board column.');
+    }
+
+    public function test_saving_client_member_forces_none_visibility_server_side(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $admin = User::factory()->admin()->create(['tenant_id' => $tenant->id]);
+
+        $this->actingAs($admin);
+
+        Livewire::test(TeamManagement::class)
+            ->call('openCreateUserModal')
+            ->set('userName', 'Acme Client')
+            ->set('userEmail', 'client@acme.test')
+            ->set('userPassword', 'Str0ng!Pass2026')
+            ->set('userRole', 'client')
+            ->set('userVisibility', 'public')
+            ->set('userBoardVisibility', 'public')
+            ->call('saveUser')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('users', [
+            'tenant_id' => $tenant->id,
+            'email' => 'client@acme.test',
+            'role' => 'client',
+            'visibility' => 'none',
+            'board_visibility' => 'none',
+        ]);
+    }
+
+    public function test_updating_worker_to_client_forces_none_visibility_and_blocks_quick_visibility_change(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $admin = User::factory()->admin()->create(['tenant_id' => $tenant->id]);
+        $worker = User::factory()->worker()->create([
+            'tenant_id' => $tenant->id,
+            'visibility' => 'public',
+            'board_visibility' => 'public',
+        ]);
+
+        $this->actingAs($admin);
+
+        Livewire::test(TeamManagement::class)
+            ->call('openEditUserModal', $worker->id)
+            ->set('userRole', 'client')
+            ->assertSet('userVisibility', 'none')
+            ->call('saveUser')
+            ->assertHasNoErrors();
+
+        $worker->refresh();
+        $this->assertSame('client', $worker->role);
+        $this->assertSame('none', $worker->visibility);
+        $this->assertSame('none', $worker->board_visibility);
+
+        Livewire::test(TeamManagement::class)
+            ->call('quickUpdateVisibility', $worker->id, 'public')
+            ->assertForbidden();
+
+        $worker->refresh();
+        $this->assertSame('none', $worker->visibility);
+        $this->assertSame('none', $worker->board_visibility);
+    }
 }

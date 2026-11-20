@@ -12,6 +12,45 @@
     display: none;
 }
 
+/* Subtle, ultra-slim arrow-free horizontal scrollbar for desktop board overflow */
+.tantou-board-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 116, 139, 0.3) transparent;
+}
+
+.tantou-board-scroll::-webkit-scrollbar {
+    height: 5px;
+    width: 5px;
+}
+
+.tantou-board-scroll::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+.tantou-board-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.tantou-board-scroll::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.22);
+    border-radius: 9999px;
+}
+
+.tantou-board-scroll:hover::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.45);
+}
+
+.tantou-no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.tantou-no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
 @media print {
     body.tantou-printing-qr-poster * {
         visibility: hidden !important;

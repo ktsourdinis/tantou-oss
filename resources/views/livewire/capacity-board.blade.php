@@ -2,12 +2,47 @@
     wire:poll.4s
     x-data="{
         mobileTab: 'board',
+        activeMobileWorkerId: null,
+        mobileWorkerFilter: 'all',
         draggingId: null,
         draggingIsClient: false,
         activeDropZone: null,
         openBacklog: true,
         openDone: true,
         didJustDrag: false,
+        jumpToWorker(workerId) {
+            this.mobileTab = 'board';
+            this.activeMobileWorkerId = workerId;
+            this.$nextTick(() => {
+                const track = this.$refs.workerColumnsTrack;
+                const col = document.getElementById('worker-col-' + workerId);
+                if (track && col) {
+                    const targetLeft = Math.max(0, col.offsetLeft - track.offsetLeft);
+                    track.scrollTo({ left: targetLeft, behavior: 'smooth' });
+                } else if (col) {
+                    col.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+                }
+            });
+        },
+        syncActiveMobileWorker() {
+            const track = this.$refs.workerColumnsTrack;
+            if (!track) return;
+            const cols = track.querySelectorAll('[data-worker-col-id]');
+            if (!cols.length) return;
+            let closestId = null;
+            let closestDist = Infinity;
+            const trackLeft = track.scrollLeft + track.offsetLeft;
+            cols.forEach((col) => {
+                const dist = Math.abs(col.offsetLeft - trackLeft);
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    closestId = Number(col.dataset.workerColId);
+                }
+            });
+            if (closestId !== null) {
+                this.activeMobileWorkerId = closestId;
+            }
+        },
         onDragStart(event, id, isClient) {
             this.draggingId = id;
             this.draggingIsClient = !!isClient;
@@ -306,7 +341,7 @@
     </div>
 
     {{-- Main Kanban Canvas Layout with Collapsible Backlog & Done Drawers --}}
-    <main class="flex-1 p-3 sm:p-6 overflow-x-auto">
+    <main class="flex-1 p-3 sm:p-4 lg:p-5 overflow-x-hidden">
         {{-- Mobile-Only 3-Tab Switcher Bar --}}
         <div class="flex md:hidden items-center justify-between gap-1 p-1 bg-slate-900/90 border border-slate-800 rounded-xl mb-3">
             <button
@@ -346,13 +381,84 @@
             </button>
         </div>
 
-        <div class="max-w-[1920px] mx-auto flex flex-col md:flex-row gap-5 items-start">
+        {{-- Mobile-Only Worker Quick-Jump & Availability Strip (< md) --}}
+        @if ($workers->isNotEmpty())
+            <div
+                x-show="mobileTab === 'board'"
+                class="md:hidden mb-3 rounded-xl border border-slate-800 bg-slate-900/85 p-2 space-y-2"
+                aria-label="{{ __('Collaborator Quick Switcher') }}"
+            >
+                <div class="flex items-center justify-between gap-2 px-0.5">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        {{ __('Jump to Collaborator') }}
+                    </span>
+                    <div class="inline-flex items-center rounded-lg bg-slate-950 border border-slate-800 p-0.5 text-[10px]">
+                        <button
+                            type="button"
+                            @click="mobileWorkerFilter = 'all'"
+                            :class="mobileWorkerFilter === 'all' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'"
+                            class="px-2 py-0.5 rounded-md font-semibold transition-colors cursor-pointer"
+                        >
+                            {{ __('All') }} ({{ $workers->count() }})
+                        </button>
+                        <button
+                            type="button"
+                            @click="mobileWorkerFilter = 'available'"
+                            :class="mobileWorkerFilter === 'available' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-slate-200'"
+                            class="px-2 py-0.5 rounded-md font-semibold transition-colors cursor-pointer"
+                        >
+                            {{ __('Available') }}
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-1.5 overflow-x-auto pb-0.5 snap-x tantou-no-scrollbar">
+                    @foreach ($workers as $w)
+                        @php
+                            $wIsAway = ! $w->is_available;
+                            $wIsHighLoad = $w->current_capacity >= $w->max_capacity;
+                            $wIsBusy = $w->current_capacity >= ($w->max_capacity * 0.7);
+                            $wHasSpareCapacity = $w->is_available && ! $wIsHighLoad;
+                            $wCapBadge = $wIsAway
+                                ? 'bg-slate-800 text-slate-400 border-slate-700'
+                                : ($wIsHighLoad
+                                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                                    : ($wIsBusy
+                                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                                        : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'));
+                        @endphp
+                        <button
+                            type="button"
+                            x-show="mobileWorkerFilter === 'all' || {{ $wHasSpareCapacity ? 'true' : 'false' }}"
+                            @click="jumpToWorker({{ $w->id }})"
+                            :class="(activeMobileWorkerId === {{ $w->id }} || (activeMobileWorkerId === null && {{ $loop->first ? 'true' : 'false' }}))
+                                ? 'bg-indigo-600/25 border-indigo-500/70 text-white shadow-sm'
+                                : 'bg-slate-950/80 border-slate-800 text-slate-300 hover:border-slate-700'"
+                            class="shrink-0 snap-start inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition-all cursor-pointer {{ $wIsAway ? 'opacity-60' : '' }}"
+                        >
+                            <span class="h-1.5 w-1.5 rounded-full shrink-0 {{ $wIsAway ? 'bg-amber-400' : ($wIsHighLoad ? 'bg-rose-400' : 'bg-emerald-400') }}"></span>
+                            <span class="truncate max-w-[92px]">{{ $w->name }}</span>
+                            @if ($w->department)
+                                <span class="text-[9px] text-slate-400 truncate max-w-[54px] hidden xs:inline">
+                                    {{ $w->department->name }}
+                                </span>
+                            @endif
+                            <span class="px-1.5 py-[1px] rounded-full border text-[9.5px] font-mono font-bold {{ $wCapBadge }}">
+                                {{ $w->current_capacity }}/{{ $w->max_capacity }}
+                            </span>
+                        </button>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
+        <div class="max-w-[1920px] mx-auto flex flex-col md:flex-row gap-3.5 lg:gap-4 items-start">
 
             {{-- 1. BACKLOG DRAWER (Left) --}}
             <div
                 :class="[
                     mobileTab === 'backlog' ? 'w-full flex' : 'hidden md:flex',
-                    openBacklog ? 'md:w-80 md:shrink-0' : 'md:w-12 md:shrink-0'
+                    openBacklog ? 'md:w-72 xl:w-[300px] md:shrink-0' : 'md:w-12 md:shrink-0'
                 ]"
                 class="transition-all duration-300 flex-col"
             >
@@ -391,7 +497,7 @@
                         @dragover.prevent="onDragOver('backlog')"
                         @dragleave="onDragLeave('backlog')"
                         @drop.prevent="onDrop($event, null, 'backlog')"
-                        class="space-y-3 min-h-[300px] rounded-xl border-2 border-dashed p-1 transition-all"
+                        class="{{ $isCompact ? 'space-y-1.5' : 'space-y-2' }} min-h-[260px] rounded-xl border-2 border-dashed p-1 transition-all"
                     >
                         @forelse ($backlogPostIts as $postIt)
                             @include('livewire.partials.post-it-card', ['postIt' => $postIt, 'zone' => 'backlog'])
@@ -415,10 +521,10 @@
                             <button
                                 wire:click="openCreateModal(null, true)"
                                 type="button"
-                                class="group w-full min-h-[96px] rounded-2xl border-2 border-dashed border-slate-800/90 hover:border-violet-500/70 bg-slate-900/20 hover:bg-violet-500/10 transition-all duration-200 flex flex-col items-center justify-center gap-1.5 p-4 cursor-pointer text-slate-500 hover:text-violet-300"
+                                class="group w-full {{ $isCompact ? 'min-h-[48px] p-2' : 'min-h-[60px] p-2.5' }} rounded-xl border-2 border-dashed border-slate-800/90 hover:border-violet-500/70 bg-slate-900/20 hover:bg-violet-500/10 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer text-slate-500 hover:text-violet-300"
                                 title="{{ __('Queue Task Card') }}"
                             >
-                                <div class="w-9 h-9 rounded-full bg-slate-800/80 group-hover:bg-violet-600 group-hover:text-white flex items-center justify-center text-xl font-semibold transition-transform group-hover:scale-110">
+                                <div class="w-6 h-6 rounded-full bg-slate-800/80 group-hover:bg-violet-600 group-hover:text-white flex items-center justify-center text-sm font-semibold transition-transform group-hover:scale-110">
                                     +
                                 </div>
                                 <span class="text-xs font-medium tracking-wide">{{ __('Queue Task Card') }}</span>
@@ -430,8 +536,10 @@
 
             {{-- 2. WORKER CAPACITY COLUMNS (Center / Marketplace) --}}
             <div
+                x-ref="workerColumnsTrack"
+                @scroll.passive="syncActiveMobileWorker()"
                 :class="mobileTab === 'board' ? 'flex' : 'hidden md:flex'"
-                class="flex-1 w-full gap-4 sm:gap-5 overflow-x-auto snap-x snap-mandatory pb-4"
+                class="flex-1 min-w-0 w-full gap-3.5 lg:gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth md:snap-none pb-2 tantou-board-scroll"
             >
                 @forelse ($workers as $worker)
                     @php
@@ -459,11 +567,13 @@
                     @endphp
 
                     <div
-                        class="w-[calc(100vw-2rem)] sm:w-[320px] md:w-[340px] shrink-0 snap-center flex flex-col rounded-2xl border {{ $headerBg }} p-3.5 shadow-xl transition-all min-w-0 {{ $isAway ? 'opacity-60 saturate-50' : '' }}"
+                        id="worker-col-{{ $worker->id }}"
+                        data-worker-col-id="{{ $worker->id }}"
+                        class="w-[calc(100vw-1.5rem)] sm:w-[320px] md:w-auto md:flex-1 md:min-w-[260px] xl:min-w-[280px] md:max-w-[360px] shrink-0 snap-start snap-always md:snap-align-none flex flex-col rounded-2xl border {{ $headerBg }} p-3 shadow-xl transition-all min-w-0 {{ $isAway ? 'opacity-60 saturate-50' : '' }}"
                         title="{{ __('Sorted by: In Progress → Priority → Oldest (FIFO)') }}"
                     >
                         {{-- Worker Header --}}
-                        <div class="pb-3 border-b border-slate-800/80 mb-3 space-y-2 min-w-0">
+                        <div class="pb-2.5 border-b border-slate-800/80 mb-2.5 space-y-1.5 min-w-0">
                             <div class="flex items-center justify-between gap-2 min-w-0">
                                 <div class="flex items-center gap-2 min-w-0">
                                     <div class="h-7 w-7 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold flex items-center justify-center text-xs shrink-0">
@@ -559,31 +669,31 @@
                                 activeDropZone === 'worker-{{ $worker->id }}' ? 'border-indigo-500 bg-indigo-950/20' : 'border-transparent',
                                 (draggingIsClient && {{ $isNonPublic ? 'true' : 'false' }}) ? 'opacity-30 border-rose-500/40 cursor-not-allowed' : ''
                             ]"
-                            class="space-y-3 min-h-[300px] rounded-xl border-2 border-dashed p-1 transition-all min-w-0"
+                            class="{{ $isCompact ? 'space-y-1.5' : 'space-y-2' }} min-h-[260px] rounded-xl border-2 border-dashed p-1 transition-all min-w-0"
                         >
                             @forelse ($worker->assignedPostIts as $postIt)
                                 @include('livewire.partials.post-it-card', ['postIt' => $postIt, 'zone' => 'doing', 'worker' => $worker])
                             @empty
                                 @if ($isAway)
-                                    <div class="py-12 px-3 text-center border border-dashed border-slate-800/80 rounded-xl text-slate-500 text-xs">
+                                    <div class="py-10 px-3 text-center border border-dashed border-slate-800/80 rounded-xl text-slate-500 text-xs">
                                         {{ __('Collaborator is away') }}
                                     </div>
                                 @elseif (! $canAssign)
-                                    <div class="py-12 px-3 text-center border border-dashed border-slate-800/80 rounded-xl text-slate-500 text-xs">
+                                    <div class="py-10 px-3 text-center border border-dashed border-slate-800/80 rounded-xl text-slate-500 text-xs">
                                         {{ __('Capacity available') }}
                                     </div>
                                 @endif
                             @endforelse
 
-                            {{-- Large Tactile Ghost Post-It Card (Append to Queue) --}}
+                            {{-- Compact Tactile Ghost Post-It Card (Append to Queue) --}}
                             @if ($canAssign && ! $isAway)
                                 <button
                                     wire:click="openCreateModal({{ $worker->id }})"
                                     type="button"
-                                    class="group w-full min-h-[96px] rounded-2xl border-2 border-dashed border-slate-800/90 hover:border-violet-500/70 bg-slate-900/20 hover:bg-violet-500/10 transition-all duration-200 flex flex-col items-center justify-center gap-1.5 p-4 cursor-pointer text-slate-500 hover:text-violet-300"
+                                    class="group w-full {{ $isCompact ? 'min-h-[48px] p-2' : 'min-h-[60px] p-2.5' }} rounded-xl border-2 border-dashed border-slate-800/90 hover:border-violet-500/70 bg-slate-900/20 hover:bg-violet-500/10 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer text-slate-500 hover:text-violet-300"
                                     title="{{ __('Queue Task Card') }}"
                                 >
-                                    <div class="w-9 h-9 rounded-full bg-slate-800/80 group-hover:bg-violet-600 group-hover:text-white flex items-center justify-center text-xl font-semibold transition-transform group-hover:scale-110">
+                                    <div class="w-6 h-6 rounded-full bg-slate-800/80 group-hover:bg-violet-600 group-hover:text-white flex items-center justify-center text-sm font-semibold transition-transform group-hover:scale-110">
                                         +
                                     </div>
                                     <span class="text-xs font-medium tracking-wide">{{ __('Queue Task Card') }}</span>
@@ -602,7 +712,7 @@
             <div
                 :class="[
                     mobileTab === 'completed' ? 'w-full flex' : 'hidden md:flex',
-                    openDone ? 'md:w-80 md:shrink-0' : 'md:w-12 md:shrink-0'
+                    openDone ? 'md:w-72 xl:w-[300px] md:shrink-0' : 'md:w-12 md:shrink-0'
                 ]"
                 class="transition-all duration-300 flex-col"
             >
