@@ -15,6 +15,7 @@
 namespace App\Livewire;
 
 use App\Events\BoardUpdated;
+use App\Jobs\DispatchPostItTelegramNotification;
 use App\Livewire\Concerns\ManagesTelegramPairing;
 use App\Livewire\Concerns\ManagesWorkspaceSettings;
 use App\Models\Department;
@@ -27,8 +28,10 @@ use App\Services\BountyCalculator;
 use App\Services\TelegramBotService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -36,6 +39,7 @@ use Livewire\Attributes\Validate;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
+use Throwable;
 
 #[Layout('layouts.app')]
 class CapacityBoard extends Component
@@ -249,14 +253,28 @@ class CapacityBoard extends Component
     /**
      * Triggered when departmentId is changed in the Create Post-it form.
      */
-    public function updatedDepartmentId(?int $value): void
+    public function updatedDepartmentId(mixed $value): void
     {
-        if ($value && $this->assigneeId) {
+        $this->departmentId = ($value === '' || $value === null || (int) $value <= 0)
+            ? null
+            : (int) $value;
+
+        if ($this->departmentId !== null && $this->assigneeId !== null) {
             $assignee = User::where('tenant_id', $this->tenantId)->find($this->assigneeId);
-            if ($assignee && $assignee->department_id && (int) $assignee->department_id !== (int) $value) {
+            if (! $assignee || (int) $assignee->department_id !== $this->departmentId) {
                 $this->assigneeId = null;
             }
         }
+    }
+
+    /**
+     * Normalize empty string / invalid assignee selections to null.
+     */
+    public function updatedAssigneeId(mixed $value): void
+    {
+        $this->assigneeId = ($value === '' || $value === null || (int) $value <= 0)
+            ? null
+            : (int) $value;
     }
 
     /**
@@ -748,13 +766,29 @@ class CapacityBoard extends Component
      */
     public function createPostIt(): void
     {
+        // Normalize empty/zero nullable select values cleanly before validation
+        $this->departmentId = ($this->departmentId === null || (int) $this->departmentId <= 0)
+            ? null
+            : (int) $this->departmentId;
+        $this->assigneeId = ($this->assigneeId === null || (int) $this->assigneeId <= 0)
+            ? null
+            : (int) $this->assigneeId;
+
         $this->validate([
             'title' => 'required|string|min:3|max:255',
             'description' => 'nullable|string|max:1000',
-            'departmentId' => 'nullable|integer|exists:departments,id',
+            'departmentId' => [
+                'nullable',
+                'integer',
+                Rule::exists('departments', 'id')->where('tenant_id', $this->tenantId),
+            ],
             'priority' => 'required|in:low,normal,high,urgent',
             'weight' => 'required|integer|min:1|max:5',
-            'assigneeId' => 'nullable|integer|exists:users,id',
+            'assigneeId' => [
+                'nullable',
+                'integer',
+                Rule::exists('users', 'id')->where('tenant_id', $this->tenantId),
+            ],
             'newAttachments' => 'nullable|array|max:5',
             'newAttachments.*' => [
                 'file',
@@ -845,12 +879,20 @@ class CapacityBoard extends Component
             }
         }
 
-        app(TelegramBotService::class)->routePostItNotification($postIt->fresh(), $isAssigned ? 'assigned' : 'created');
+        DispatchPostItTelegramNotification::dispatch($postIt->id, $isAssigned ? 'assigned' : 'created');
 
         $this->resetCreateForm();
         $this->showCreateModal = false;
 
-        BoardUpdated::dispatch($this->tenantId);
+        try {
+            BoardUpdated::dispatch($this->tenantId);
+        } catch (Throwable $e) {
+            Log::warning('BoardUpdated broadcast failed during createPostIt', [
+                'tenant_id' => $this->tenantId,
+                'post_it_id' => $postIt->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

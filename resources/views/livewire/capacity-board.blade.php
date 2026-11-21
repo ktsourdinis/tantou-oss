@@ -921,7 +921,36 @@
                     </button>
                 </div>
 
-                <form wire:submit="createPostIt" class="mt-3 space-y-3">
+                <form
+                    wire:submit="createPostIt"
+                    x-data="{
+                        isDragging: false,
+                        isUploading: false,
+                        progress: 0,
+                        uploadError: null,
+                        handleFiles(fileList) {
+                            if (!fileList || fileList.length === 0) return;
+                            this.isUploading = true;
+                            this.uploadError = null;
+                            $wire.uploadMultiple(
+                                'newAttachments',
+                                fileList,
+                                () => { this.isUploading = false; this.progress = 0; },
+                                (error) => { this.isUploading = false; this.uploadError = '{{ __('Upload failed') }}'; console.error(error); },
+                                (event) => { this.progress = event.detail.progress; }
+                            );
+                        }
+                    }"
+                    class="mt-3 space-y-3"
+                >
+                    {{-- General Form Error Banner --}}
+                    @if ($errors->any())
+                        <div class="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2">
+                            <span class="shrink-0">⚠️</span>
+                            <span>{{ $errors->first() }}</span>
+                        </div>
+                    @endif
+
                     {{-- Title --}}
                     <div>
                         <label class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">{{ __('Title') }}</label>
@@ -944,6 +973,7 @@
                             placeholder="{{ __('Provide concise context or acceptance criteria...') }}"
                             class="w-full rounded-xl bg-slate-950/80 border border-slate-800 px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/20 leading-relaxed"
                         ></textarea>
+                        @error('description') <span class="text-rose-400 text-xs mt-0.5 block">{{ $message }}</span> @enderror
                     </div>
 
                     {{-- Tight 2x2 Grid: Department, Collaborator, Priority, Weight --}}
@@ -960,6 +990,7 @@
                                     <option value="{{ $dept->id }}">{{ $dept->name }}</option>
                                 @endforeach
                             </select>
+                            @error('departmentId') <span class="text-rose-400 text-[11px] mt-0.5 block">{{ $message }}</span> @enderror
                         </div>
 
                         {{-- Assigned To --}}
@@ -985,6 +1016,7 @@
                                     @endif
                                 @endforeach
                             </select>
+                            @error('assigneeId') <span class="text-rose-400 text-[11px] mt-0.5 block">{{ $message }}</span> @enderror
                         </div>
 
                         {{-- Priority --}}
@@ -999,6 +1031,7 @@
                                 <option value="high">{{ __('High (1.25x)') }}</option>
                                 <option value="urgent">{{ __('Urgent (1.5x)') }}</option>
                             </select>
+                            @error('priority') <span class="text-rose-400 text-[11px] mt-0.5 block">{{ $message }}</span> @enderror
                         </div>
 
                         {{-- Cognitive Weight --}}
@@ -1016,31 +1049,12 @@
                                 <option value="4">W4 - {{ __('High') }} (40 {{ __('pts') }})</option>
                                 <option value="5">W5 - {{ __('Max') }} (50 {{ __('pts') }})</option>
                             </select>
+                            @error('weight') <span class="text-rose-400 text-[11px] mt-0.5 block">{{ $message }}</span> @enderror
                         </div>
                     </div>
 
                     {{-- Drag-and-Drop Attachment Zone (Slim 1-line bar) --}}
-                    <div
-                        x-data="{
-                            isDragging: false,
-                            isUploading: false,
-                            progress: 0,
-                            uploadError: null,
-                            handleFiles(fileList) {
-                                if (!fileList || fileList.length === 0) return;
-                                this.isUploading = true;
-                                this.uploadError = null;
-                                $wire.uploadMultiple(
-                                    'newAttachments',
-                                    fileList,
-                                    () => { this.isUploading = false; this.progress = 0; },
-                                    (error) => { this.isUploading = false; this.uploadError = '{{ __('Upload failed') }}'; console.error(error); },
-                                    (event) => { this.progress = event.detail.progress; }
-                                );
-                            }
-                        }"
-                        class="pt-1"
-                    >
+                    <div class="pt-1">
                         <div
                             @dragover.prevent="isDragging = true"
                             @dragleave.prevent="isDragging = false"
@@ -1106,9 +1120,24 @@
                         </button>
                         <button
                             type="submit"
-                            class="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/25 transition-all cursor-pointer"
+                            wire:loading.attr="disabled"
+                            wire:target="createPostIt"
+                            :disabled="isUploading"
+                            class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/25 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                         >
-                            {{ __('Create Task Card') }}
+                            <svg
+                                wire:loading
+                                wire:target="createPostIt"
+                                class="w-3.5 h-3.5 animate-spin"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                            >
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                            </svg>
+                            <span wire:loading.remove wire:target="createPostIt" x-show="!isUploading">{{ __('Create Task Card') }}</span>
+                            <span wire:loading.remove wire:target="createPostIt" x-show="isUploading" x-cloak>{{ __('Uploading...') }}</span>
+                            <span wire:loading wire:target="createPostIt">{{ __('Creating...') }}</span>
                         </button>
                     </div>
                 </form>
